@@ -9,19 +9,19 @@ Your compiler should take one argument for the name of the input Python `.py` fi
 Then, to run a program compiled from your compiler. You need to do the following:
 
 - Build the run-time system (if it is not already built).
-  ```bash
+```bash
 $ make -C runtime
 ```
 - Compile the test program.
-  ```bash
+```bash
 $ ./pyyc mytests/test1.py
 ```
 - Link your assembly with the run-time system.
-  ```bash
+```bash
 $ gcc -m32 -g -lm mytests/test1.s runtime/libpyyruntime.a -o mytests/test1
 ```
 - Run your program.
-  ```bash
+```bash
 $ cat mytests/test1.in | mytests/test1 > mytests/test1.out
 ```
 
