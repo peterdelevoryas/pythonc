@@ -2,9 +2,18 @@
 name = "rust-python"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+build = "build.rs"
 
 [[bin]]
 name = "rust-python"
 doc = false
 
+[build-dependencies]
+lalrpop = "0.13.1"
+
 [dependencies]
+lalrpop-util = "0.13.1"
+regex = "0.2.1"
+
+[dev-dependencies]
+rand = "0.3"
