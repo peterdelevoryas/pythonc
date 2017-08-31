@@ -4,3 +4,6 @@
 *.s
 *.warn
 *.out
+/target/
+**/*.rs.bk
+*.swp
