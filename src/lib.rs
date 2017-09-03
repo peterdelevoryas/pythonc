@@ -9,6 +9,7 @@ extern crate rand;
 pub mod p0;
 pub mod lexer;
 pub mod ast;
+pub mod ir;
 
 #[cfg(test)]
 mod test {
