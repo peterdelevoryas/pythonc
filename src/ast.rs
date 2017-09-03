@@ -107,11 +107,25 @@ pub struct Program {
 }
 
 pub trait Visitor {
-    fn visit_name(&mut self, name: &Name);
-    fn visit_decimal_i32(&mut self, d: DecimalI32);
-    fn visit_input(&mut self, input: Input);
-    fn visit_expression(&mut self, e: &Expression);
-    fn visit_statement(&mut self, s: &Statement);
+    fn visit_name(&mut self, name: &Name) {
+        unimplemented!()
+    }
+
+    fn visit_decimal_i32(&mut self, d: DecimalI32) {
+        unimplemented!()
+    }
+
+    fn visit_input(&mut self, input: Input) {
+        unimplemented!()
+    }
+
+    fn visit_expression(&mut self, e: &Expression) {
+        unimplemented!()
+    }
+
+    fn visit_statement(&mut self, s: &Statement) {
+        unimplemented!()
+    }
 
     fn visit_module(&mut self, m: &Module) {
         for stmt in &m.statements {

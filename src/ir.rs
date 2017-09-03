@@ -61,3 +61,6 @@ impl Builder {
         Builder { stack: vec![] }
     }
 }
+
+impl ast::Visitor for Builder {
+}
