@@ -1,0 +1,68 @@
+use lexer;
+use ast::{
+    Expression, Statement, Name,
+    DecimalI32, Input, Module, Program
+};
+use lalrpop_util::ParseError;
+use std::str::FromStr;
+
+grammar<'input>(text: &'input str);
+
+extern {
+    type Location = usize;
+    type Error = lexer::Error;
+
+    enum lexer::Tok<'input> {
+        "\n" => lexer::Tok::Newline,
+        "print" => lexer::Tok::Print,
+        "=" => lexer::Tok::Equals,
+        "(" => lexer::Tok::LeftParens,
+        ")" => lexer::Tok::RightParens,
+        "-" => lexer::Tok::Minus,
+        "+" => lexer::Tok::Plus,
+        "<" => lexer::Tok::Lt,
+        ">" => lexer::Tok::Gt,
+        "," => lexer::Tok::Comma,
+        "name" => lexer::Tok::Name(<&'input str>),
+        "decimal_i32" => lexer::Tok::DecimalI32(<&'input str>),
+        "input" => lexer::Tok::Input,
+    }
+}
+
+pub program: Program = {
+    <m:module> => Program { module: m },
+};
+
+pub module: Module = {
+    <s:statements> => Module { statements: s }
+};
+
+pub statements: Vec<Statement> = {
+    <v:statement*> => v,
+};
+
+pub statement: Statement = {
+    "print" <expression> => Statement::Print(<>),
+    <name> "=" <expression> => Statement::Assign(<>),
+    <expression> => Statement::Expression(<>),
+    "\n" => Statement::Newline,
+};
+
+pub expression: Expression = {
+    <left:expression> "+" <right:term> => Expression::Add(left.into(), right.into()),
+    term,
+};
+
+pub term: Expression = {
+    name => Expression::Name(<>),
+    decimal_i32 => Expression::DecimalI32(<>),
+    "-" <t:term> => Expression::UnaryNeg(t.into()),
+    "(" <expression> ")",
+    "input" "(" ")" => Expression::Input(Input),
+};
+
+pub name: Name = <s:"name"> => Name::new(s.as_bytes()).unwrap();
+
+pub decimal_i32: DecimalI32 = <s:"decimal_i32"> =>? {
+    DecimalI32::from_str(s).map_err(|e| ParseError::User { error: lexer::Error::Int(e) })
+};
