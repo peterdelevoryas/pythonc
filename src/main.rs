@@ -4,6 +4,10 @@ use rust_python::lexer;
 use rust_python::p0;
 use rust_python::ir;
 
+use std::env;
+use std::fs;
+use std::io::Read;
+
 fn val_to_string(val: &ir::Val) -> String {
     match *val {
         ir::Val::Int(i) => format!("{}", i),
@@ -12,15 +16,15 @@ fn val_to_string(val: &ir::Val) -> String {
 }
 
 fn main() {
-    let source = "print 1 + 2
-rust_python = 22 + -input()
-print rust_python + -2 + 1 + input()
-x = 1
-y = 2 + input() + x
-x = 2
-999 + 0
-print x + y
-";
+    let source = {
+        let path = env::args().nth(1).unwrap();
+        let mut f = fs::File::open(&path).unwrap();
+        let mut buf = String::new();
+        f.read_to_string(&mut buf).unwrap();
+        buf
+    };
+    let source = source.as_str();
+
     println!("source:");
     for (i, line) in source.lines().enumerate() {
         println!(" {:<4} {}", i, line);
