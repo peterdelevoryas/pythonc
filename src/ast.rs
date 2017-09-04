@@ -105,35 +105,3 @@ pub struct Module {
 pub struct Program {
     pub module: Module,
 }
-
-pub trait Visitor {
-    fn visit_name(&mut self, name: &Name) {
-        unimplemented!()
-    }
-
-    fn visit_decimal_i32(&mut self, d: DecimalI32) {
-        unimplemented!()
-    }
-
-    fn visit_input(&mut self, input: Input) {
-        unimplemented!()
-    }
-
-    fn visit_expression(&mut self, e: &Expression) {
-        unimplemented!()
-    }
-
-    fn visit_statement(&mut self, s: &Statement) {
-        unimplemented!()
-    }
-
-    fn visit_module(&mut self, m: &Module) {
-        for stmt in &m.statements {
-            self.visit_statement(stmt)
-        }
-    }
-
-    fn visit_program(&mut self, p: &Program) {
-        self.visit_module(&p.module)
-    }
-}

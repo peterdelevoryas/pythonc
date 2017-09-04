@@ -24,43 +24,62 @@
 //!
 
 use ast;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
     statements: Vec<Statement>,
 }
 
-/// Refers to the result of a specific statement,
-/// index is into Program.statements Vec
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Temporary {
-    index: usize
-}
+pub type Index = usize;
 
+/// Def(index) -> index of Def in stack
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Operand {
     Constant(i32),
-    Temporary(Temporary),
+    Def(Index),
+}
+
+///
+///     tmp8 = tmp7     ; DefIndex
+///     tmp0 = 1        ; Constant
+///     tmp1 = -1       ; UnaryNeg(Constant)
+///     tmp2 = -tmp1    ; UnaryNeg(DefIndex)
+///     tmp3 = 1 + 2    ; Add(Constant, Constant)
+///     tmp4 = 1 + tmp3 ; Add(Constant, Def)
+///     tmp5 = tmp4 + 1     ; Add(Def, Constant)
+///     tmp6 = tmp4 + tmp5  ; Add(Def, Def)
+///     tmp7 = input()  ; Input
+///
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Def {
+    Assign(Operand),
+    UnaryNeg(Operand),
+    Add(Operand, Operand),
+    Input,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
-    Add(Operand, Operand),
-    UnaryNeg(Operand),
-    Input,
     Print(Operand),
+    Def(Def),
 }
 
 #[derive(Debug)]
 pub struct Builder {
     stack: Vec<Statement>,
+    names: HashMap<ast::Name, Def>,
 }
 
 impl Builder {
     pub fn new() -> Builder {
-        Builder { stack: vec![] }
+        Builder {
+            stack: vec![],
+            names: HashMap::new(),
+        }
     }
 }
 
-impl ast::Visitor for Builder {
+#[cfg(test)]
+mod test {
 }
