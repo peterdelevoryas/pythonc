@@ -31,6 +31,18 @@ pub struct Program {
     stmts: Vec<Stmt>,
 }
 
+impl<'a> From<&'a ast::Program> for Program {
+    fn from(program: &'a ast::Program) -> Program {
+        let mut builder = Builder::new();
+        for statement in &program.module.statements {
+            builder.flatten_statement(statement);
+        }
+        Program {
+            stmts: builder.stack,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tmp {
     index: usize,
