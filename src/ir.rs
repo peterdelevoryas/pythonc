@@ -40,7 +40,7 @@ pub struct Tmp {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Val {
     Int(i32),
-    Tmp(Tmp),
+    Ref(Tmp),
 }
 
 ///
@@ -72,7 +72,7 @@ pub enum Stmt {
 pub struct Builder {
     stack: Vec<Stmt>,
     names: HashMap<ast::Name, Tmp>,
-    tmp_allocator: TmpAllocator,
+    tmp: TmpAllocator,
 }
 
 #[derive(Debug)]
@@ -106,46 +106,73 @@ impl Builder {
         Builder {
             stack: vec![],
             names: HashMap::new(),
-            tmp_allocator: TmpAllocator::new(),
+            tmp: TmpAllocator::new(),
         }
     }
 
-    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Expr {
+    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
         match *expression {
             ast::Expression::DecimalI32(ast::DecimalI32(i)) => {
-                Expr::Copy(Val::Int(i))
+                Val::Int(i)
             }
             ast::Expression::Name(ref name) => {
                 let tmp = match self.names.get(name) {
                     Some(&tmp) => tmp,
                     None => panic!("reference to undefined name {:?}", name),
                 };
-                Expr::Copy(Val::Tmp(tmp))
+                Val::Ref(tmp)
             }
-            _ => unimplemented!()
+            ast::Expression::Input(_) => {
+                let tmp = self.def(Expr::Input);
+                Val::Ref(tmp)
+            }
+            ast::Expression::UnaryNeg(ref expr) => {
+                let val = self.flatten_expression(expr);
+                let tmp = self.def(Expr::UnaryNeg(val));
+                Val::Ref(tmp)
+            }
+            ast::Expression::Add(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::Add(left, right));
+                Val::Ref(tmp)
+            }
         }
     }
 
     pub fn flatten_statement(&mut self, statement: &ast::Statement) {
         match *statement {
             ast::Statement::Print(ref expression) => {
-                
+                let val = self.flatten_expression(expression);
+                self.print(val);
             }
             ast::Statement::Assign(ref name, ref expression) => {
-                let tmp = self.tmp_allocator.alloc().expect("tmp allocator oom");
-                let expr = self.flatten_expression(expression);
-                self.push(Stmt::Def(tmp, expr));
+                let val = self.flatten_expression(expression);
+                let copy = Expr::Copy(val);
+                let tmp = self.def(copy);
                 self.names.insert(name.clone(), tmp);
             }
             ast::Statement::Expression(ref expression) => {
-
+                let _ = self.flatten_expression(expression);
             }
-            ast::Statement::Newline => {},
+            ast::Statement::Newline => {}
         }
     }
 
     pub fn push(&mut self, s: Stmt) {
         self.stack.push(s);
+    }
+
+    pub fn def(&mut self, expr: Expr) -> Tmp {
+        let tmp = self.tmp.alloc().expect("tmp allocator oom");
+        let def = Stmt::Def(tmp, expr);
+        self.push(def);
+        tmp
+    }
+
+    pub fn print(&mut self, val: Val) {
+        let print = Stmt::Print(val);
+        self.push(print);
     }
 }
 
