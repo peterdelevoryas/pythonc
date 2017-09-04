@@ -31,20 +31,18 @@ pub struct Program {
     statements: Vec<Statement>,
 }
 
-pub type Index = usize;
-
 /// Def(index) -> index of Def in stack
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Operand {
     Constant(i32),
-    Def(Index),
+    Def(usize),
 }
 
 ///
-///     tmp8 = tmp7     ; DefIndex
-///     tmp0 = 1        ; Constant
+///     tmp8 = tmp7     ; Copy(Def)
+///     tmp0 = 1        ; Copy(Constant)
 ///     tmp1 = -1       ; UnaryNeg(Constant)
-///     tmp2 = -tmp1    ; UnaryNeg(DefIndex)
+///     tmp2 = -tmp1    ; UnaryNeg(Def)
 ///     tmp3 = 1 + 2    ; Add(Constant, Constant)
 ///     tmp4 = 1 + tmp3 ; Add(Constant, Def)
 ///     tmp5 = tmp4 + 1     ; Add(Def, Constant)
@@ -53,7 +51,7 @@ pub enum Operand {
 ///
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Def {
-    Assign(Operand),
+    Copy(Operand),
     UnaryNeg(Operand),
     Add(Operand, Operand),
     Input,
@@ -68,7 +66,7 @@ pub enum Statement {
 #[derive(Debug)]
 pub struct Builder {
     stack: Vec<Statement>,
-    names: HashMap<ast::Name, Def>,
+    names: HashMap<ast::Name, Operand>,
 }
 
 impl Builder {
@@ -77,6 +75,10 @@ impl Builder {
             stack: vec![],
             names: HashMap::new(),
         }
+    }
+
+    pub fn statement(&mut self) {
+        
     }
 }
 
