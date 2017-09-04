@@ -9,7 +9,7 @@
 //!     print z
 //!
 //!
-//!     
+//!
 //!
 //!
 //! In general, here are the mappings between `ast::Statement`s and `ir::Statement`s
@@ -33,7 +33,7 @@ pub struct Program {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tmp {
-    index: usize
+    index: usize,
 }
 
 /// Tmp(index) -> index of Tmp in stack
@@ -82,23 +82,17 @@ pub struct TmpAllocator {
 
 impl TmpAllocator {
     pub fn new() -> TmpAllocator {
-        TmpAllocator {
-            next: 0
-        }
+        TmpAllocator { next: 0 }
     }
 
     pub fn alloc(&mut self) -> Option<Tmp> {
-        let tmp = Tmp {
-            index: self.next
-        };
+        let tmp = Tmp { index: self.next };
         self.next = match self.next.checked_add(1) {
             Some(sum) => sum,
             None => return None,
         };
         Some(tmp)
     }
-
-    
 }
 
 impl Builder {
@@ -112,9 +106,7 @@ impl Builder {
 
     pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
         match *expression {
-            ast::Expression::DecimalI32(ast::DecimalI32(i)) => {
-                Val::Int(i)
-            }
+            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Val::Int(i),
             ast::Expression::Name(ref name) => {
                 let tmp = match self.names.get(name) {
                     Some(&tmp) => tmp,
@@ -181,5 +173,4 @@ impl Builder {
 }
 
 #[cfg(test)]
-mod test {
-}
+mod test {}
