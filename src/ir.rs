@@ -32,7 +32,7 @@ pub struct Program {
 }
 
 /// Def(index) -> index of Def in stack
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Operand {
     Constant(i32),
     Def(usize),
@@ -77,8 +77,31 @@ impl Builder {
         }
     }
 
-    pub fn statement(&mut self) {
-        
+    pub fn expr_to_operand(&mut self, expr: &ast::Expression) -> Operand {
+        match *expr {
+            ast::Expression::DecimalI32(ast::DecimalI32(i)) => {
+                Operand::Constant(i)
+            }
+            ast::Expression::Name(ref name) => {
+                *self.names.get(name).expect("reference to undefined name")
+            }
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn handle_statement(&mut self, stmt: &ast::Statement) {
+        match *stmt {
+            ast::Statement::Print(ref expr) => {
+                
+            }
+            ast::Statement::Assign(ref name, ref expr) => {
+
+            }
+            ast::Statement::Expression(ref expr) => {
+
+            }
+            ast::Statement::Newline => {},
+        }
     }
 }
 
