@@ -174,6 +174,10 @@ impl Builder {
         let print = Stmt::Print(val);
         self.push(print);
     }
+
+    pub fn stack(&self) -> &[Stmt] {
+        &self.stack
+    }
 }
 
 #[cfg(test)]
