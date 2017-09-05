@@ -276,29 +276,26 @@ impl FromStr for Program {
 #[cfg(test)]
 mod test {
     use ir;
-    use ast::Parse;
 
     // ir syntax:
     //
     // ```text, no_run
     //      t0 = 1;
     //      print t0
-    //
-    //
-    //
+
+    macro_rules! test {
+        ($p0:expr => $ir:expr) => ({
+            use $crate::ast::Parse;
+
+            let program = $p0.parse_program().unwrap();
+            let ir: $crate::ir::Program = program.into();
+            let expected = $ir.parse::<ir::Program>().unwrap();
+            assert_eq!(ir, expected, "generated ir {:#?} does not equal expected {:#?}", ir, expected);
+        })
+    }
 
     #[test]
     fn print_int() {
-        let program = "print 1 + 2\n".parse_program().unwrap();
-        let ir: ir::Program = program.into();
-
-        let program = "
-t0 := 0
-t1 := t0 + -1
-print t1
-t2 := -t1
-print t2
-";
-        println!("program: {:#?}", program.parse::<ir::Program>());
+        test!("print 1 + 2\n" => "t0 := 1 + 2\nprint t0");
     }
 }
