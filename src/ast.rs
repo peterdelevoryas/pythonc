@@ -132,11 +132,11 @@ impl From<Expression> for Program {
 pub type ParseError<'input> = lalrpop_util::ParseError<usize, lexer::Tok<'input>, lexer::Error>;
 
 pub trait Parse {
-    fn parse<'input>(&'input self) -> Result<Program, ParseError<'input>>;
+    fn parse_program<'input>(&'input self) -> Result<Program, ParseError<'input>>;
 }
 
 impl Parse for str {
-    fn parse<'input>(&'input self) -> Result<Program, ParseError<'input>> {
+    fn parse_program<'input>(&'input self) -> Result<Program, ParseError<'input>> {
         let lexer = lexer::Lexer::new(self);
         p0::parse_program(self, lexer)
     }

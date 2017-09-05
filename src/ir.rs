@@ -1,7 +1,8 @@
 //!
 //! Below is a running example of how I think p0 should
 //! translate to the IR in this module:
-//!
+//! 
+//! ```text, no_run
 //!     x = 1 + 2
 //!     y = 3 + 4
 //!     print x + y
@@ -24,6 +25,8 @@
 //!
 
 use ast;
+use regex::Regex;
+use std::str::FromStr;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,6 +43,13 @@ impl<'a> From<&'a ast::Program> for Program {
         Program {
             stmts: builder.stack,
         }
+    }
+}
+
+impl From<ast::Program> for Program {
+    fn from(program: ast::Program) -> Program {
+        let program = &program;
+        program.into()
     }
 }
 
@@ -184,5 +194,111 @@ impl Builder {
     }
 }
 
+impl FromStr for Stmt {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        lazy_static! {
+            static ref DEF: Regex = Regex::new(r"(t\d+)\s+:=\s+(.+)").unwrap();
+            static ref PRINT: Regex = Regex::new(r"print\s+([[:alnum:]-]+)").unwrap();
+            static ref VAL: Regex = Regex::new(r"(t\d+)|(-?\d+)").unwrap();
+            static ref TMP: Regex = Regex::new(r"t(\d+)").unwrap();
+            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|(t\d+|-?\d+)|-(t\d+|-?\d+)").unwrap();
+        }
+        fn parse_def(s: &str) -> Result<(Tmp, Expr), ()> {
+            let captures = DEF.captures(s).ok_or(())?;
+            let tmp = parse_tmp(captures.get(1).ok_or(())?.as_str())?;
+            let expr = parse_expr(captures.get(2).ok_or(())?.as_str())?;
+            Ok((tmp, expr))
+        }
+        fn parse_tmp(s: &str) -> Result<Tmp, ()> {
+            let captures = TMP.captures(s).ok_or(())?;
+            let index: usize = captures.get(1).ok_or(())?.as_str().parse().map_err(|_| ())?;
+            let tmp = Tmp { index };
+            Ok(tmp)
+        }
+        fn parse_val(s: &str) -> Result<Val, ()> {
+            let captures = VAL.captures(s).ok_or(())?;
+            captures.get(1).ok_or(()).and_then(|m| {
+                let s = m.as_str();
+                parse_tmp(s).map(Val::Ref)
+            }).or(captures.get(2).ok_or(()).and_then(|m| {
+                let s = m.as_str();
+                s.parse::<i32>().map_err(|_| ()).map(Val::Int)
+            }))
+        }
+        fn parse_expr(s: &str) -> Result<Expr, ()> {
+            println!("s = {:?}", s);
+            let captures = EXPR.captures(s).ok_or(())?;
+            if let (Some(l), Some(r)) = (captures.get(1), captures.get(2)) {
+                let l = parse_val(l.as_str())?;
+                let r = parse_val(r.as_str())?;
+                Ok(Expr::Add(l, r))
+            } else if let Some(m) = captures.get(3) {
+                let s = m.as_str();
+                parse_val(s).map(Expr::Copy)
+            } else if let Some(m) = captures.get(4) {
+                let s = m.as_str();
+                parse_val(s).map(Expr::UnaryNeg)
+            } else {
+                Err(())
+            }
+        }
+        fn parse_print(s: &str) -> Result<Val, ()> {
+            let captures = PRINT.captures(s).ok_or(())?;
+            let val_str = captures.get(1).ok_or(())?.as_str();
+            parse_val(val_str)
+        }
+        match parse_def(s) {
+            Ok((tmp, expr)) => return Ok(Stmt::Def(tmp, expr)),
+            _ => {}
+        }
+        match parse_print(s) {
+            Ok(val) => return Ok(Stmt::Print(val)),
+            _ => {}
+        }
+        Err(())
+    }
+}
+
+impl FromStr for Program {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut stmts = vec![];
+        for line in s.lines() {
+            println!("line: {:?}", line);
+            if line.is_empty() { continue }
+            stmts.push(line.parse::<Stmt>()?);
+        }
+        Ok(Program { stmts })
+    }
+}
+
 #[cfg(test)]
-mod test {}
+mod test {
+    use ir;
+    use ast::Parse;
+
+    // ir syntax:
+    //
+    // ```text, no_run
+    //      t0 = 1;
+    //      print t0
+    //
+    //
+    //
+
+    #[test]
+    fn print_int() {
+        let program = "print 1 + 2\n".parse_program().unwrap();
+        let ir: ir::Program = program.into();
+
+        let program = "
+t0 := 0
+t1 := t0 + -1
+print t1
+t2 := -t1
+print t2
+";
+        println!("program: {:#?}", program.parse::<ir::Program>());
+    }
+}

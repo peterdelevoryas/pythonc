@@ -1,5 +1,7 @@
 extern crate lalrpop_util;
 extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 // dev-dependency for testing
 
