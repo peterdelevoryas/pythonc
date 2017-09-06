@@ -352,8 +352,8 @@ mod test {
     }
 
     #[test]
-    fn print_int() {
-        test!("print 1 + 2\n" => "t0 := 1 + 2\nprint t0");
+    fn print_val() {
+        test!("print -2\nx = 11\nprint x" => "print -2\nt0 := 11\nprint t0");
     }
 
     #[test]
@@ -387,13 +387,35 @@ mod test {
         test!("x = 1 + input()" => "t0 := input()\nt1 := 1 + t0");
         test!("x = input() + 1 + 2" => "t0 := input()\nt1 := t0 + 1\nt2 := t1 + 2");
         test!("x = 1 + 2\ny = x + 1" => "t0 := 1 + 2\nt1 := t0 + 1");
-        /*
         test!("x = 2\ny = x + -2 + 1 + input()" => "\
-            t0 := 2 + -2 \n\
-            t1 := t0 + 1 \n\
-            t2 := input() \n\
-            t3 := t1 + t2");
-            */
-            
+            t0 := 2 \n\
+            t1 := t0 + -2 \n\
+            t2 := t1 + 1 \n\
+            t3 := input() \n\
+            t4 := t2 + t3");
+    }
+
+    #[test]
+    fn print_add() {
+        test!("print 1 + 2" => "t0 := 1 + 2\nprint t0");
+        test!("x = 2\ny = x\nprint x + y + 1" => "t0 := 2\nt1 := t0\nt2 := t0 + t1\nt3 := t2 + 1\nprint t3");
+    }
+
+    #[test]
+    fn print_unary_neg() {
+        test!("print --1" => "t0 := --1\nprint t0");
+        test!("x = 33\nprint -x" => "t0 := 33\nt1 := -t0\nprint t1");
+        test!("y = -33\nprint -(y + 22 + input())" =>
+              "t0 := -33 \n\
+               t1 := t0 + 22 \n\
+               t2 := input() \n\
+               t3 := t1 + t2 \n\
+               t4 := -t3 \n\
+               print t4");
+    }
+
+    #[test]
+    fn print_input() {
+        test!("print input()" => "t0 := input()\nprint t0");
     }
 }
