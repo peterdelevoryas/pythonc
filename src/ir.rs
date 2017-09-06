@@ -276,12 +276,6 @@ impl FromStr for Program {
 mod test {
     use ir;
 
-    // ir syntax:
-    //
-    // ```text, no_run
-    //      t0 = 1;
-    //      print t0
-
     macro_rules! test {
         ($p0:expr => $ir:expr) => ({
             use $crate::ast::Parse;
