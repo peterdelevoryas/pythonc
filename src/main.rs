@@ -45,7 +45,6 @@ fn main() {
             ir::Stmt::Def(ref tmp, ref expr) => {
                 let tmp = val_to_string(&ir::Val::Ref(*tmp));
                 match *expr {
-                    ir::Expr::Copy(rhs) => format!("{:<3} := {}", tmp, val_to_string(&ir::Val::Ref(rhs))),
                     ir::Expr::UnaryNeg(ref val) => format!("{:<3} := -{}", tmp, val_to_string(val)),
                     ir::Expr::Add(ref l, ref r) => format!("{:<3} := {} + {}", tmp, val_to_string(l), val_to_string(r)),
                     ir::Expr::Input => format!("{:<3} := input()", tmp),
