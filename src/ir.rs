@@ -196,7 +196,7 @@ impl FromStr for Stmt {
             static ref PRINT: Regex = Regex::new(r"print\s+([[:alnum:]-]+)").unwrap();
             static ref VAL: Regex = Regex::new(r"(t\d+)|(-?\d+)").unwrap();
             static ref TMP: Regex = Regex::new(r"t(\d+)").unwrap();
-            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))").unwrap();
+            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))|(\([^\)]+\))").unwrap();
         }
         fn parse_def(s: &str) -> Result<(Tmp, Expr), ()> {
             let captures = DEF.captures(s).ok_or(())?;
@@ -236,6 +236,9 @@ impl FromStr for Stmt {
                 parse_val(s).map(Expr::UnaryNeg)
             } else if let Some(_) = captures.get(4) {
                 Ok(Expr::Input)
+            } else if let Some(m) = captures.get(5) {
+                let s = m.as_str();
+                parse_expr(&s[1..s.len() - 1])
             } else {
                 Err(())
             }
@@ -289,17 +292,17 @@ mod test {
 
     #[test]
     fn print_val() {
-        test!("print -2\nx = 11\nprint x" => "print -2\nt0 := 11\nprint t0");
+        test!("print -2\nx = 11\nprint x" => "print -2\nprint 11");
     }
 
     #[test]
     fn assign_int() {
-        test!("rust_python = 33\n" => "t0 := 33");
+        test!("rust_python = 33\n" => "");
     }
 
     #[test]
     fn assign_name() {
-        test!("x = 1\ny = x" => "t0 := 1\nt1 := t0");
+        test!("x = 1\ny = x" => "");
     }
 
     #[test]
@@ -324,30 +327,28 @@ mod test {
         test!("x = input() + 1 + 2" => "t0 := input()\nt1 := t0 + 1\nt2 := t1 + 2");
         test!("x = 1 + 2\ny = x + 1" => "t0 := 1 + 2\nt1 := t0 + 1");
         test!("x = 2\ny = x + -2 + 1 + input()" => "\
-            t0 := 2 \n\
-            t1 := t0 + -2 \n\
-            t2 := t1 + 1 \n\
-            t3 := input() \n\
-            t4 := t2 + t3");
+            t0 := 2 + -2 \n\
+            t1 := t0 + 1 \n\
+            t2 := input() \n\
+            t3 := t1 + t2");
     }
 
     #[test]
     fn print_add() {
         test!("print 1 + 2" => "t0 := 1 + 2\nprint t0");
-        test!("x = 2\ny = x\nprint x + y + 1" => "t0 := 2\nt1 := t0\nt2 := t0 + t1\nt3 := t2 + 1\nprint t3");
+        test!("x = 2\ny = x\nprint x + y + 1" => "t0 := 2 + 2\nt1 := t0 + 1\nprint t1");
     }
 
     #[test]
     fn print_unary_neg() {
         test!("print --1" => "t0 := --1\nprint t0");
-        test!("x = 33\nprint -x" => "t0 := 33\nt1 := -t0\nprint t1");
-        test!("y = -33\nprint -(y + 22 + input())" =>
-              "t0 := -33 \n\
-               t1 := t0 + 22 \n\
-               t2 := input() \n\
-               t3 := t1 + t2 \n\
-               t4 := -t3 \n\
-               print t4");
+        test!("x = 33\nprint -x" => "t0 := -(33)\nprint t0");
+        test!("y = -33\nprint -(y + 22 + input())" => "\
+               t0 := -33 + 22 \n\
+               t1 := input() \n\
+               t2 := t0 + t1 \n\
+               t3 := -t2 \n\
+               print t3");
     }
 
     #[test]
