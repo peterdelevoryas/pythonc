@@ -1,5 +1,7 @@
 extern crate lalrpop_util;
 extern crate regex;
+#[macro_use]
+extern crate lazy_static;
 
 // dev-dependency for testing
 
@@ -9,6 +11,7 @@ extern crate rand;
 pub mod p0;
 pub mod lexer;
 pub mod ast;
+pub mod ir;
 
 #[cfg(test)]
 mod test {
@@ -414,7 +417,7 @@ mod test {
 
         test! {
             parse: p0::parse_statements,
-            input: "\n\n1 + 2 \n\n \nx +1\nprint 1 + 2 + 3 + -4",
+            input: "\n\n1 + 2 \n\n \nx +1\nprint 1 + 2 + 3 + --4",
             test: parsed_equals!(
                 vec![
                     Statement::Newline,
@@ -444,7 +447,9 @@ mod test {
                                 ).into(),
                                 Expression::DecimalI32(DecimalI32(3)).into()
                             ).into(),
-                            Expression::DecimalI32(DecimalI32(-4)).into()
+                            Expression::UnaryNeg(
+                                Expression::DecimalI32(DecimalI32(-4)).into()
+                            ).into()
                         )
                     )
                 ]

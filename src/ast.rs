@@ -35,6 +35,9 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
+use lalrpop_util;
+use lexer;
+use p0;
 use std::str::FromStr;
 use std::num::ParseIntError;
 
@@ -104,4 +107,29 @@ pub struct Module {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
     pub module: Module,
+}
+
+impl From<Statement> for Program {
+    fn from(statement: Statement) -> Program {
+        Program { module: Module { statements: vec![statement] } }
+    }
+}
+
+impl From<Expression> for Program {
+    fn from(expression: Expression) -> Program {
+        Program { module: Module { statements: vec![Statement::Expression(expression)] } }
+    }
+}
+
+pub type ParseError<'input> = lalrpop_util::ParseError<usize, lexer::Tok<'input>, lexer::Error>;
+
+pub trait Parse {
+    fn parse_program<'input>(&'input self) -> Result<Program, ParseError<'input>>;
+}
+
+impl Parse for str {
+    fn parse_program<'input>(&'input self) -> Result<Program, ParseError<'input>> {
+        let lexer = lexer::Lexer::new(self);
+        p0::parse_program(self, lexer)
+    }
 }
