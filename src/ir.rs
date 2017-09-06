@@ -1,7 +1,7 @@
 //!
 //! Below is a running example of how I think p0 should
 //! translate to the IR in this module:
-//! 
+//!
 //! ```text, no_run
 //!     x = 1 + 2
 //!     y = 3 + 4
@@ -40,9 +40,7 @@ impl<'a> From<&'a ast::Program> for Program {
         for statement in &program.module.statements {
             builder.flatten_statement(statement);
         }
-        Program {
-            stmts: builder.stack,
-        }
+        Program { stmts: builder.stack }
     }
 }
 
@@ -202,7 +200,7 @@ impl FromStr for Stmt {
             static ref PRINT: Regex = Regex::new(r"print\s+([[:alnum:]-]+)").unwrap();
             static ref VAL: Regex = Regex::new(r"(t\d+)|(-?\d+)").unwrap();
             static ref TMP: Regex = Regex::new(r"t(\d+)").unwrap();
-            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|(t\d+|-?\d+)|-(t\d+|-?\d+)").unwrap();
+            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))").unwrap();
         }
         fn parse_def(s: &str) -> Result<(Tmp, Expr), ()> {
             let captures = DEF.captures(s).ok_or(())?;
@@ -218,13 +216,17 @@ impl FromStr for Stmt {
         }
         fn parse_val(s: &str) -> Result<Val, ()> {
             let captures = VAL.captures(s).ok_or(())?;
-            captures.get(1).ok_or(()).and_then(|m| {
-                let s = m.as_str();
-                parse_tmp(s).map(Val::Ref)
-            }).or(captures.get(2).ok_or(()).and_then(|m| {
-                let s = m.as_str();
-                s.parse::<i32>().map_err(|_| ()).map(Val::Int)
-            }))
+            captures
+                .get(1)
+                .ok_or(())
+                .and_then(|m| {
+                    let s = m.as_str();
+                    parse_tmp(s).map(Val::Ref)
+                })
+                .or(captures.get(2).ok_or(()).and_then(|m| {
+                    let s = m.as_str();
+                    s.parse::<i32>().map_err(|_| ()).map(Val::Int)
+                }))
         }
         fn parse_expr(s: &str) -> Result<Expr, ()> {
             println!("s = {:?}", s);
@@ -239,6 +241,8 @@ impl FromStr for Stmt {
             } else if let Some(m) = captures.get(4) {
                 let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
+            } else if let Some(_) = captures.get(5) {
+                Ok(Expr::Input)
             } else {
                 Err(())
             }
@@ -266,7 +270,9 @@ impl FromStr for Program {
         let mut stmts = vec![];
         for line in s.lines() {
             println!("line: {:?}", line);
-            if line.is_empty() { continue }
+            if line.is_empty() {
+                continue;
+            }
             stmts.push(line.parse::<Stmt>()?);
         }
         Ok(Program { stmts })
@@ -297,5 +303,20 @@ mod test {
     #[test]
     fn print_int() {
         test!("print 1 + 2\n" => "t0 := 1 + 2\nprint t0");
+    }
+
+    #[test]
+    fn assign_int() {
+        test!("rust_python = 33\n" => "t0 := 33");
+    }
+
+    #[test]
+    fn assign_name() {
+        test!("x = 1\ny = x" => "t0 := 1\nt1 := t0");
+    }
+
+    #[test]
+    fn assign_input() {
+        test!("x = input()" => "t0 := input()");
     }
 }
