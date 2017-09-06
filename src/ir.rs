@@ -64,54 +64,14 @@ pub enum Val {
     Ref(Tmp),
 }
 
-///
-///     tmp8 = tmp7     ; Copy(Tmp)
-///     tmp0 = 1        ; Copy(Constant)
-///     tmp1 = -1       ; UnaryNeg(Constant)
-///     tmp2 = -tmp1    ; UnaryNeg(Tmp)
-///     tmp3 = 1 + 2    ; Add(Constant, Constant)
-///     tmp4 = 1 + tmp3 ; Add(Constant, Tmp)
-///     tmp5 = tmp4 + 1     ; Add(Tmp, Constant)
-///     tmp6 = tmp4 + tmp5  ; Add(Tmp, Tmp)
-///     tmp7 = input()  ; Input
-///
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
-    Val(Val),
+    Copy(Tmp),
     UnaryNeg(Val),
     Add(Val, Val),
     Input,
 }
 
-/// Flattening all possible statements:
-///
-/// v = n | t
-/// e = v | e + e | -e | input()
-///
-/// print n
-/// print t
-/// print v + v
-/// print v + v + v
-///
-/// print -v
-/// print -e
-/// p
-///
-
-/// TODO: Determine distinction between `Compute` and `Copy`
-///
-/// ```text, no_run
-///     p0:
-///         x = 1
-///         y = x
-///         z = y
-///
-/// ```text, no_run
-///     ir:
-///         t0 := 1
-///         t1 := t0
-///         t2 := t1
-///
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Print(Val),
@@ -121,7 +81,7 @@ pub enum Stmt {
 #[derive(Debug)]
 pub struct Builder {
     stack: Vec<Stmt>,
-    names: HashMap<ast::Name, Tmp>,
+    names: HashMap<ast::Name, Val>,
     tmp: TmpAllocator,
 }
 
@@ -161,27 +121,29 @@ impl Builder {
     /// of `Tmp`s only occurs for expressions that are not just values
     /// (because if the expression is just a `Val`, then the `Val` is
     /// simply returned)
-    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Expr {
+    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
         match *expression {
-            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Expr::Val(Val::Int(i)),
+            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Val::Int(i),
             ast::Expression::Name(ref name) => {
                 match self.names.get(name) {
-                    Some(&tmp) => Expr::Val(Val::Ref(tmp)),
+                    Some(&val) => val,
                     None => panic!("reference to undefined name {:?}", name),
                 }
             }
-            ast::Expression::Input(_) => Expr::Input,
+            ast::Expression::Input(_) => {
+                let tmp = self.def(Expr::Input);
+                Val::Ref(tmp)
+            }
             ast::Expression::UnaryNeg(ref expr) => {
-                let expr = self.flatten_expression(expr);
-                let val = self.push_def(expr);
-                Expr::UnaryNeg(val)
+                let val = self.flatten_expression(expr);
+                let tmp = self.def(Expr::UnaryNeg(val));
+                Val::Ref(tmp)
             }
             ast::Expression::Add(ref left, ref right) => {
                 let left = self.flatten_expression(left);
-                let left = self.push_def(left);
                 let right = self.flatten_expression(right);
-                let right = self.push_def(right);
-                Expr::Add(left, right)
+                let tmp = self.def(Expr::Add(left, right));
+                Val::Ref(tmp)
             }
         }
     }
@@ -189,18 +151,20 @@ impl Builder {
     pub fn flatten_statement(&mut self, statement: &ast::Statement) {
         match *statement {
             ast::Statement::Print(ref expression) => {
-                let expr = self.flatten_expression(expression);
-                let val = self.push_def(expr);
+                let val = self.flatten_expression(expression);
                 self.print(val);
             }
             ast::Statement::Assign(ref name, ref expression) => {
-                let expr = self.flatten_expression(expression);
-                let tmp = self.push_copy(expr);
-                self.names.insert(name.clone(), tmp);
+                let val = self.flatten_expression(expression);
+                let val = if let Val::Ref(tmp) = val {
+                    Val::Ref(self.copy(tmp))
+                } else {
+                    val
+                };
+                self.names.insert(name.clone(), val);
             }
             ast::Statement::Expression(ref expression) => {
-                let expr = self.flatten_expression(expression);
-                self.push_def(expr);
+                let _ = self.flatten_expression(expression);
             }
             ast::Statement::Newline => {}
         }
@@ -213,22 +177,16 @@ impl Builder {
     /// Pushes a def and returns the Tmp reference,
     /// if Expr::Val then just returns self
     /// TODO Refactor this, feels really bad!!!!!1!!1!
-    pub fn push_def(&mut self, expr: Expr) -> Val {
-        let expr = match expr {
-            Expr::Val(val) => return val,
-            e => e,
-        };
-        let tmp = self.tmp.alloc().expect("tmp allocator oom");
-        let def = Stmt::Def(tmp, expr);
-        self.push(def);
-        Val::Ref(tmp)
-    }
-
-    pub fn push_copy(&mut self, expr: Expr) -> Tmp {
+    pub fn def(&mut self, expr: Expr) -> Tmp {
         let tmp = self.tmp.alloc().expect("tmp allocator oom");
         let def = Stmt::Def(tmp, expr);
         self.push(def);
         tmp
+    }
+
+    pub fn copy(&mut self, tmp: Tmp) -> Tmp {
+        let copy = Expr::Copy(tmp);
+        self.def(copy)
     }
 
     pub fn print(&mut self, val: Val) {
@@ -286,7 +244,8 @@ impl FromStr for Stmt {
                 Ok(Expr::Add(l, r))
             } else if let Some(m) = captures.get(3) {
                 let s = m.as_str();
-                parse_val(s).map(Expr::Val)
+                //parse_val(s).map(Expr::Copy)
+                unimplemented!()
             } else if let Some(m) = captures.get(4) {
                 let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
