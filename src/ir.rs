@@ -38,6 +38,7 @@ impl<'a> From<&'a ast::Program> for Program {
     fn from(program: &'a ast::Program) -> Program {
         let mut builder = Builder::new();
         for statement in &program.module.statements {
+            println!("builder: {:#?}", builder);
             builder.flatten_statement(statement);
         }
         Program { stmts: builder.stack }
@@ -76,12 +77,41 @@ pub enum Val {
 ///
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
-    Copy(Val),
+    Val(Val),
     UnaryNeg(Val),
     Add(Val, Val),
     Input,
 }
 
+/// Flattening all possible statements:
+///
+/// v = n | t
+/// e = v | e + e | -e | input()
+///
+/// print n
+/// print t
+/// print v + v
+/// print v + v + v
+///
+/// print -v
+/// print -e
+/// p
+///
+
+/// TODO: Determine distinction between `Compute` and `Copy`
+///
+/// ```text, no_run
+///     p0:
+///         x = 1
+///         y = x 
+///         z = y
+///
+/// ```text, no_run
+///     ir:
+///         t0 := 1
+///         t1 := t0
+///         t2 := t1
+///
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Print(Val),
@@ -91,7 +121,7 @@ pub enum Stmt {
 #[derive(Debug)]
 pub struct Builder {
     stack: Vec<Stmt>,
-    names: HashMap<ast::Name, Tmp>,
+    names: HashMap<ast::Name, Val>,
     tmp: TmpAllocator,
 }
 
@@ -124,30 +154,36 @@ impl Builder {
         }
     }
 
-    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
+    /// Flattens expression into a series of `tN := expr` `Stmt`s,
+    /// pushing each onto the stack. The val of the final `Expr`
+    /// (either a constant or the reference to the `Stmt` that
+    /// gives the result) is returned. In other words, allocation
+    /// of `Tmp`s only occurs for expressions that are not just values
+    /// (because if the expression is just a `Val`, then the `Val` is
+    /// simply returned)
+    pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Expr {
         match *expression {
-            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Val::Int(i),
+            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Expr::Val(Val::Int(i)),
             ast::Expression::Name(ref name) => {
-                let tmp = match self.names.get(name) {
-                    Some(&tmp) => tmp,
+                match self.names.get(name) {
+                    Some(&val) => Expr::Val(val),
                     None => panic!("reference to undefined name {:?}", name),
-                };
-                Val::Ref(tmp)
+                }
             }
             ast::Expression::Input(_) => {
-                let tmp = self.def(Expr::Input);
-                Val::Ref(tmp)
+                Expr::Input
             }
             ast::Expression::UnaryNeg(ref expr) => {
-                let val = self.flatten_expression(expr);
-                let tmp = self.def(Expr::UnaryNeg(val));
-                Val::Ref(tmp)
+                let expr = self.flatten_expression(expr);
+                let val = self.push_def(expr);
+                Expr::UnaryNeg(val)
             }
             ast::Expression::Add(ref left, ref right) => {
                 let left = self.flatten_expression(left);
+                let left = self.push_def(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::Add(left, right));
-                Val::Ref(tmp)
+                let right = self.push_def(right);
+                Expr::Add(left, right)
             }
         }
     }
@@ -155,17 +191,18 @@ impl Builder {
     pub fn flatten_statement(&mut self, statement: &ast::Statement) {
         match *statement {
             ast::Statement::Print(ref expression) => {
-                let val = self.flatten_expression(expression);
+                let expr = self.flatten_expression(expression);
+                let val = self.push_def(expr);
                 self.print(val);
             }
             ast::Statement::Assign(ref name, ref expression) => {
-                let val = self.flatten_expression(expression);
-                let copy = Expr::Copy(val);
-                let tmp = self.def(copy);
-                self.names.insert(name.clone(), tmp);
+                let expr = self.flatten_expression(expression);
+                let val = self.push_copy(expr);
+                self.names.insert(name.clone(), val);
             }
             ast::Statement::Expression(ref expression) => {
-                let _ = self.flatten_expression(expression);
+                let expr = self.flatten_expression(expression);
+                self.push_def(expr);
             }
             ast::Statement::Newline => {}
         }
@@ -175,11 +212,25 @@ impl Builder {
         self.stack.push(s);
     }
 
-    pub fn def(&mut self, expr: Expr) -> Tmp {
+    /// Pushes a def and returns the Tmp reference,
+    /// if Expr::Val then just returns self
+    /// TODO Refactor this, feels really bad!!!!!1!!1!
+    pub fn push_def(&mut self, expr: Expr) -> Val {
+        let expr = match expr {
+            Expr::Val(val) => return val,
+            e => e,
+        };
         let tmp = self.tmp.alloc().expect("tmp allocator oom");
         let def = Stmt::Def(tmp, expr);
         self.push(def);
-        tmp
+        Val::Ref(tmp)
+    }
+
+    pub fn push_copy(&mut self, expr: Expr) -> Val {
+        let tmp = self.tmp.alloc().expect("tmp allocator oom");
+        let def = Stmt::Def(tmp, expr);
+        self.push(def);
+        Val::Ref(tmp)
     }
 
     pub fn print(&mut self, val: Val) {
@@ -237,7 +288,7 @@ impl FromStr for Stmt {
                 Ok(Expr::Add(l, r))
             } else if let Some(m) = captures.get(3) {
                 let s = m.as_str();
-                parse_val(s).map(Expr::Copy)
+                parse_val(s).map(Expr::Val)
             } else if let Some(m) = captures.get(4) {
                 let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
@@ -318,5 +369,10 @@ mod test {
     #[test]
     fn assign_input() {
         test!("x = input()" => "t0 := input()");
+    }
+
+    #[test]
+    fn assign_add() {
+        test!("x = 1 + 2" => "t0 := 1 + 2");
     }
 }
