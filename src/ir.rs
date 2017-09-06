@@ -66,7 +66,6 @@ pub enum Val {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
-    Copy(Tmp),
     UnaryNeg(Val),
     Add(Val, Val),
     Input,
@@ -177,11 +176,6 @@ impl Builder {
         let def = Stmt::Def(tmp, expr);
         self.push(def);
         tmp
-    }
-
-    pub fn copy(&mut self, tmp: Tmp) -> Tmp {
-        let copy = Expr::Copy(tmp);
-        self.def(copy)
     }
 
     pub fn print(&mut self, val: Val) {
