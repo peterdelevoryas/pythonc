@@ -156,11 +156,6 @@ impl Builder {
             }
             ast::Statement::Assign(ref name, ref expression) => {
                 let val = self.flatten_expression(expression);
-                let val = if let Val::Ref(tmp) = val {
-                    Val::Ref(self.copy(tmp))
-                } else {
-                    val
-                };
                 self.names.insert(name.clone(), val);
             }
             ast::Statement::Expression(ref expression) => {
