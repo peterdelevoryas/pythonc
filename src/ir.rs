@@ -121,7 +121,7 @@ pub enum Stmt {
 #[derive(Debug)]
 pub struct Builder {
     stack: Vec<Stmt>,
-    names: HashMap<ast::Name, Val>,
+    names: HashMap<ast::Name, Tmp>,
     tmp: TmpAllocator,
 }
 
@@ -166,7 +166,7 @@ impl Builder {
             ast::Expression::DecimalI32(ast::DecimalI32(i)) => Expr::Val(Val::Int(i)),
             ast::Expression::Name(ref name) => {
                 match self.names.get(name) {
-                    Some(&val) => Expr::Val(val),
+                    Some(&tmp) => Expr::Val(Val::Ref(tmp)),
                     None => panic!("reference to undefined name {:?}", name),
                 }
             }
@@ -197,8 +197,8 @@ impl Builder {
             }
             ast::Statement::Assign(ref name, ref expression) => {
                 let expr = self.flatten_expression(expression);
-                let val = self.push_copy(expr);
-                self.names.insert(name.clone(), val);
+                let tmp = self.push_copy(expr);
+                self.names.insert(name.clone(), tmp);
             }
             ast::Statement::Expression(ref expression) => {
                 let expr = self.flatten_expression(expression);
@@ -226,11 +226,11 @@ impl Builder {
         Val::Ref(tmp)
     }
 
-    pub fn push_copy(&mut self, expr: Expr) -> Val {
+    pub fn push_copy(&mut self, expr: Expr) -> Tmp {
         let tmp = self.tmp.alloc().expect("tmp allocator oom");
         let def = Stmt::Def(tmp, expr);
         self.push(def);
-        Val::Ref(tmp)
+        tmp
     }
 
     pub fn print(&mut self, val: Val) {
@@ -374,5 +374,26 @@ mod test {
     #[test]
     fn assign_add() {
         test!("x = 1 + 2" => "t0 := 1 + 2");
+    }
+
+    #[test]
+    fn assign_unary_neg() {
+        test!("x = --1\nx = -x" => "t0 := --1\nt1 := -t0");
+    }
+
+    #[test]
+    fn assign_compound() {
+        test!("x = 1 + 2 + 3" => "t0 := 1 + 2\nt1 := t0 + 3");
+        test!("x = 1 + input()" => "t0 := input()\nt1 := 1 + t0");
+        test!("x = input() + 1 + 2" => "t0 := input()\nt1 := t0 + 1\nt2 := t1 + 2");
+        test!("x = 1 + 2\ny = x + 1" => "t0 := 1 + 2\nt1 := t0 + 1");
+        /*
+        test!("x = 2\ny = x + -2 + 1 + input()" => "\
+            t0 := 2 + -2 \n\
+            t1 := t0 + 1 \n\
+            t2 := input() \n\
+            t3 := t1 + t2");
+            */
+            
     }
 }
