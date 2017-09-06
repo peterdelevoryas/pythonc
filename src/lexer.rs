@@ -37,7 +37,7 @@ pub struct Lexer<'input> {
 
 impl<'input> Lexer<'input> {
     pub fn new(text: &'input str) -> Self {
-        println!("text: {:?}", text);
+        ////println!("text: {:?}", text);
         let mut lexer = Lexer {
             text,
             chars: text.char_indices(),
@@ -132,11 +132,11 @@ impl<'input> Iterator for Lexer<'input> {
             let (i, c) = match self.peek() {
                 Some(item) => item,
                 None => {
-                    println!("eof");
+                    //println!("eof");
                     return None; // EOF
                 }
             };
-            println!("i={}, c={:?}: {:?}", i, c, &self.text[i..]);
+            //println!("i={}, c={:?}: {:?}", i, c, &self.text[i..]);
             let single_char_tok = match c {
                 '\n' => Some(Tok::Newline),
                 '=' => Some(Tok::Equals),
@@ -145,7 +145,7 @@ impl<'input> Iterator for Lexer<'input> {
                     // could be parsed as decimal_i32 or unary_neg
                     // first mark index and consume "-"
                     let minus_index = i;
-                    println!("minus_index: {}", minus_index);
+                    //println!("minus_index: {}", minus_index);
                     self.consume1();
                     if let Some((_, '0'...'9')) = self.peek() {
                         let result = self.decimal_i32().map(|(_, _, end)| {
@@ -169,7 +169,7 @@ impl<'input> Iterator for Lexer<'input> {
             };
 
             if let Some(tok) = single_char_tok {
-                println!("parsed single_char_tok: {:?}\n", tok);
+                //println!("parsed single_char_tok: {:?}\n", tok);
                 // consume token before returning
                 self.consume1();
                 return Some(Ok((i, tok, i + 1)));
@@ -184,12 +184,12 @@ impl<'input> Iterator for Lexer<'input> {
                     if !c.is_whitespace() {
                         return Some(Err(Error::UnexpectedChar(c)));
                     }
-                    println!("skipping over {:?}\n", c);
+                    //println!("skipping over {:?}\n", c);
                     self.consume1();
                     continue;
                 }
             };
-            println!("parsed: {:?}\n", parsed);
+            //println!("parsed: {:?}\n", parsed);
             return Some(parsed);
         }
     }

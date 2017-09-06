@@ -84,6 +84,16 @@ pub struct Builder {
     tmp: TmpAllocator,
 }
 
+impl Tmp {
+    pub fn new(index: usize) -> Tmp {
+        Tmp { index }
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+}
+
 #[derive(Debug)]
 pub struct TmpAllocator {
     next: usize,
