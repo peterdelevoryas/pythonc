@@ -111,21 +111,13 @@ pub struct Program {
 
 impl From<Statement> for Program {
     fn from(statement: Statement) -> Program {
-        Program {
-            module: Module {
-                statements: vec![statement],
-            }
-        }
+        Program { module: Module { statements: vec![statement] } }
     }
 }
 
 impl From<Expression> for Program {
     fn from(expression: Expression) -> Program {
-        Program {
-            module: Module {
-                statements: vec![Statement::Expression(expression)],
-            }
-        }
+        Program { module: Module { statements: vec![Statement::Expression(expression)] } }
     }
 }
 

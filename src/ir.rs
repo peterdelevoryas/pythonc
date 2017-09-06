@@ -103,7 +103,7 @@ pub enum Expr {
 /// ```text, no_run
 ///     p0:
 ///         x = 1
-///         y = x 
+///         y = x
 ///         z = y
 ///
 /// ```text, no_run
@@ -170,9 +170,7 @@ impl Builder {
                     None => panic!("reference to undefined name {:?}", name),
                 }
             }
-            ast::Expression::Input(_) => {
-                Expr::Input
-            }
+            ast::Expression::Input(_) => Expr::Input,
             ast::Expression::UnaryNeg(ref expr) => {
                 let expr = self.flatten_expression(expr);
                 let val = self.push_def(expr);
