@@ -196,7 +196,7 @@ impl FromStr for Stmt {
             static ref PRINT: Regex = Regex::new(r"print\s+([[:alnum:]-]+)").unwrap();
             static ref VAL: Regex = Regex::new(r"(t\d+)|(-?\d+)").unwrap();
             static ref TMP: Regex = Regex::new(r"t(\d+)").unwrap();
-            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))").unwrap();
+            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))").unwrap();
         }
         fn parse_def(s: &str) -> Result<(Tmp, Expr), ()> {
             let captures = DEF.captures(s).ok_or(())?;
@@ -233,12 +233,8 @@ impl FromStr for Stmt {
                 Ok(Expr::Add(l, r))
             } else if let Some(m) = captures.get(3) {
                 let s = m.as_str();
-                //parse_val(s).map(Expr::Copy)
-                unimplemented!()
-            } else if let Some(m) = captures.get(4) {
-                let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
-            } else if let Some(_) = captures.get(5) {
+            } else if let Some(_) = captures.get(4) {
                 Ok(Expr::Input)
             } else {
                 Err(())
