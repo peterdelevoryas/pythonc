@@ -31,7 +31,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
-    stmts: Vec<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 impl<'a> From<&'a ast::Program> for Program {

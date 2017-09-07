@@ -4,6 +4,10 @@ use x86::mem::Mem;
 use x86::Bits;
 use x86::Bits32;
 
+pub trait Instr {
+    fn trans(&self) -> String;
+}
+
 /// Uses AT&T syntax 
 ///     RegReg => movB %reg, %reg
 ///     RegMem => movB %reg, mem
