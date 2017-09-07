@@ -185,3 +185,16 @@ impl Set {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use x86::reg::Set;
+
+    #[test]
+    fn split_borrow() {
+        let mut set = Set::new();
+        let ah = &mut set.eax.ax.ah;
+        let al = &mut set.eax.ax.al;
+        // must compile
+    }
+}
