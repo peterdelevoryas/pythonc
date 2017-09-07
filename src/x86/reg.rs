@@ -150,7 +150,7 @@ macro_rules! register {
 }
 
 register_set! {
-    X86 {
+    Set {
         eax: EAX {
             ax: AX {
                 ah: AH,
@@ -192,13 +192,13 @@ register_set! {
 
 #[cfg(test)]
 mod test {
-    use x86::reg::X86;
+    use x86::reg::Set;
 
     #[test]
     fn split_borrow() {
-        let mut x86 = X86::new();
-        let _ah = &mut x86.eax.ax.ah;
-        let _al = &mut x86.eax.ax.al;
+        let mut set = Set::new();
+        let _ah = &mut set.eax.ax.ah;
+        let _al = &mut set.eax.ax.al;
         // must compile
     }
 }
