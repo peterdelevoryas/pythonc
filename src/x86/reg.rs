@@ -10,25 +10,53 @@ macro_rules! reg {
             ),*
         }
     ) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, PartialEq, Eq, Hash)]
         pub struct $Reg32 {
             $(
                 pub $reg16: $Reg16,
             ),*
         }
 
+        impl $Reg32 {
+            fn new() -> $Reg32 {
+                $Reg32 {
+                    $(
+                        $reg16: $Reg16::new()
+                    ),*
+                }
+            }
+        }
+
         $(
-            #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+            #[derive(Debug, PartialEq, Eq, Hash)]
             pub struct $Reg16 {
                 $(
                     pub $reg8: $Reg8
                 ),*
             }
+
+            impl $Reg16 {
+                fn new() -> $Reg16 {
+                    $Reg16 {
+                        $(
+                            $reg8: $Reg8::new()
+                        ),*
+                    }
+                }
+            }
         )*
 
         $($(
-            #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-            pub struct $Reg8;
+            #[derive(Debug, PartialEq, Eq, Hash)]
+            pub struct $Reg8 {
+                private: (),
+            }
+
+            impl $Reg8 {
+                fn new() -> $Reg8 {
+                    $Reg8 { private: () }
+                }
+            }
         )*)*
     };
 
@@ -39,16 +67,34 @@ macro_rules! reg {
             ),*
         }
     ) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, PartialEq, Eq, Hash)]
         pub struct $Reg32 {
             $(
                 pub $reg16: $Reg16,
             ),*
         }
 
+        impl $Reg32 {
+            fn new() -> $Reg32 {
+                $Reg32 {
+                    $(
+                        $reg16: $Reg16::new()
+                    ),*
+                }
+            }
+        }
+
         $(
-            #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-            pub struct $Reg16;
+            #[derive(Debug, PartialEq, Eq, Hash)]
+            pub struct $Reg16 {
+                private: (),
+            }
+
+            impl $Reg16 {
+                fn new() -> $Reg16 {
+                    $Reg16 { private: () }
+                }
+            }
         )*
     }
 }
@@ -115,12 +161,27 @@ reg! {
 
 #[derive(Debug)]
 pub struct Set {
-    eax: EAX,
-    ecx: ECX,
-    edx: EDX,
-    ebx: EBX,
-    esp: ESP,
-    ebp: EBP,
-    esi: ESI,
-    edi: EDI,
+    pub eax: EAX,
+    pub ecx: ECX,
+    pub edx: EDX,
+    pub ebx: EBX,
+    pub esp: ESP,
+    pub ebp: EBP,
+    pub esi: ESI,
+    pub edi: EDI,
+}
+
+impl Set {
+    pub fn new() -> Set {
+        Set {
+            eax: EAX::new(),
+            ecx: ECX::new(),
+            edx: EDX::new(),
+            ebx: EBX::new(),
+            esp: ESP::new(),
+            ebp: EBP::new(),
+            esi: ESI::new(),
+            edi: EDI::new(),
+        }
+    }
 }
