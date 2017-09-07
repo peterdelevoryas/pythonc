@@ -15,6 +15,5 @@
 # THIS_DIR is bound to the directory that this script file is in.
 THIS_DIR=$(dirname $(realpath $0))
 
-# Example: A python script called compile.py in this directory is passed
-# the arguments that are passed to this script.
-python ${THIS_DIR}/compile.py $*
+${THIS_DIR}/rust-python $*
+#python ${THIS_DIR}/compile.py $*

@@ -8,6 +8,8 @@ use rust_python::x86;
 use std::env;
 use std::fs;
 use std::io::Read;
+use std::io::Write;
+use std::path::Path;
 
 fn val_to_string(val: &ir::Val) -> String {
     match *val {
@@ -17,8 +19,8 @@ fn val_to_string(val: &ir::Val) -> String {
 }
 
 fn main() {
+    let path = env::args().nth(1).unwrap();
     let source = {
-        let path = env::args().nth(1).unwrap();
         let mut f = fs::File::open(&path).unwrap();
         let mut buf = String::new();
         f.read_to_string(&mut buf).unwrap();
@@ -55,4 +57,7 @@ fn main() {
 
     let x86 = x86::Builder::build(&ir);
     println!("x86:\n\n{}", x86);
+    let out_path = Path::new(&path).with_extension("s");
+    let mut f = fs::File::create(&out_path).unwrap();
+    f.write_all(x86.as_bytes()).unwrap();
 }

@@ -119,7 +119,8 @@ impl Builder {
             }
             Def(tmp, Expr::UnaryNeg(val)) => {
                 let mem = self.stack_location(tmp);
-                // we can just negate the memory location!
+                self.store_val(val, mem);
+                // we can just negate the memory location! (after storing)
                 self.neg(Neg::Mem(mem));
             }
             Def(tmp, Expr::Add(left, right)) => {
@@ -136,14 +137,14 @@ impl Builder {
     }
 
     fn finish(self) -> String {
-        let mut program: String = "\
+        let mut program: String = format!("\
 .globl main
 main:
     pushl %ebp
     movl %esp, %ebp
+    subl ${}, %esp
 
-"
-        .into();
+", self.tmp_count * Bits32::SIZE_OF);
         for ia32 in self.stack {
             let s = ia32.trans();
             program.push_str("    ");
