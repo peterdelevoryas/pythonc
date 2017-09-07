@@ -30,10 +30,29 @@ fn main() {
     for (i, line) in source.lines().enumerate() {
         println!(" {:<4} {}", i, line);
     }
+    println!();
 
     let lexer = lexer::Lexer::new(source);
     let ast = p0::parse_program(source, lexer).unwrap();
     let ir: ir::Program = ast.into();
+
+    println!("\nintermediate representation:");
+    for (i, stmt) in ir.stmts.iter().enumerate() {
+        let line = match *stmt {
+            ir::Stmt::Print(ref val) => format!("print {}", val_to_string(val)),
+            ir::Stmt::Def(ref tmp, ref expr) => {
+                let tmp = val_to_string(&ir::Val::Ref(*tmp));
+                match *expr {
+                    ir::Expr::UnaryNeg(ref val) => format!("{:<3} := -{}", tmp, val_to_string(val)),
+                    ir::Expr::Add(ref l, ref r) => format!("{:<3} := {} + {}", tmp, val_to_string(l), val_to_string(r)),
+                    ir::Expr::Input => format!("{:<3} := input()", tmp),
+                }
+            }
+        };
+        println!(" {:<4} {}", i, line);
+    }
+    println!();
+
     let x86 = x86::Builder::build(&ir);
-    println!("x86:\n{}", x86);
+    println!("x86:\n\n{}", x86);
 }

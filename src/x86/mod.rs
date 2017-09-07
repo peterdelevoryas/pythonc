@@ -134,6 +134,7 @@ impl Builder {
 main:
     pushl %ebp
     movl %esp, %ebp
+
 "
         .into();
         for ia32 in self.stack {
@@ -142,7 +143,7 @@ main:
             program.push_str(&s);
             program.push_str("\n");
         }
-        program.push_str("\
+        program.push_str("
     movl $0, %eax
     leave
     ret

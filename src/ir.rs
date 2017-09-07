@@ -38,7 +38,7 @@ impl<'a> From<&'a ast::Program> for Program {
     fn from(program: &'a ast::Program) -> Program {
         let mut builder = Builder::new();
         for statement in &program.module.statements {
-            println!("builder: {:#?}", builder);
+            //println!("builder: {:#?}", builder);
             builder.flatten_statement(statement);
         }
         Program { stmts: builder.stack }
@@ -235,7 +235,7 @@ impl FromStr for Stmt {
                 }))
         }
         fn parse_expr(s: &str) -> Result<Expr, ()> {
-            println!("s = {:?}", s);
+            //println!("s = {:?}", s);
             let captures = EXPR.captures(s).ok_or(())?;
             if let (Some(l), Some(r)) = (captures.get(1), captures.get(2)) {
                 let l = parse_val(l.as_str())?;
@@ -275,7 +275,7 @@ impl FromStr for Program {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut stmts = vec![];
         for line in s.lines() {
-            println!("line: {:?}", line);
+            //println!("line: {:?}", line);
             if line.is_empty() {
                 continue;
             }
