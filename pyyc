@@ -16,4 +16,3 @@
 THIS_DIR=$(dirname $(realpath $0))
 
 ${THIS_DIR}/rust-python $*
-#python ${THIS_DIR}/compile.py $*
