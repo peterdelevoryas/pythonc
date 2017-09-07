@@ -13,15 +13,27 @@ pub trait Instr {
 ///     RegMem => movB %reg, mem
 #[derive(Debug)]
 pub enum Mov<B, R, I>
-    where B: Bits,
-          R: Reg<Size=B>,
-          I: Imm<Size=B>,
+where
+    B: Bits,
+    R: Reg<Size=B>,
+    I: Imm<Size=B>,
 {
     RegReg(R, R),
     RegMem(R, Mem<B, R, I>),
     MemReg(Mem<B, R, I>, R),
     ImmReg(I, R),
     ImmMem(I, Mem<B, R, I>),
+}
+
+impl<B, R, I> Instr for Mov<B, R, I>
+where
+    B: Bits,
+    R: Reg<Size=B>,
+    I: Imm<Size=B>,
+{
+    fn trans(&self) -> String {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug)]
@@ -37,6 +49,16 @@ pub enum Add<B, R, I>
     ImmMem(I, Mem<B, R, I>),
 }
 
+impl<B, R, I> Instr for Add<B, R, I>
+    where B: Bits,
+          R: Reg<Size=B>,
+          I: Imm<Size=B>,
+{
+    fn trans(&self) -> String {
+        unimplemented!()
+    }
+}
+
 #[derive(Debug)]
 pub enum Push<R, I>
     where R: Reg<Size=Bits32>,
@@ -47,6 +69,15 @@ pub enum Push<R, I>
     Imm(I),
 }
 
+impl<R, I> Instr for Push<R, I>
+where
+    R: Reg<Size=Bits32>,
+    I: Imm<Size=Bits32>,
+{
+    fn trans(&self) -> String {
+        unimplemented!()
+    }
+}
 
 #[derive(Debug)]
 pub enum Neg<B, R, I>
@@ -60,7 +91,13 @@ pub enum Neg<B, R, I>
 
 #[derive(Debug)]
 pub struct Call {
-    label: String,
+    pub label: String,
+}
+
+impl Instr for Call {
+    fn trans(&self) -> String {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug)]

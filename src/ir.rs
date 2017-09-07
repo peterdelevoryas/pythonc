@@ -54,7 +54,7 @@ impl From<ast::Program> for Program {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tmp {
-    index: usize,
+    pub index: usize,
 }
 
 /// Tmp(index) -> index of Tmp in stack

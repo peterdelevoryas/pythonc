@@ -17,8 +17,8 @@ pub struct Mem<B, R, I>
           R: Reg<Size=B>,
           I: Imm<Size=B>,
 {
-    base: R,
-    index: R,
-    scale: I,
-    disp: I,
+    pub base: R,
+    //pub index: Option<R>,
+    //pub scale: Option<I>,
+    pub disp: I,
 }
