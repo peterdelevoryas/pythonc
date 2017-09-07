@@ -13,7 +13,7 @@ use x86::Bits32;
 ///
 ///     %segreg:disp(base, index, scale)
 ///
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Mem<B, R, I>
     where B: Bits,
           R: Reg<Size=B>,

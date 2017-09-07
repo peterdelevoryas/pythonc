@@ -28,7 +28,18 @@ where
 
 impl Instr for Mov<Bits32, Reg32, i32> {
     fn trans(&self) -> String {
-        unimplemented!()
+        match *self {
+            Mov::MemReg(ref m, ref r) => {
+                format!("movl {}, %{}", m.to_string(), r.name())
+            }
+            Mov::RegMem(ref r, ref m) => {
+                format!("movl %{}, {}", r.name(), m.to_string())
+            }
+            Mov::ImmMem(i, ref m) => {
+                format!("movl ${}, {}", i, m.to_string())
+            }
+            _ => unimplemented!()
+        }
     }
 }
 
@@ -61,7 +72,7 @@ impl Instr for Add<Bits32, Reg32, i32> {
                 format!("addl ${}, %{}", i, r.name())
             }
             Add::ImmMem(ref i, ref m) => {
-                format!("addl ${}, %{}", i, m.to_string())
+                format!("addl ${}, {}", i, m.to_string())
             }
         }
     }
@@ -101,6 +112,15 @@ pub enum Neg<B, R, I>
 {
     Reg(R),
     Mem(Mem<B, R, I>),
+}
+
+impl Instr for Neg<Bits32, Reg32, i32> {
+    fn trans(&self) -> String {
+        match *self {
+            Neg::Reg(ref r) => format!("negl %{}", r.name()),
+            Neg::Mem(ref m) => format!("negl {}", m.to_string()),
+        }
+    }
 }
 
 #[derive(Debug)]

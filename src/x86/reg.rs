@@ -12,7 +12,7 @@ pub trait Reg {
     fn name(&self) -> &str;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Reg8 {
     AH,
     AL,
@@ -24,7 +24,7 @@ pub enum Reg8 {
     DL,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Reg16 {
     AX,
     BX,
@@ -32,7 +32,7 @@ pub enum Reg16 {
     DX,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Reg32 {
     EAX,
     EBX,

@@ -13,21 +13,21 @@ pub trait Bits: Sealed {
     const SIZE_OF: usize;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Bits8 {}
 impl Sealed for Bits8 {}
 impl Bits for Bits8 {
     const SIZE_OF: usize = 1;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Bits16 {}
 impl Sealed for Bits16 {}
 impl Bits for Bits16 {
     const SIZE_OF: usize = 2;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Bits32 {}
 impl Sealed for Bits32 {}
 impl Bits for Bits32 {
@@ -46,6 +46,7 @@ use self::reg::Reg;
 use self::reg::Reg32;
 use self::reg::EBP;
 use self::reg::ESP;
+use self::reg::EAX;
 use self::ia32::{
     Push,
     Mov,
@@ -117,13 +118,19 @@ impl Builder {
                 self.add(Add::ImmReg(4, ESP));
             }
             Def(tmp, Expr::UnaryNeg(val)) => {
-
+                let mem = self.stack_location(tmp);
+                // we can just negate the memory location!
+                self.neg(Neg::Mem(mem));
             }
             Def(tmp, Expr::Add(left, right)) => {
-
+                let mem = self.stack_location(tmp);
+                self.store_val(left, mem);
+                self.add_val(right, mem);
             }
             Def(tmp, Expr::Input) => {
-
+                let dst = self.stack_location(tmp);
+                self.call("input");
+                self.store_reg(EAX, dst);
             }
         }
     }
@@ -149,6 +156,45 @@ main:
     ret
 "       );
         program
+    }
+
+    fn load(&mut self, mem: Mem<Bits32, Reg32, i32>, reg: Reg32) {
+        self.stack.push(Box::new(Mov::MemReg(mem, reg)));
+    }
+
+    fn store_reg(&mut self, reg: Reg32, dst: Mem<Bits32, Reg32, i32>) {
+        self.stack.push(Box::new(Mov::RegMem(reg, dst)));
+    }
+
+    fn store_val(&mut self, val: ir::Val, dst: Mem<Bits32, Reg32, i32>) {
+        match val {
+            ir::Val::Int(int) => {
+                self.stack.push(Box::new(Mov::ImmMem(int, dst)));
+            }
+            ir::Val::Ref(tmp) => {
+                // basically just assume EAX is ok to use
+                let src = self.stack_location(tmp);
+                self.load(src, EAX);
+                self.store_reg(EAX, dst);
+            }
+        }
+    }
+
+    fn neg(&mut self, neg: Neg<Bits32, Reg32, i32>) {
+        self.stack.push(Box::new(neg));
+    }
+
+    fn add_val(&mut self, val: ir::Val, dst: Mem<Bits32, Reg32, i32>) {
+        match val {
+            ir::Val::Int(int) => {
+                self.add(Add::ImmMem(int, dst));
+            }
+            ir::Val::Ref(tmp) => {
+                let src = self.stack_location(tmp);
+                self.load(src, EAX);
+                self.add(Add::RegMem(EAX, dst));
+            }
+        }
     }
 
     fn add(&mut self, add: Add<Bits32, Reg32, i32>) {
