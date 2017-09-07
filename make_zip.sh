@@ -1,5 +1,6 @@
 #!/bin/sh
 
+curl https://sh.rustup.rs -sSf | sh
 rustup target add i686-unknown-linux-gnu
 cargo build --target=i686-unknown-linux-gnu
 cp ./target/i686-unknown-linux-gnu/debug/rust-python .
