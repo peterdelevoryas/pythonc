@@ -12,6 +12,7 @@ pub mod p0;
 pub mod lexer;
 pub mod ast;
 pub mod ir;
+pub mod x86;
 
 #[cfg(test)]
 mod test {
