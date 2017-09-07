@@ -1,3 +1,13 @@
+use self::sealed::Sealed;
+
+pub trait Reg8: Sealed {}
+pub trait Reg16: Sealed {}
+pub trait Reg32: Sealed {}
+
+mod sealed {
+    pub trait Sealed {}
+}
+
 macro_rules! reg {
     (
         $Reg32:ident {
@@ -12,6 +22,7 @@ macro_rules! reg {
     ) => {
         #[derive(Debug, PartialEq, Eq, Hash)]
         pub struct $Reg32 {
+            private: (),
             $(
                 pub $reg16: $Reg16,
             ),*
@@ -20,6 +31,7 @@ macro_rules! reg {
         impl $Reg32 {
             fn new() -> $Reg32 {
                 $Reg32 {
+                    private: (),
                     $(
                         $reg16: $Reg16::new()
                     ),*
@@ -27,9 +39,13 @@ macro_rules! reg {
             }
         }
 
+        impl Sealed for $Reg32 {}
+        impl Reg32 for $Reg32 {}
+
         $(
             #[derive(Debug, PartialEq, Eq, Hash)]
             pub struct $Reg16 {
+                private: (),
                 $(
                     pub $reg8: $Reg8
                 ),*
@@ -38,26 +54,35 @@ macro_rules! reg {
             impl $Reg16 {
                 fn new() -> $Reg16 {
                     $Reg16 {
+                        private: (),
                         $(
                             $reg8: $Reg8::new()
                         ),*
                     }
                 }
             }
+
+            impl Sealed for $Reg16 {}
+            impl Reg16 for $Reg16 {}
         )*
 
-        $($(
-            #[derive(Debug, PartialEq, Eq, Hash)]
-            pub struct $Reg8 {
-                private: (),
-            }
-
-            impl $Reg8 {
-                fn new() -> $Reg8 {
-                    $Reg8 { private: () }
+        $(
+            $(
+                #[derive(Debug, PartialEq, Eq, Hash)]
+                pub struct $Reg8 {
+                    private: (),
                 }
-            }
-        )*)*
+
+                impl $Reg8 {
+                    fn new() -> $Reg8 {
+                        $Reg8 { private: () }
+                    }
+                }
+
+                impl Sealed for $Reg8 {}
+                impl Reg8 for $Reg8 {}
+            )*
+        )*
     };
 
     (
@@ -67,35 +92,13 @@ macro_rules! reg {
             ),*
         }
     ) => {
-        #[derive(Debug, PartialEq, Eq, Hash)]
-        pub struct $Reg32 {
-            $(
-                pub $reg16: $Reg16,
-            ),*
-        }
-
-        impl $Reg32 {
-            fn new() -> $Reg32 {
-                $Reg32 {
-                    $(
-                        $reg16: $Reg16::new()
-                    ),*
-                }
+        reg! {
+            $Reg32 {
+                $(
+                    $reg16: $Reg16 {}
+                ),*
             }
         }
-
-        $(
-            #[derive(Debug, PartialEq, Eq, Hash)]
-            pub struct $Reg16 {
-                private: (),
-            }
-
-            impl $Reg16 {
-                fn new() -> $Reg16 {
-                    $Reg16 { private: () }
-                }
-            }
-        )*
     }
 }
 
