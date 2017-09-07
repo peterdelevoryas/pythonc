@@ -186,13 +186,13 @@ register_set! {
 
 #[cfg(test)]
 mod test {
-    use x86::reg::Set;
+    use x86::reg::X86;
 
     #[test]
     fn split_borrow() {
-        let mut set = Set::new();
-        let ah = &mut set.eax.ax.ah;
-        let al = &mut set.eax.ax.al;
+        let mut x86 = X86::new();
+        let _ah = &mut x86.eax.ax.ah;
+        let _al = &mut x86.eax.ax.al;
         // must compile
     }
 }
