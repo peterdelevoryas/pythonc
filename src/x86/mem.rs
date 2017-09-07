@@ -1,6 +1,8 @@
 use x86::reg::Reg;
+use x86::reg::Reg32;
 use x86::imm::Imm;
 use x86::Bits;
+use x86::Bits32;
 
 /// Intel:
 ///
@@ -21,4 +23,10 @@ pub struct Mem<B, R, I>
     //pub index: Option<R>,
     //pub scale: Option<I>,
     pub disp: I,
+}
+
+impl Mem<Bits32, Reg32, i32> {
+    pub fn to_string(&self) -> String {
+        format!("{}(%{})", self.disp, self.base.name())
+    }
 }

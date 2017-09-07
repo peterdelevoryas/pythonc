@@ -100,7 +100,7 @@ impl Builder {
         match *stmt {
             Print(Int(int)) => {
                 // push arg onto stack
-                self.push::<Reg32, i32>(Push::Imm(int));
+                self.push(Push::Imm(int));
                 // call print
                 self.call("print_int_nl");
                 // reset stack pointer
@@ -110,7 +110,7 @@ impl Builder {
                 // location of tmp on stack
                 let mem = self.stack_location(tmp);
                 // push tmp's value onto stack
-                self.push::<Reg32, i32>(Push::Mem(mem));
+                self.push(Push::Mem(mem));
                 // call print
                 self.call("print_int_nl");
                 // reset stack pointer
@@ -129,21 +129,32 @@ impl Builder {
     }
 
     fn finish(self) -> String {
-        unimplemented!()
+        let mut program: String = "\
+.globl main
+main:
+    pushl %ebp
+    movl %esp, %ebp
+"
+        .into();
+        for ia32 in self.stack {
+            let s = ia32.trans();
+            program.push_str("    ");
+            program.push_str(&s);
+            program.push_str("\n");
+        }
+        program.push_str("\
+    movl $0, %eax
+    leave
+    ret
+"       );
+        program
     }
 
-    fn add<B, R, I>(&mut self, add: Add<B, R, I>)
-        where B: 'static + Bits,
-              R: 'static + Reg<Size=B>,
-              I: 'static + Imm<Size=B>,
-    {
+    fn add(&mut self, add: Add<Bits32, Reg32, i32>) {
         self.stack.push(Box::new(add));
     }
 
-    fn push<R, I>(&mut self, push: Push<R, I>)
-        where R: 'static + Reg<Size=Bits32>,
-              I: 'static + Imm<Size=Bits32>,
-    {
+    fn push(&mut self, push: Push<Reg32, i32>) {
         self.stack.push(Box::new(push));
     }
 
