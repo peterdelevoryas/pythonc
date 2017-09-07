@@ -4,13 +4,17 @@ pub trait Reg8: Sealed {}
 pub trait Reg16: Sealed {}
 pub trait Reg32: Sealed {}
 
+pub trait Reg: Sealed {
+    const NAME: &'static str;
+}
+
 mod sealed {
     pub trait Sealed {}
 }
 
 macro_rules! reg {
     (
-        $Reg32:ident {
+        $reg32:ident: $Reg32:ident {
             $(
                 $reg16:ident: $Reg16:ident {
                     $(
@@ -41,6 +45,9 @@ macro_rules! reg {
 
         impl Sealed for $Reg32 {}
         impl Reg32 for $Reg32 {}
+        impl Reg for $Reg32 {
+            const NAME: &'static str = stringify!($reg32);
+        }
 
         $(
             #[derive(Debug, PartialEq, Eq, Hash)]
@@ -86,14 +93,14 @@ macro_rules! reg {
     };
 
     (
-        $Reg32:ident {
+        $reg32:ident: $Reg32:ident {
             $(
                 $reg16:ident: $Reg16:ident
             ),*
         }
     ) => {
         reg! {
-            $Reg32 {
+            $reg32: $Reg32 {
                 $(
                     $reg16: $Reg16 {}
                 ),*
@@ -103,7 +110,7 @@ macro_rules! reg {
 }
 
 reg! {
-    EAX {
+    eax: EAX {
         ax: AX {
             ah: AH,
             al: AL
@@ -112,7 +119,7 @@ reg! {
 }
 
 reg! {
-    ECX {
+    eax: ECX {
         cx: CX {
             ch: CH,
             cl: CL
@@ -121,7 +128,7 @@ reg! {
 }
 
 reg! {
-    EDX {
+    edx: EDX {
         dx: DX {
             dh: DH,
             dl: DL
@@ -130,7 +137,7 @@ reg! {
 }
 
 reg! {
-    EBX {
+    ebx: EBX {
         bx: BX {
             bh: BH,
             bl: BL
@@ -139,25 +146,25 @@ reg! {
 }
 
 reg! {
-    ESP {
+    esp: ESP {
         sp: SP
     }
 }
 
 reg! {
-    EBP {
+    ebp: EBP {
         bp: BP
     }
 }
 
 reg! {
-    ESI {
+    esi: ESI {
         si: SI
     }
 }
 
 reg! {
-    EDI {
+    edi: EDI {
         di: DI
     }
 }
