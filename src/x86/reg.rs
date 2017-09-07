@@ -120,6 +120,9 @@ macro_rules! register {
 
         impl Sealed for $Reg16 {}
         impl Reg16 for $Reg16 {}
+        impl Reg for $Reg16 {
+            const NAME: &'static str = stringify!($reg16);
+        }
         )*
 
         $(
@@ -137,6 +140,9 @@ macro_rules! register {
 
         impl Sealed for $Reg8 {}
         impl Reg8 for $Reg8 {}
+        impl Reg for $Reg8 {
+            const NAME: &'static str = stringify!($reg8);
+        }
         )*
         )*
 
