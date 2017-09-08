@@ -28,17 +28,20 @@ fn main() {
     };
     let source = source.as_str();
 
+    /*
     println!("source:");
     for (i, line) in source.lines().enumerate() {
         println!(" {:<4} {}", i, line);
     }
     println!();
+    */
 
     let lexer = lexer::Lexer::new(source);
     let ast = p0::parse_program(source, lexer).unwrap();
     let ir: ir::Program = ast.into();
 
-    println!("\nintermediate representation:");
+    /*
+    //println!("\nintermediate representation:");
     for (i, stmt) in ir.stmts.iter().enumerate() {
         let line = match *stmt {
             ir::Stmt::Print(ref val) => format!("print {}", val_to_string(val)),
@@ -51,12 +54,13 @@ fn main() {
                 }
             }
         };
-        println!(" {:<4} {}", i, line);
+        //println!(" {:<4} {}", i, line);
     }
-    println!();
+    //println!();
+    */
 
     let x86 = x86::Builder::build(&ir);
-    println!("x86:\n\n{}", x86);
+    //println!("x86:\n\n{}", x86);
     let out_path = Path::new(&path).with_extension("s");
     let mut f = fs::File::create(&out_path).unwrap();
     f.write_all(x86.as_bytes()).unwrap();

@@ -165,6 +165,20 @@ impl<'input> Iterator for Lexer<'input> {
                 '<' => Some(Tok::Lt),
                 '>' => Some(Tok::Gt),
                 ',' => Some(Tok::Comma),
+                '#' => {
+                    // eat comment
+                    loop {
+                        let c = match self.peek() {
+                            Some((_, c)) => c,
+                            None => return None,
+                        };
+                        if c == '\n' {
+                            break
+                        }
+                        self.consume1();
+                    }
+                    continue
+                }
                 _ => None,
             };
 
