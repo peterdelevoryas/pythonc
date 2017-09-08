@@ -90,13 +90,4 @@ impl Reg for Reg32 {
 
 #[cfg(test)]
 mod test {
-    use x86::reg::Set;
-
-    #[test]
-    fn split_borrow() {
-        let mut set = Set::new();
-        let _ah = &mut set.eax.ax.ah;
-        let _al = &mut set.eax.ax.al;
-        // must compile
-    }
 }
