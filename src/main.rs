@@ -3,10 +3,13 @@ extern crate rust_python;
 use rust_python::lexer;
 use rust_python::p0;
 use rust_python::ir;
+use rust_python::x86;
 
 use std::env;
 use std::fs;
 use std::io::Read;
+use std::io::Write;
+use std::path::Path;
 
 fn val_to_string(val: &ir::Val) -> String {
     match *val {
@@ -16,8 +19,8 @@ fn val_to_string(val: &ir::Val) -> String {
 }
 
 fn main() {
+    let path = env::args().nth(1).unwrap();
     let source = {
-        let path = env::args().nth(1).unwrap();
         let mut f = fs::File::open(&path).unwrap();
         let mut buf = String::new();
         f.read_to_string(&mut buf).unwrap();
@@ -25,21 +28,21 @@ fn main() {
     };
     let source = source.as_str();
 
+    /*
     println!("source:");
     for (i, line) in source.lines().enumerate() {
         println!(" {:<4} {}", i, line);
     }
+    println!();
+    */
 
     let lexer = lexer::Lexer::new(source);
-    let statements = p0::parse_statements(source, lexer).unwrap();
+    let ast = p0::parse_program(source, lexer).unwrap();
+    let ir: ir::Program = ast.into();
 
-    let mut ir = ir::Builder::new();
-    for statement in statements {
-        ir.flatten_statement(&statement);
-    }
-
-    println!("\nintermediate representation:");
-    for (i, stmt) in ir.stack().iter().enumerate() {
+    /*
+    //println!("\nintermediate representation:");
+    for (i, stmt) in ir.stmts.iter().enumerate() {
         let line = match *stmt {
             ir::Stmt::Print(ref val) => format!("print {}", val_to_string(val)),
             ir::Stmt::Def(ref tmp, ref expr) => {
@@ -51,6 +54,14 @@ fn main() {
                 }
             }
         };
-        println!(" {:<4} {}", i, line);
+        //println!(" {:<4} {}", i, line);
     }
+    //println!();
+    */
+
+    let x86 = x86::Builder::build(&ir);
+    //println!("x86:\n\n{}", x86);
+    let out_path = Path::new(&path).with_extension("s");
+    let mut f = fs::File::create(&out_path).unwrap();
+    f.write_all(x86.as_bytes()).unwrap();
 }

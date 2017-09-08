@@ -1,4 +1,4 @@
-THIS_DIR=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+THIS_DIR=$(shell dirname $(lastword $(MAKEFILE_LIST)))
 
 RUNTIME_ROOT=runtime
 RUNTIME_DIR=$(THIS_DIR)/$(RUNTIME_ROOT)
