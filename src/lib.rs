@@ -68,6 +68,15 @@ mod test {
     }
 
     #[test]
+    fn parse_print_parens() {
+        test! {
+            parse: p0::parse_statement,
+            input: "print(1)",
+            test: parsed_equals!(Statement::Print(Expression::DecimalI32(DecimalI32(1))))
+        }
+    }
+
+    #[test]
     fn parse_assign_statement() {
         test! {
             parse: p0::parse_statement,
