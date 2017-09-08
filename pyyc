@@ -13,6 +13,6 @@
 # should create an x86 assembly file tests/test1.s.
 
 # THIS_DIR is bound to the directory that this script file is in.
-THIS_DIR=$(dirname $(realpath $0))
 
-${THIS_DIR}/rust-python $*
+chmod +x ./rust-python
+./rust-python $*
