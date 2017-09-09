@@ -8,3 +8,4 @@
 **/*.rs.bk
 *.swp
 src/p0.rs
+cog.zip
