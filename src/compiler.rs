@@ -5,7 +5,6 @@ use ir;
 use x86;
 use error::Result;
 use error::ResultExt;
-use std::iter::IntoIterator;
 
 /// 
 /// ```rust

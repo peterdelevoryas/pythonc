@@ -1,6 +1,5 @@
 use lexer;
 use lalrpop_util::ParseError;
-use std::num::ParseIntError;
 
 error_chain! {
     types {

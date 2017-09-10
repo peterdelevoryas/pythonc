@@ -4,8 +4,6 @@ use ast::{
     DecimalI32, Input, Module, Program
 };
 use lexer::Error;
-use lalrpop_util::ParseError;
-use std::str::FromStr;
 
 grammar;
 
