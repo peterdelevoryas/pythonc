@@ -11,12 +11,14 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 
+/*
 fn val_to_string(val: &ir::Val) -> String {
     match *val {
         ir::Val::Int(i) => format!("{}", i),
         ir::Val::Ref(tmp) => format!("t{}", tmp.index()),
     }
 }
+*/
 
 fn main() {
     let path = env::args().nth(1).unwrap();

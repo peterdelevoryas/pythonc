@@ -1,6 +1,5 @@
 use x86::Bits;
 use x86::Bits32;
-use std::fmt::Display;
 
 pub trait Imm {
     type Size: Bits;

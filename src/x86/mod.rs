@@ -41,8 +41,6 @@ pub struct Builder {
 
 use ir;
 use self::mem::Mem;
-use self::imm::Imm;
-use self::reg::Reg;
 use self::reg::Reg32;
 use self::reg::EBP;
 use self::reg::ESP;
@@ -52,7 +50,6 @@ use self::ia32::{
     Mov,
     Add,
     Neg,
-    Ret,
     Call,
 };
 
