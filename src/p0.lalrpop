@@ -22,8 +22,8 @@ extern {
         "<" => lexer::Tok::Lt,
         ">" => lexer::Tok::Gt,
         "," => lexer::Tok::Comma,
-        "name" => lexer::Tok::Name(<Name>),
-        "decimal_i32" => lexer::Tok::DecimalI32(<DecimalI32>),
+        "name" => lexer::Tok::Name(<String>),
+        "decimal_i32" => lexer::Tok::DecimalI32(<i32>),
         "input" => lexer::Tok::Input,
     }
 }
@@ -60,6 +60,6 @@ pub term: Expression = {
     "input" "(" ")" => Expression::Input(Input),
 };
 
-pub name: Name = <n:"name"> => n;
+pub name: Name = <s:"name"> => Name(s);
 
-pub decimal_i32: DecimalI32 = <d:"decimal_i32"> => d;
+pub decimal_i32: DecimalI32 = <i:"decimal_i32"> => DecimalI32(i);

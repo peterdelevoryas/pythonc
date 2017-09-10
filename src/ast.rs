@@ -38,13 +38,11 @@
 use lexer::Error;
 use std::str::FromStr;
 
-///     name ::= name_first_char name_char*
-///     name_first_char ::= letter | "_"
-///     name_char ::= letter | "_" | decimal_digit
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Name(Vec<u8>);
+pub struct Name(pub String);
 
 impl Name {
+    /*
     pub fn new(bytes: &[u8]) -> Option<Name> {
         let valid_name = bytes
             .split_first()
@@ -64,6 +62,7 @@ impl Name {
             None
         }
     }
+    */
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

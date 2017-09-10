@@ -91,7 +91,7 @@ mod test {
             input: "x = 1",
             test: parsed_equals!(
                 Statement::Assign(
-                    Name::new(b"x").unwrap(),
+                    Name("x".into()),
                     Expression::DecimalI32(DecimalI32(1))
                 )
             )
@@ -102,16 +102,16 @@ mod test {
             input: "x = (-1 + x + (-y + 4))",
             test: parsed_equals!(
                 Statement::Assign(
-                    Name::new(b"x").unwrap(),
+                    Name("x".into()),
                     Expression::Add(
                         // - 1 + x
                         Expression::Add(
                             Expression::DecimalI32(DecimalI32(-1)).into(),
-                            Expression::Name(Name::new(b"x").unwrap()).into()
+                            Expression::Name(Name("x".into())).into()
                         ).into(),
                         // -y + 4
                         Expression::Add(
-                            Expression::UnaryNeg(Expression::Name(Name::new(b"y").unwrap()).into()).into(),
+                            Expression::UnaryNeg(Expression::Name(Name("y".into())).into()).into(),
                             Expression::DecimalI32(DecimalI32(4)).into()
                         ).into()
                     )
@@ -129,7 +129,7 @@ mod test {
                 Statement::Print(
                     Expression::Add(
                         Expression::DecimalI32(DecimalI32(1)).into(),
-                        Expression::Name(Name::new(b"x").unwrap()).into()
+                        Expression::Name(Name("x".into())).into()
                     )
                 )
             )
@@ -170,14 +170,14 @@ mod test {
         test! {
             parse: p0::parse_term,
             input: "(rust_python)",
-            test: parsed_equals!(Expression::Name(Name::new(b"rust_python").unwrap()))
+            test: parsed_equals!(Expression::Name(Name("rust_python".into())))
         }
         test! {
             parse: p0::parse_term,
             input: "( (( rust_python + 222 )) )",
             test: parsed_equals!(
                 Expression::Add(
-                    Expression::Name(Name::new(b"rust_python").unwrap()).into(),
+                    Expression::Name(Name("rust_python".into())).into(),
                     Expression::DecimalI32(DecimalI32(222)).into()
                 )
             )
@@ -198,7 +198,7 @@ mod test {
             test: parsed_equals!(
                 Expression::UnaryNeg(
                     Expression::Add(
-                        Expression::Name(Name::new(b"_").unwrap()).into(),
+                        Expression::Name(Name("_".into())).into(),
                         Expression::DecimalI32(DecimalI32(2)).into()
                     ).into()
                 )
@@ -215,7 +215,7 @@ mod test {
             test! {
                 parse: p0::parse_name,
                 input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
+                test: parsed_equals!(Name(name.clone()))
             }
         }
     }
@@ -228,7 +228,7 @@ mod test {
             test! {
                 parse: p0::parse_name,
                 input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
+                test: parsed_equals!(Name(name.clone()))
             }
         }
     }
@@ -240,7 +240,7 @@ mod test {
             test! {
                 parse: p0::parse_name,
                 input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
+                test: parsed_equals!(Name(name.clone()))
             }
         }
     }
@@ -260,7 +260,7 @@ mod test {
             test! {
                 parse: p0::parse_name,
                 input: name,
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
+                test: parsed_equals!(Name(name.to_string()))
             }
         }
     }
@@ -302,7 +302,7 @@ mod test {
         test! {
             parse: p0::parse_name,
             input: "_rust_python",
-            test: parsed_equals!(Name::new(b"_rust_python").unwrap())
+            test: parsed_equals!(Name("_rust_python".into()))
         }
     }
 
@@ -311,7 +311,7 @@ mod test {
         test! {
             parse: p0::parse_name,
             input: "_",
-            test: parsed_equals!(Name::new(b"_").unwrap())
+            test: parsed_equals!(Name("_".into()))
         }
     }
 
@@ -451,7 +451,7 @@ mod test {
                     Statement::Newline,
                     Statement::Expression(
                         Expression::Add(
-                            Expression::Name(Name::new(b"x").unwrap()).into(),
+                            Expression::Name(Name("x".into())).into(),
                             Expression::DecimalI32(DecimalI32(1)).into()
                         )
                     ),

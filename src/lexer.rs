@@ -20,8 +20,8 @@ pub enum Tok {
     Lt,
     Gt,
     Comma,
-    DecimalI32(DecimalI32),
-    Name(Name),
+    DecimalI32(i32),
+    Name(String),
 }
 
 impl fmt::Display for Tok {
@@ -146,7 +146,7 @@ impl<'input> Lexer<'input> {
                     // This is just a special case for p0, it will be removed and replaced
                     // by generic call_func(name, args) later
                     "input" => Tok::Input,
-                    _ => Tok::Name(Name::new(s.as_bytes()).unwrap()),
+                    _ => Tok::Name(s.into()),
                 };
                 (start, tok, end)
             })
@@ -180,7 +180,9 @@ impl<'input> Iterator for Lexer<'input> {
                     if let Some((_, '0'...'9')) = self.peek() {
                         let result = self.decimal_i32().and_then(|(_, _, end)| {
                             let s = &self.text[minus_index..end];
-                            DecimalI32::from_str(s).map(|d| (minus_index, Tok::DecimalI32(d), end))
+                            i32::from_str(s)
+                                .map(|i| (minus_index, Tok::DecimalI32(i), end))
+                                .map_err(Error::InvalidIntegerLiteral)
                         });
                         return Some(result);
                     }
@@ -221,7 +223,9 @@ impl<'input> Iterator for Lexer<'input> {
             let parsed = match c {
                 '0'...'9' => {
                     self.decimal_i32().and_then(|(start, (), end)| {
-                        (&self.text[start..end]).parse().map(|d| (start, Tok::DecimalI32(d), end))
+                        (&self.text[start..end]).parse()
+                            .map(|i| (start, Tok::DecimalI32(i), end))
+                            .map_err(|e: ParseIntError| Error::InvalidIntegerLiteral(e))
                     })
                 }
                 'a'...'z' | 'A'...'Z' | '_' => self.name_or_keyword(i),
