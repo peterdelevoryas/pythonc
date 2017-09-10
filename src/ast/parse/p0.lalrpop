@@ -1,9 +1,13 @@
-use lexer;
+use ast::parse::tok::{Tok, Error};
 use ast::{
-    Expression, Statement, Name,
-    DecimalI32, Input, Module, Program
+    Expression,
+    Statement,
+    Name,
+    DecimalI32,
+    Input,
+    Module,
+    Program,
 };
-use lexer::Error;
 
 grammar;
 
@@ -11,20 +15,20 @@ extern {
     type Location = usize;
     type Error = Error;
 
-    enum lexer::Tok {
-        "\n" => lexer::Tok::Newline,
-        "print" => lexer::Tok::Print,
-        "=" => lexer::Tok::Equals,
-        "(" => lexer::Tok::LeftParens,
-        ")" => lexer::Tok::RightParens,
-        "-" => lexer::Tok::Minus,
-        "+" => lexer::Tok::Plus,
-        "<" => lexer::Tok::Lt,
-        ">" => lexer::Tok::Gt,
-        "," => lexer::Tok::Comma,
-        "name" => lexer::Tok::Name(<String>),
-        "decimal_i32" => lexer::Tok::DecimalI32(<i32>),
-        "input" => lexer::Tok::Input,
+    enum Tok {
+        "\n" => Tok::Newline,
+        "print" => Tok::Print,
+        "=" => Tok::Equals,
+        "(" => Tok::LeftParens,
+        ")" => Tok::RightParens,
+        "-" => Tok::Minus,
+        "+" => Tok::Plus,
+        "<" => Tok::Lt,
+        ">" => Tok::Gt,
+        "," => Tok::Comma,
+        "name" => Tok::Name(<String>),
+        "decimal_i32" => Tok::DecimalI32(<i32>),
+        "input" => Tok::Input,
     }
 }
 

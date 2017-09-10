@@ -35,7 +35,9 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
-use lexer::Error;
+pub mod parse;
+
+use self::parse::Error;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -67,15 +69,6 @@ impl Name {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct DecimalI32(pub i32);
-
-impl FromStr for DecimalI32 {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        i32::from_str_radix(s, 10)
-            .map(|i| DecimalI32(i))
-            .map_err(|e| Error::InvalidIntegerLiteral(e))
-    }
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Input;

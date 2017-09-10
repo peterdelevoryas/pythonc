@@ -7,8 +7,6 @@ extern crate error_chain;
 
 // dev-dependency for testing
 
-pub mod lexer;
-pub mod p0;
 pub mod ast;
 pub mod ir;
 pub mod x86;
@@ -21,8 +19,8 @@ pub use error::*;
 
 #[cfg(test)]
 mod test {
-    use lexer;
-    use p0;
+    use ast::parse::tok;
+    use ast::parse::p0;
     use ast::*;
     use error::Result;
     use error::ResultExt;
@@ -31,12 +29,12 @@ mod test {
 
     fn test<'input, F, P, T, R>(parse: F, s: &'input str, test: T) -> R
     where
-        F: FnOnce(lexer::Lexer<'input>) -> ::std::result::Result<P, ParseError<usize, lexer::Tok, lexer::Error>>,
+        F: FnOnce(tok::Stream<'input>) -> ::std::result::Result<P, ParseError<usize, tok::Tok, tok::Error>>,
         P: Debug + PartialEq,
         T: FnOnce(Result<P>) -> R,
     {
-        let lexer = lexer::Lexer::new(s);
-        let parsed = parse(lexer).chain_err(|| "something");
+        let tok = tok::Stream::new(s);
+        let parsed = parse(tok).chain_err(|| "something");
         test(parsed)
     }
 
@@ -398,9 +396,9 @@ mod test {
     #[test]
     fn parse_statement() {
         let statement = "1 + 2";
-        let lexer = lexer::Lexer::new(statement);
+        let tok = tok::Stream::new(statement);
         assert_eq!(
-            p0::parse_statement(lexer).unwrap(),
+            p0::parse_statement(tok).unwrap(),
             Statement::Expression(Expression::Add(
                 Expression::DecimalI32(DecimalI32(1)).into(),
                 Expression::DecimalI32(DecimalI32(2)).into(),
@@ -411,9 +409,9 @@ mod test {
     #[test]
     fn parse_statements() {
         let statements = "\n\nprint 1 + 2\n\n3 + 4\n\n\n";
-        let lexer = lexer::Lexer::new(statements);
+        let tok = tok::Stream::new(statements);
         assert_eq!(
-            p0::parse_statements(lexer).unwrap(),
+            p0::parse_statements(tok).unwrap(),
             vec![
                 Statement::Newline,
                 Statement::Newline,

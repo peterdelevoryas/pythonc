@@ -7,5 +7,5 @@
 /target/
 **/*.rs.bk
 *.swp
-src/p0.rs
+src/ast/parse/p0.rs
 cog.zip

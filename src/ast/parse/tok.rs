@@ -59,16 +59,16 @@ impl ::std::error::Error for Error {
 
 /// Very closely mirrors lalrpop implementation
 /// https://github.com/nikomatsakis/lalrpop/blob/master/lalrpop/src/tok/mod.rs
-pub struct Lexer<'input> {
+pub struct Stream<'input> {
     text: &'input str,
     chars: CharIndices<'input>,
     next: Option<(usize, char)>,
 }
 
-impl<'input> Lexer<'input> {
+impl<'input> Stream<'input> {
     pub fn new(text: &'input str) -> Self {
         ////println!("text: {:?}", text);
-        let mut lexer = Lexer {
+        let mut lexer = Stream {
             text,
             chars: text.char_indices(),
             next: None,
@@ -154,7 +154,7 @@ impl<'input> Lexer<'input> {
     }
 }
 
-impl<'input> Iterator for Lexer<'input> {
+impl<'input> Iterator for Stream<'input> {
     type Item = Spanned<Tok>;
 
     fn next(&mut self) -> Option<Self::Item> {
