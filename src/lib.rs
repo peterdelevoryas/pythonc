@@ -20,6 +20,7 @@ pub mod error;
 
 // Re-exports
 pub use compiler::Compiler;
+pub use error::*;
 
 #[cfg(test)]
 mod test {
