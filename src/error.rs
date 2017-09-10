@@ -13,20 +13,9 @@ error_chain! {
     foreign_links {
         Fmt(::std::fmt::Error);
         Io(::std::io::Error);
+        Parse(ParseError<usize, lexer::Tok, lexer::Error>);
     }
 
     errors {
-        ParseIntegerLiteral(e: ParseIntError) {
-            description("invalid integer literal"),
-            display("invalid integer literal: {}", e),
-        }
-        UnexpectedEof(source: String) {
-            description("unexpected end of file"),
-            display("unexpected end of file: {:?}", source),
-        }
-        UnexpectedChar(c: char, source: String) {
-            description("unexpected character"),
-            display("unexpected character: {:?} in {:?}", c, source),
-        }
     }
 }

@@ -3,7 +3,7 @@ use ast::{
     Expression, Statement, Name,
     DecimalI32, Input, Module, Program
 };
-use error::Error;
+use lexer::Error;
 use lalrpop_util::ParseError;
 use std::str::FromStr;
 

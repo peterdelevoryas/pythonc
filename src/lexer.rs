@@ -1,12 +1,11 @@
 use ast::DecimalI32;
 use ast::Name;
-use error::Result;
-use error::ErrorKind;
 use std::num::ParseIntError;
 use std::str::CharIndices;
 use std::str::FromStr;
+use std::fmt;
 
-pub type Spanned<T> = Result<(usize, T, usize)>;
+pub type Spanned<T> = Result<(usize, T, usize), Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
@@ -23,6 +22,39 @@ pub enum Tok {
     Comma,
     DecimalI32(DecimalI32),
     Name(Name),
+}
+
+impl fmt::Display for Tok {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Error {
+    InvalidIntegerLiteral(ParseIntError),
+    UnexpectedEof,
+    UnexpectedChar,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::InvalidIntegerLiteral(ref e) => write!(f, "{}", e),
+            Error::UnexpectedEof => write!(f, "unexpected end of file"),
+            Error::UnexpectedChar => write!(f, "unexpected character"),
+        }
+    }
+}
+
+impl ::std::error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::InvalidIntegerLiteral(_) => "invalid integer literal",
+            Error::UnexpectedEof => "unexpected end of file",
+            Error::UnexpectedChar => "unexpected character",
+        }
+    }
 }
 
 /// Very closely mirrors lalrpop implementation
@@ -92,13 +124,13 @@ impl<'input> Lexer<'input> {
                 return Ok((i, (), i + 1))
             }
             Some((i, _)) => i,
-            None => return Err(ErrorKind::UnexpectedEof("unimplemented".into()).into())
+            None => return Err(Error::UnexpectedEof)
         };
         self.consume_until(|_, c| match c {
             '0'...'9' => false,
             _ => true,
         }).map(|end| (start, (), end))
-            .ok_or(ErrorKind::UnexpectedEof((&self.text[start..]).into()).into())
+            .ok_or(Error::UnexpectedEof)
     }
 
     pub fn name_or_keyword(&mut self, start: usize) -> Spanned<Tok> {
@@ -118,7 +150,7 @@ impl<'input> Lexer<'input> {
                 };
                 (start, tok, end)
             })
-            .ok_or(ErrorKind::UnexpectedEof("unimplemented".into()).into())
+            .ok_or(Error::UnexpectedEof)
     }
 }
 
@@ -195,7 +227,7 @@ impl<'input> Iterator for Lexer<'input> {
                 'a'...'z' | 'A'...'Z' | '_' => self.name_or_keyword(i),
                 _ => {
                     if !c.is_whitespace() {
-                        return Some(Err(ErrorKind::UnexpectedChar(c, "unimplemented".into()).into()))
+                        return Some(Err(Error::UnexpectedChar))
                     }
                     //println!("skipping over {:?}\n", c);
                     self.consume1();

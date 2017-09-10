@@ -35,9 +35,7 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
-use error::Result;
-use error::ErrorKind;
-use error::Error;
+use lexer::Error;
 use std::str::FromStr;
 
 ///     name ::= name_first_char name_char*
@@ -73,10 +71,10 @@ pub struct DecimalI32(pub i32);
 
 impl FromStr for DecimalI32 {
     type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         i32::from_str_radix(s, 10)
             .map(|i| DecimalI32(i))
-            .map_err(|e| ErrorKind::ParseIntegerLiteral(e).into())
+            .map_err(|e| Error::InvalidIntegerLiteral(e))
     }
 }
 
