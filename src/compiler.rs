@@ -4,6 +4,7 @@ use ast;
 use ir;
 use x86;
 use error::Result;
+use error::ResultExt;
 use std::iter::IntoIterator;
 
 /// 
@@ -35,7 +36,9 @@ impl Compiler {
 
     pub fn compile(&self, source: &str) -> Result<String> {
         let lexer = lexer::Lexer::new(source);
-        //let ast = p0::parse_program(source, lexer)?;
-        unimplemented!()
+        let ast = p0::parse_program(lexer).chain_err(|| "invalid program")?;
+        let ir = ast.into();
+        let x86 = x86::Builder::build(&ir);
+        Ok(x86)
     }
 }
