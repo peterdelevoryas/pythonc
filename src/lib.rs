@@ -24,24 +24,21 @@ mod test {
     use p0;
     use ast::*;
     use error::Result;
+    use error::ResultExt;
     use error::Error;
     use error::ErrorKind;
+    use error_chain::ChainedError;
     use lalrpop_util::ParseError;
     use std::fmt::Debug;
 
     fn test<'input, F, P, T, R>(parse: F, s: &'input str, test: T) -> R
     where
-        F: FnOnce(lexer::Lexer<'input>) -> ::std::result::Result<P, ParseError<usize, lexer::Tok, Error>>,
+        F: FnOnce(lexer::Lexer<'input>) -> ::std::result::Result<P, ParseError<usize, lexer::Tok, lexer::Error>>,
         P: Debug + PartialEq,
         T: FnOnce(Result<P>) -> R,
     {
         let lexer = lexer::Lexer::new(s);
-        let parsed = parse(lexer).map_err(|e| {
-            match e {
-                ParseError::User { error } => error,
-                e => ErrorKind::Msg(format!("non-user error {:?}", e)).into(),
-            }
-        });
+        let parsed = parse(lexer).chain_err(|| "something");
         test(parsed)
     }
 
