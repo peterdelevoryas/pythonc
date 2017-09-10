@@ -7,9 +7,6 @@ extern crate error_chain;
 
 // dev-dependency for testing
 
-#[cfg(test)]
-extern crate rand;
-
 pub mod lexer;
 pub mod p0;
 pub mod ast;
@@ -29,9 +26,6 @@ mod test {
     use ast::*;
     use error::Result;
     use error::ResultExt;
-    use error::Error;
-    use error::ErrorKind;
-    use error_chain::ChainedError;
     use lalrpop_util::ParseError;
     use std::fmt::Debug;
 
