@@ -18,6 +18,9 @@ pub mod x86;
 pub mod compiler;
 pub mod error;
 
+// Re-exports
+pub use compiler::Compiler;
+
 #[cfg(test)]
 mod test {
     use lexer;
