@@ -16,7 +16,12 @@ use std::iter::IntoIterator;
 ///           y = 2
 ///           print x + y
 ///       ";
-///       let asm: String = Compiler::new().compile(program)?;
+///       let compiler = Compiler::new();
+///       let ast = compiler.build_ast(source)?;
+///       let ir = compiler.build_ir(&ast)?;
+///       let asm = compiler.build_asm(&ir)?;
+///       let asm = compiler.compile(source)?;
+/// #     Ok(())
 /// # }
 /// #
 /// # fn main() {
@@ -35,10 +40,23 @@ impl Compiler {
     }
 
     pub fn compile(&self, source: &str) -> Result<String> {
+        let ast = self.build_ast(source)?;
+        let ir = self.build_ir(&ast)?;
+        self.build_asm(&ir)
+    }
+
+    pub fn build_ast(&self, source: &str) -> Result<ast::Program> {
         let lexer = lexer::Lexer::new(source);
-        let ast = p0::parse_program(lexer).chain_err(|| "invalid program")?;
+        p0::parse_program(lexer).chain_err(|| "invalid program")
+    }
+
+    pub fn build_ir(&self, ast: &ast::Program) -> Result<ir::Program> {
         let ir = ast.into();
-        let x86 = x86::Builder::build(&ir);
-        Ok(x86)
+        Ok(ir)
+    }
+
+    pub fn build_asm(&self, ir: &ir::Program) -> Result<String> {
+        let asm = x86::Builder::build(ir);
+        Ok(asm)
     }
 }
