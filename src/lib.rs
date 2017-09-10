@@ -2,33 +2,46 @@ extern crate lalrpop_util;
 extern crate regex;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate error_chain;
 
 // dev-dependency for testing
 
 #[cfg(test)]
 extern crate rand;
 
-pub mod p0;
 pub mod lexer;
+pub mod p0;
 pub mod ast;
 pub mod ir;
 pub mod x86;
+pub mod compiler;
+pub mod error;
 
 #[cfg(test)]
 mod test {
     use lexer;
     use p0;
     use ast::*;
+    use error::Result;
+    use error::Error;
+    use error::ErrorKind;
+    use lalrpop_util::ParseError;
     use std::fmt::Debug;
 
-    fn test<'input, F, E, T, R>(parse: F, s: &'input str, test: T) -> R
+    fn test<'input, F, P, T, R>(parse: F, s: &'input str, test: T) -> R
     where
-        F: FnOnce(&'input str, lexer::Lexer<'input>) -> E,
-        E: Debug + PartialEq,
-        T: FnOnce(E) -> R,
+        F: FnOnce(lexer::Lexer<'input>) -> ::std::result::Result<P, ParseError<usize, lexer::Tok, Error>>,
+        P: Debug + PartialEq,
+        T: FnOnce(Result<P>) -> R,
     {
         let lexer = lexer::Lexer::new(s);
-        let parsed = parse(s, lexer);
+        let parsed = parse(lexer).map_err(|e| {
+            match e {
+                ParseError::User { error } => error,
+                e => ErrorKind::Msg(format!("non-user error {:?}", e)).into(),
+            }
+        });
         test(parsed)
     }
 
@@ -392,11 +405,11 @@ mod test {
         let statement = "1 + 2";
         let lexer = lexer::Lexer::new(statement);
         assert_eq!(
-            p0::parse_statement(statement, lexer),
-            Ok(Statement::Expression(Expression::Add(
+            p0::parse_statement(lexer).unwrap(),
+            Statement::Expression(Expression::Add(
                 Expression::DecimalI32(DecimalI32(1)).into(),
                 Expression::DecimalI32(DecimalI32(2)).into(),
-            )))
+            ))
         );
     }
 
@@ -405,8 +418,8 @@ mod test {
         let statements = "\n\nprint 1 + 2\n\n3 + 4\n\n\n";
         let lexer = lexer::Lexer::new(statements);
         assert_eq!(
-            p0::parse_statements(statements, lexer),
-            Ok(vec![
+            p0::parse_statements(lexer).unwrap(),
+            vec![
                 Statement::Newline,
                 Statement::Newline,
                 Statement::Print(Expression::Add(
@@ -422,7 +435,7 @@ mod test {
                 Statement::Newline,
                 Statement::Newline,
                 Statement::Newline,
-            ])
+            ]
         );
 
         test! {

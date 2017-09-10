@@ -288,12 +288,13 @@ impl FromStr for Program {
 #[cfg(test)]
 mod test {
     use ir;
+    use p0;
+    use lexer;
 
     macro_rules! test {
         ($p0:expr => $ir:expr) => ({
-            use $crate::ast::Parse;
-
-            let program = $p0.parse_program().unwrap();
+            let lexer = lexer::Lexer::new($p0);
+            let program = p0::parse_program(lexer).unwrap();
             let ir: $crate::ir::Program = program.into();
             let expected = $ir.parse::<ir::Program>().unwrap();
             assert_eq!(ir, expected, "generated ir {:#?} does not equal expected {:#?}", ir, expected);

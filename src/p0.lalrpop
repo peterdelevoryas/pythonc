@@ -3,16 +3,17 @@ use ast::{
     Expression, Statement, Name,
     DecimalI32, Input, Module, Program
 };
+use error::Error;
 use lalrpop_util::ParseError;
 use std::str::FromStr;
 
-grammar<'input>(text: &'input str);
+grammar;
 
 extern {
     type Location = usize;
-    type Error = lexer::Error;
+    type Error = Error;
 
-    enum lexer::Tok<'input> {
+    enum lexer::Tok {
         "\n" => lexer::Tok::Newline,
         "print" => lexer::Tok::Print,
         "=" => lexer::Tok::Equals,
@@ -23,8 +24,8 @@ extern {
         "<" => lexer::Tok::Lt,
         ">" => lexer::Tok::Gt,
         "," => lexer::Tok::Comma,
-        "name" => lexer::Tok::Name(<&'input str>),
-        "decimal_i32" => lexer::Tok::DecimalI32(<&'input str>),
+        "name" => lexer::Tok::Name(<Name>),
+        "decimal_i32" => lexer::Tok::DecimalI32(<DecimalI32>),
         "input" => lexer::Tok::Input,
     }
 }
@@ -61,8 +62,6 @@ pub term: Expression = {
     "input" "(" ")" => Expression::Input(Input),
 };
 
-pub name: Name = <s:"name"> => Name::new(s.as_bytes()).unwrap();
+pub name: Name = <n:"name"> => n;
 
-pub decimal_i32: DecimalI32 = <s:"decimal_i32"> =>? {
-    DecimalI32::from_str(s).map_err(|e| ParseError::User { error: lexer::Error::Int(e) })
-};
+pub decimal_i32: DecimalI32 = <d:"decimal_i32"> => d;

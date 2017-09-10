@@ -39,7 +39,7 @@ fn main() {
     */
 
     let lexer = lexer::Lexer::new(source);
-    let ast = p0::parse_program(source, lexer).unwrap();
+    let ast = p0::parse_program(lexer).unwrap();
     let ir: ir::Program = ast.into();
 
     /*

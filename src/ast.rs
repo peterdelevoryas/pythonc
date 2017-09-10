@@ -35,8 +35,10 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
+use error::Result;
+use error::ErrorKind;
+use error::Error;
 use std::str::FromStr;
-use std::num::ParseIntError;
 
 ///     name ::= name_first_char name_char*
 ///     name_first_char ::= letter | "_"
@@ -45,7 +47,7 @@ use std::num::ParseIntError;
 pub struct Name(Vec<u8>);
 
 impl Name {
-    pub fn new(bytes: &[u8]) -> Result<Name, ()> {
+    pub fn new(bytes: &[u8]) -> Option<Name> {
         let valid_name = bytes
             .split_first()
             .and_then(|(&first, rest)| match first {
@@ -59,9 +61,9 @@ impl Name {
                 })
             });
         if valid_name {
-            Ok(Name(bytes.into()))
+            Some(Name(bytes.into()))
         } else {
-            Err(())
+            None
         }
     }
 }
@@ -70,9 +72,11 @@ impl Name {
 pub struct DecimalI32(pub i32);
 
 impl FromStr for DecimalI32 {
-    type Err = ParseIntError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        i32::from_str_radix(s, 10).map(DecimalI32)
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        i32::from_str_radix(s, 10)
+            .map(|i| DecimalI32(i))
+            .map_err(|e| ErrorKind::ParseIntegerLiteral(e).into())
     }
 }
 

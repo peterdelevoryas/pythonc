@@ -1,10 +1,15 @@
+use ast::DecimalI32;
+use ast::Name;
+use error::Result;
+use error::ErrorKind;
 use std::num::ParseIntError;
 use std::str::CharIndices;
+use std::str::FromStr;
 
-pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
+pub type Spanned<T> = Result<(usize, T, usize)>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Tok<'input> {
+pub enum Tok {
     Newline,
     Print,
     Equals,
@@ -16,15 +21,8 @@ pub enum Tok<'input> {
     Lt,
     Gt,
     Comma,
-    DecimalI32(&'input str),
-    Name(&'input str),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Error {
-    Int(ParseIntError),
-    UnexpectedEof,
-    UnexpectedChar(char),
+    DecimalI32(DecimalI32),
+    Name(Name),
 }
 
 /// Very closely mirrors lalrpop implementation
@@ -83,7 +81,7 @@ impl<'input> Lexer<'input> {
         }
     }
 
-    pub fn decimal_i32(&mut self) -> Spanned<Tok<'input>, usize, Error> {
+    pub fn decimal_i32(&mut self) -> Spanned<()> {
         // first check to see if first digit is 0, if so, immediately
         // return, because 01 should not be parsed as 1, it should be [zero, one]
         // at least, that's how I'm writing it, then at a higher level
@@ -91,19 +89,19 @@ impl<'input> Lexer<'input> {
         let start = match self.peek() {
             Some((i, '0')) => {
                 self.consume1();
-                return Ok((i, Tok::DecimalI32(&self.text[i..i + 1]), i + 1));
+                return Ok((i, (), i + 1))
             }
             Some((i, _)) => i,
-            None => return Err(Error::UnexpectedEof),
+            None => return Err(ErrorKind::UnexpectedEof("unimplemented".into()).into())
         };
         self.consume_until(|_, c| match c {
             '0'...'9' => false,
             _ => true,
-        }).map(|end| (start, Tok::DecimalI32(&self.text[start..end]), end))
-            .ok_or(Error::UnexpectedEof)
+        }).map(|end| (start, (), end))
+            .ok_or(ErrorKind::UnexpectedEof((&self.text[start..]).into()).into())
     }
 
-    pub fn name_or_keyword(&mut self, start: usize) -> Spanned<Tok<'input>, usize, Error> {
+    pub fn name_or_keyword(&mut self, start: usize) -> Spanned<Tok> {
         // I don't require that first character is non-decimal-digit, since that is
         // already checked in Iterator::next()
         self.consume_until(|_, c| match c {
@@ -116,16 +114,16 @@ impl<'input> Lexer<'input> {
                     // This is just a special case for p0, it will be removed and replaced
                     // by generic call_func(name, args) later
                     "input" => Tok::Input,
-                    _ => Tok::Name(s),
+                    _ => Tok::Name(Name::new(s.as_bytes()).unwrap()),
                 };
                 (start, tok, end)
             })
-            .ok_or(Error::UnexpectedEof)
+            .ok_or(ErrorKind::UnexpectedEof("unimplemented".into()).into())
     }
 }
 
 impl<'input> Iterator for Lexer<'input> {
-    type Item = Spanned<Tok<'input>, usize, Error>;
+    type Item = Spanned<Tok>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -148,12 +146,9 @@ impl<'input> Iterator for Lexer<'input> {
                     //println!("minus_index: {}", minus_index);
                     self.consume1();
                     if let Some((_, '0'...'9')) = self.peek() {
-                        let result = self.decimal_i32().map(|(_, _, end)| {
-                            (
-                                minus_index,
-                                Tok::DecimalI32(&self.text[minus_index..end]),
-                                end,
-                            )
+                        let result = self.decimal_i32().and_then(|(_, _, end)| {
+                            let s = &self.text[minus_index..end];
+                            DecimalI32::from_str(s).map(|d| (minus_index, Tok::DecimalI32(d), end))
                         });
                         return Some(result);
                     }
@@ -192,11 +187,15 @@ impl<'input> Iterator for Lexer<'input> {
             // if c is numeric, can't be a name, must be decimal_i32
             // else, must be name
             let parsed = match c {
-                '0'...'9' => self.decimal_i32(),
+                '0'...'9' => {
+                    self.decimal_i32().and_then(|(start, (), end)| {
+                        (&self.text[start..end]).parse().map(|d| (start, Tok::DecimalI32(d), end))
+                    })
+                }
                 'a'...'z' | 'A'...'Z' | '_' => self.name_or_keyword(i),
                 _ => {
                     if !c.is_whitespace() {
-                        return Some(Err(Error::UnexpectedChar(c)));
+                        return Some(Err(ErrorKind::UnexpectedChar(c, "unimplemented".into()).into()))
                     }
                     //println!("skipping over {:?}\n", c);
                     self.consume1();
