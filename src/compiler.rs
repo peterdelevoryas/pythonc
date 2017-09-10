@@ -16,7 +16,7 @@ use std::iter::IntoIterator;
 ///           y = 2
 ///           print x + y
 ///       ";
-///       let assembly: String = Compiler::new().compile(program)?;
+///       let asm: String = Compiler::new().compile(program)?;
 /// # }
 /// #
 /// # fn main() {
