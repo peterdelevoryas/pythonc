@@ -1,3 +1,4 @@
+/*
 extern crate lalrpop_util;
 extern crate regex;
 #[macro_use]
@@ -479,3 +480,4 @@ mod test {
         }
     }
 }
+*/

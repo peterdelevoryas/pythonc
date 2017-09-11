@@ -1,0 +1,12 @@
+[package]
+name = "pythonc-ast"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+build = "build.rs"
+
+[build-dependencies]
+lalrpop = "0.13.1"
+
+[dependencies]
+pythonc-token = { path = "../pythonc-token" }
+lalrpop-util = "0.13.1"

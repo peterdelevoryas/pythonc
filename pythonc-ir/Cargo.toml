@@ -1,0 +1,7 @@
+[package]
+name = "pythonc-ir"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+
+[dependencies]
+pythonc-ast = { path = "../pythonc-ast" }

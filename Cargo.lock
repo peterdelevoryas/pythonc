@@ -1,6 +1,9 @@
 [root]
 name = "pythonc-trans"
 version = "0.1.0"
+dependencies = [
+ "pythonc-ir 0.1.0",
+]
 
 [[package]]
 name = "aho-corasick"
@@ -184,25 +187,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "pythonc-core"
+name = "pythonc-ast"
 version = "0.1.0"
+dependencies = [
+ "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pythonc-token 0.1.0",
+]
 
 [[package]]
 name = "pythonc-driver"
 version = "0.1.0"
 dependencies = [
- "pythonc-core 0.1.0",
- "pythonc-syntax 0.1.0",
+ "pythonc-ast 0.1.0",
+ "pythonc-ir 0.1.0",
+ "pythonc-token 0.1.0",
  "pythonc-trans 0.1.0",
 ]
 
 [[package]]
-name = "pythonc-syntax"
+name = "pythonc-ir"
 version = "0.1.0"
 dependencies = [
- "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pythonc-ast 0.1.0",
 ]
+
+[[package]]
+name = "pythonc-token"
+version = "0.1.0"
 
 [[package]]
 name = "regex"

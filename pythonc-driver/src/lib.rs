@@ -1,5 +1,6 @@
-extern crate pythonc_syntax;
-extern crate pythonc_core;
+extern crate pythonc_token;
+extern crate pythonc_ast;
+extern crate pythonc_ir;
 extern crate pythonc_trans;
 
 #[cfg(test)]

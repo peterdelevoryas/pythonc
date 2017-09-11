@@ -28,8 +28,9 @@ pythonc-driver = { path = "pythonc-driver" }
 
 [workspace]
 members = [
-    "pythonc-syntax",
-    "pythonc-core",
+    "pythonc-token",
+    "pythonc-ast",
+    "pythonc-ir",
     "pythonc-trans",
     "pythonc-driver",
 ]

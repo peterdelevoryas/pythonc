@@ -1,3 +1,4 @@
+/*
 extern crate rust_python;
 extern crate error_chain;
 
@@ -31,3 +32,4 @@ fn main() {
         println!("{}", e.display_chain());
     }
 }
+*/
