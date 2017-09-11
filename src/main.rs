@@ -7,6 +7,7 @@ extern crate pythonc;
 
 use docopt::Docopt;
 use pythonc::Result;
+use pythonc::Compiler;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -43,18 +44,15 @@ fn run() -> Result<()> {
         return Ok(())
     }
 
-    let source = Path::new(&args.arg_source);
-    let output = args.flag_out.map(PathBuf::from);
+    let mut compiler = Compiler::new(&args.arg_source);
 
     if let Some(runtime) = args.flag_runtime {
-        let asm = source.with_extension("s");
-        pythonc::emit_asm(source, &asm)?;
-        let output = output.unwrap_or(source.with_extension(""));
-        pythonc::link(asm, runtime, output)?;
-    } else {
-        let output = output.unwrap_or(source.with_extension("s"));
-        pythonc::emit_asm(source, output)?;
+        compiler.runtime(runtime);
     }
 
-    Ok(())
+    if let Some(out) = args.flag_out {
+        compiler.out_path(out);
+    }
+
+    compiler.run()
 }

@@ -8,7 +8,63 @@ pub mod error;
 pub use error::{Error, ErrorKind, Result, ResultExt};
 
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
+
+pub struct Compiler {
+    source: PathBuf,
+    runtime: Option<PathBuf>,
+    out_path: Option<PathBuf>,
+    create_new: bool,
+}
+
+impl Compiler {
+    pub fn new<P>(source: P) -> Compiler
+    where
+        P: Into<PathBuf>
+    {
+        Compiler {
+            source: source.into(),
+            runtime: None,
+            out_path: None,
+            create_new: true,
+        }
+    }
+
+    pub fn runtime<P>(&mut self, path: P) -> &mut Compiler
+    where
+        P: Into<PathBuf>
+    {
+        self.runtime = Some(path.into());
+        self
+    }
+
+    pub fn out_path<P>(&mut self, path: P) -> &mut Compiler
+    where
+        P: Into<PathBuf>
+    {
+        self.out_path = Some(path.into());
+        self
+    }
+
+    pub fn create_new(&mut self, create_new: bool) -> &mut Compiler {
+        self.create_new = create_new;
+        self
+    }
+
+    pub fn run(&self) -> Result<()> {
+        if let Some(ref runtime) = self.runtime {
+            let asm = self.source.with_extension("s");
+            emit_asm(&self.source, &asm, self.create_new)?;
+            let out_path = self.out_path.clone().unwrap_or(self.source.with_extension(""));
+            link(asm, runtime, out_path)?;
+        } else {
+            let out_path = self.out_path.clone().unwrap_or(self.source.with_extension("s"));
+            emit_asm(&self.source, out_path, self.create_new)?;
+        }
+        Ok(())
+    }
+}
 
 pub fn compile(source: &str) -> Result<String> {
     let tokens = token::Stream::new(source);
@@ -18,7 +74,7 @@ pub fn compile(source: &str) -> Result<String> {
     Ok(asm)
 }
 
-pub fn emit_asm<P1, P2>(source: P1, output: P2) -> Result<()>
+pub fn emit_asm<P1, P2>(source: P1, output: P2, create_new: bool) -> Result<()>
 where
     P1: AsRef<Path>,
     P2: AsRef<Path>,
@@ -28,7 +84,7 @@ where
         || format!("compiling source file {:?}", source)
     )?;
 
-    write_file(&asm, output)
+    write_file(&asm, output, create_new)
 }
 
 pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
@@ -56,15 +112,16 @@ where
         })
 }
 
-pub fn read_file<P>(path: P) -> Result<String>
+fn read_file<P>(path: P) -> Result<String>
 where
     P: AsRef<Path>,
 {
     use std::fs::File;
     use std::io::Read;
 
-    let mut f = File::open(path.as_ref()).chain_err(|| {
-        format!("opening file {:?}", path.as_ref().to_string_lossy())
+    let path = path.as_ref();
+    let mut f = File::open(path).chain_err(|| {
+        format!("opening file {:?}", path.display())
     })?;
     let size = f.metadata().chain_err(|| "getting file size")?.len() as usize;
     let mut s = String::with_capacity(size);
@@ -72,19 +129,21 @@ where
     Ok(s)
 }
 
-pub fn write_file<P>(data: &str, path: P) -> Result<()>
+fn write_file<P>(data: &str, path: P, create_new: bool) -> Result<()>
 where
     P: AsRef<Path>,
 {
     use std::fs::OpenOptions;
     use std::io::Write;
 
+    let path = path.as_ref();
     let mut f = OpenOptions::new()
         .write(true)
-        .create_new(true)
-        .open(path.as_ref())
+        .create(true)
+        .create_new(create_new)
+        .open(path)
         .chain_err(|| {
-            format!("creating file {:?}", path.as_ref().to_string_lossy())
+            format!("creating file {:?}", path.display())
         })?;
     f.write_all(data.as_bytes()).chain_err(|| "writing data")?;
     Ok(())
