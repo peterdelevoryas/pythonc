@@ -10,6 +10,8 @@ PYYC=$(THIS_DIR)/pyyc
 CC=gcc
 CFLAGS=-m32 -g -lm
 
+all: cog.zip
+
 # Create x86 assembly .s file using your compiler.
 %.s: %.py
 	$(PYYC) $<
@@ -25,3 +27,11 @@ CFLAGS=-m32 -g -lm
 # Create the run-time library if necessary.
 $(RUNTIME_ROOT)/$(RUNTIME_LIBNAME):
 	$(MAKE) -C $(RUNTIME_DIR)
+
+cog.zip: $(PYYC) runtime pythonc Makefile
+	zip -r cog.zip Makefile pyyc pythonc runtime
+
+pythonc:
+	rustup target add i686-unknown-linux-gnu
+	cargo build --release
+	cp ./target/i686-unknown-linux-gnu/release/pythonc ./pythonc
