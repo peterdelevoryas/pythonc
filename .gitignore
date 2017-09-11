@@ -1,9 +1,5 @@
-*.pyc
-*.o
-*.a
-*.s
-*.warn
-*.out
 /target/
 **/*.rs.bk
 *.swp
+runtime/*.o
+runtime/*.a
