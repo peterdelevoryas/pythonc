@@ -1,4 +1,5 @@
 use ast::ParseError;
+use std::process::ExitStatus;
 
 error_chain! {
     types {
@@ -8,5 +9,12 @@ error_chain! {
     foreign_links {
         Io(::std::io::Error);
         Parse(ParseError);
+    }
+
+    errors {
+        Link(e: ExitStatus) {
+            description("link error"),
+            display("link error (exit status {})", e),
+        }
     }
 }

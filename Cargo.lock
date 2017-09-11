@@ -247,7 +247,6 @@ version = "0.1.0"
 dependencies = [
  "docopt 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gcc 0.3.53 (registry+https://github.com/rust-lang/crates.io-index)",
  "pythonc-ast 0.1.0",
  "pythonc-ir 0.1.0",
  "pythonc-token 0.1.0",

@@ -3,13 +3,13 @@ extern crate serde_derive;
 extern crate docopt;
 #[macro_use]
 extern crate error_chain;
-extern crate gcc;
 extern crate pythonc;
 
 use docopt::Docopt;
-use pythonc::{Result, ResultExt};
+use pythonc::{ErrorKind, Result, ResultExt};
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 const USAGE: &str = "
 pythonc.
@@ -49,14 +49,13 @@ fn run() -> Result<()> {
 
     if let Some(runtime) = args.flag_runtime {
         let asm = source.with_extension("s");
-        emit_asm(source, &asm);
+        emit_asm(source, &asm)?;
         let output = output.unwrap_or(source.with_extension(""));
         link(asm, runtime, output)?;
     } else {
         let output = output.unwrap_or(source.with_extension("s"));
         emit_asm(source, output)?;
     }
-
 
     Ok(())
 }
@@ -68,7 +67,7 @@ where
 {
     let source = read_file(source).chain_err(|| "reading source file")?;
     let asm = pythonc::compile(&source).chain_err(
-        || "compiling source file",
+        || format!("compiling source file {:?}", source)
     )?;
 
     write_file(&asm, output)
@@ -81,7 +80,22 @@ where
     P3: AsRef<Path>,
 {
     let (asm, runtime, output) = (asm.as_ref(), runtime.as_ref(), output.as_ref());
-    unimplemented!()
+    Command::new("gcc")
+        .args(&["-m32", "-g"])
+        .args(&[asm.as_os_str(), runtime.as_os_str()])
+        .arg("-o")
+        .arg(output.as_os_str())
+        .spawn()
+        .chain_err(|| "spawning gcc")?
+        .wait()
+        .chain_err(|| "gcc wasn't running")
+        .and_then(|e| {
+            if !e.success() { 
+                Err(ErrorKind::Link(e).into())
+            } else {
+                Ok(())
+            }
+        })
 }
 
 fn read_file<P>(path: P) -> Result<String>
