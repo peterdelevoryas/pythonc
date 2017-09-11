@@ -70,7 +70,9 @@ where
     use std::fs::File;
     use std::io::Read;
 
-    let mut f = File::open(path).chain_err(|| "opening file")?;
+    let mut f = File::open(path.as_ref()).chain_err(|| {
+        format!("opening file {:?}", path.as_ref().to_string_lossy())
+    })?;
     let size = f.metadata().chain_err(|| "getting file size")?.len() as usize;
     let mut s = String::with_capacity(size);
     f.read_to_string(&mut s).chain_err(|| "reading file")?;
