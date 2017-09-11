@@ -38,14 +38,21 @@ impl Compiler {
     }
 
     pub fn compile(&self, source: &str) -> Result<String> {
-        let ast = self.build_ast(source)?;
+        let tok = self.tok_stream(source);
+        let ast = self.parse_ast(tok)?;
         let ir = self.build_ir(&ast)?;
         self.build_asm(&ir)
     }
 
-    pub fn build_ast(&self, source: &str) -> Result<ast::Program> {
-        let tok_stream = tok::Stream::new(source);
-        ast::parse::p0::parse_program(tok_stream).chain_err(|| "invalid program")
+    pub fn tok_stream<'source>(&self, source: &'source str) -> tok::Stream<'source> {
+        tok::Stream::new(source)
+    }
+
+    pub fn parse_ast<I>(&self, tok: I) -> Result<ast::Program>
+        where I: Iterator<Item=tok::Spanned<tok::Tok>>,
+    {
+        let mut parser = ast::Parser::new(tok);
+        parser.parse_program().chain_err(|| "invalid program")
     }
 
     pub fn build_ir(&self, ast: &ast::Program) -> Result<ir::Program> {
