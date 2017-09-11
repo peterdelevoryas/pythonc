@@ -3,6 +3,7 @@ extern crate serde_derive;
 extern crate docopt;
 #[macro_use]
 extern crate error_chain;
+extern crate gcc;
 extern crate pythonc;
 
 use docopt::Docopt;
@@ -14,7 +15,7 @@ const USAGE: &str = "
 pythonc.
 
 Usage:
-    pythonc <source> [--out=<out>] [--runtime=<runtime>]
+    pythonc <source> [--runtime=<runtime>] [--out=<out>]
     pythonc (-h | --help)
     pythonc --version
 
@@ -25,8 +26,8 @@ Options:
 
 #[derive(Debug, Deserialize)]
 struct Args {
-    flag_out: Option<String>,
     flag_runtime: Option<String>,
+    flag_out: Option<String>,
     flag_version: bool,
     arg_source: String,
 }
@@ -37,15 +38,25 @@ fn run() -> Result<()> {
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
+
     if args.flag_version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return Ok(())
+    }
+
+    let source = Path::new(&args.arg_source);
+    let output = args.flag_out.map(PathBuf::from);
+
+    if let Some(runtime) = args.flag_runtime {
+        let asm = source.with_extension("s");
+        emit_asm(source, &asm);
+        let output = output.unwrap_or(source.with_extension(""));
+        link(asm, runtime, output)?;
     } else {
-        let source = Path::new(&args.arg_source);
-        let output = args.flag_out.map(PathBuf::from).unwrap_or(
-            source.with_extension("s"),
-        );
+        let output = output.unwrap_or(source.with_extension("s"));
         emit_asm(source, output)?;
     }
+
 
     Ok(())
 }
@@ -61,6 +72,16 @@ where
     )?;
 
     write_file(&asm, output)
+}
+
+fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+    P3: AsRef<Path>,
+{
+    let (asm, runtime, output) = (asm.as_ref(), runtime.as_ref(), output.as_ref());
+    unimplemented!()
 }
 
 fn read_file<P>(path: P) -> Result<String>
