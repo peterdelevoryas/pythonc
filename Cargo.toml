@@ -14,6 +14,9 @@ pythonc-ast = { path = "pythonc-ast" }
 pythonc-ir = { path = "pythonc-ir" }
 pythonc-trans = { path = "pythonc-trans" }
 error-chain = "0.11.0"
+docopt = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
 
 [workspace]
 members = [
