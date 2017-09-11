@@ -14,8 +14,7 @@ const USAGE: &str = "
 pythonc.
 
 Usage:
-    pythonc --emit-asm <source> [--out=<out>]
-    pythonc <source> --runtime=<runtime> [--out=<out>]
+    pythonc <source> [--out=<out>] [--runtime=<runtime>]
     pythonc (-h | --help)
     pythonc --version
 
@@ -26,8 +25,8 @@ Options:
 
 #[derive(Debug, Deserialize)]
 struct Args {
-    flag_emit_asm: bool,
     flag_out: Option<String>,
+    flag_runtime: Option<String>,
     flag_version: bool,
     arg_source: String,
 }
@@ -40,13 +39,14 @@ fn run() -> Result<()> {
         .unwrap_or_else(|e| e.exit());
     if args.flag_version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-    } else if args.flag_emit_asm {
+    } else {
         let source = Path::new(&args.arg_source);
         let output = args.flag_out.map(PathBuf::from).unwrap_or(
             source.with_extension("s"),
         );
         emit_asm(source, output)?;
     }
+
     Ok(())
 }
 
@@ -87,8 +87,10 @@ where
     let mut f = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(path)
-        .chain_err(|| "creating file")?;
+        .open(path.as_ref())
+        .chain_err(|| {
+            format!("creating file {:?}", path.as_ref().to_string_lossy())
+        })?;
     f.write_all(data.as_bytes()).chain_err(|| "writing data")?;
     Ok(())
 }
