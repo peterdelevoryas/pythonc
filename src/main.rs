@@ -15,6 +15,7 @@ pythonc.
 
 Usage:
     pythonc --emit-asm <source> [--out=<out>]
+    pythonc <source> --runtime=<runtime> [--out=<out>]
     pythonc (-h | --help)
     pythonc --version
 
@@ -41,26 +42,30 @@ fn run() -> Result<()> {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     } else if args.flag_emit_asm {
         let source = Path::new(&args.arg_source);
-        let output = args.flag_out.map(PathBuf::from)
-            .unwrap_or(source.with_extension("s"));
+        let output = args.flag_out.map(PathBuf::from).unwrap_or(
+            source.with_extension("s"),
+        );
         emit_asm(source, output)?;
     }
     Ok(())
 }
 
 fn emit_asm<P1, P2>(source: P1, output: P2) -> Result<()>
-    where P1: AsRef<Path>,
-          P2: AsRef<Path>,
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
 {
-
     let source = read_file(source).chain_err(|| "reading source file")?;
-    let asm = pythonc::compile(&source).chain_err(|| "compiling source file")?;
+    let asm = pythonc::compile(&source).chain_err(
+        || "compiling source file",
+    )?;
 
     write_file(&asm, output)
 }
 
 fn read_file<P>(path: P) -> Result<String>
-    where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     use std::fs::File;
     use std::io::Read;
@@ -73,7 +78,8 @@ fn read_file<P>(path: P) -> Result<String>
 }
 
 fn write_file<P>(data: &str, path: P) -> Result<()>
-    where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     use std::fs::OpenOptions;
     use std::io::Write;
