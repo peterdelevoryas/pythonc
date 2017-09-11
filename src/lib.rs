@@ -21,7 +21,7 @@ pub struct Compiler {
 impl Compiler {
     pub fn new<P>(source: P) -> Compiler
     where
-        P: Into<PathBuf>
+        P: Into<PathBuf>,
     {
         Compiler {
             source: source.into(),
@@ -33,7 +33,7 @@ impl Compiler {
 
     pub fn runtime<P>(&mut self, path: P) -> &mut Compiler
     where
-        P: Into<PathBuf>
+        P: Into<PathBuf>,
     {
         self.runtime = Some(path.into());
         self
@@ -41,7 +41,7 @@ impl Compiler {
 
     pub fn out_path<P>(&mut self, path: P) -> &mut Compiler
     where
-        P: Into<PathBuf>
+        P: Into<PathBuf>,
     {
         self.out_path = Some(path.into());
         self
@@ -56,10 +56,14 @@ impl Compiler {
         if let Some(ref runtime) = self.runtime {
             let asm = self.source.with_extension("s");
             emit_asm(&self.source, &asm, self.create_new)?;
-            let out_path = self.out_path.clone().unwrap_or(self.source.with_extension(""));
+            let out_path = self.out_path.clone().unwrap_or(
+                self.source.with_extension(""),
+            );
             link(asm, runtime, out_path)?;
         } else {
-            let out_path = self.out_path.clone().unwrap_or(self.source.with_extension("s"));
+            let out_path = self.out_path.clone().unwrap_or(
+                self.source.with_extension("s"),
+            );
             emit_asm(&self.source, out_path, self.create_new)?;
         }
         Ok(())
@@ -80,9 +84,9 @@ where
     P2: AsRef<Path>,
 {
     let source = read_file(source).chain_err(|| "reading source file")?;
-    let asm = compile(&source).chain_err(
-        || format!("compiling source file {:?}", source)
-    )?;
+    let asm = compile(&source).chain_err(|| {
+        format!("compiling source file {:?}", source)
+    })?;
 
     write_file(&asm, output, create_new)
 }
@@ -103,12 +107,10 @@ where
         .chain_err(|| "spawning gcc")?
         .wait()
         .chain_err(|| "gcc wasn't running")
-        .and_then(|e| {
-            if !e.success() { 
-                Err(ErrorKind::Link(e).into())
-            } else {
-                Ok(())
-            }
+        .and_then(|e| if !e.success() {
+            Err(ErrorKind::Link(e).into())
+        } else {
+            Ok(())
         })
 }
 
@@ -142,9 +144,7 @@ where
         .create(true)
         .create_new(create_new)
         .open(path)
-        .chain_err(|| {
-            format!("creating file {:?}", path.display())
-        })?;
+        .chain_err(|| format!("creating file {:?}", path.display()))?;
     f.write_all(data.as_bytes()).chain_err(|| "writing data")?;
     Ok(())
 }

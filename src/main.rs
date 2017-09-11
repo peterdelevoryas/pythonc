@@ -41,7 +41,7 @@ fn run() -> Result<()> {
 
     if args.flag_version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(())
+        return Ok(());
     }
 
     let mut compiler = Compiler::new(&args.arg_source);
