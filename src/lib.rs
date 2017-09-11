@@ -7,6 +7,7 @@ extern crate error_chain;
 
 // dev-dependency for testing
 
+pub mod tok;
 pub mod ast;
 pub mod ir;
 pub mod x86;
@@ -19,7 +20,7 @@ pub use error::*;
 
 #[cfg(test)]
 mod test {
-    use ast::parse::tok;
+    use tok;
     use ast::parse::p0;
     use ast::*;
     use error::Result;

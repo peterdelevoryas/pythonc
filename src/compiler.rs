@@ -1,3 +1,4 @@
+use tok;
 use ast;
 use ir;
 use x86;
@@ -43,7 +44,7 @@ impl Compiler {
     }
 
     pub fn build_ast(&self, source: &str) -> Result<ast::Program> {
-        let tok_stream = ast::parse::tok::Stream::new(source);
+        let tok_stream = tok::Stream::new(source);
         ast::parse::p0::parse_program(tok_stream).chain_err(|| "invalid program")
     }
 

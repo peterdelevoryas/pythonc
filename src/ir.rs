@@ -287,13 +287,15 @@ impl FromStr for Program {
 
 #[cfg(test)]
 mod test {
+    use tok;
     use ast;
+    use ast::parse::p0;
     use ir;
 
     macro_rules! test {
         ($p0:expr => $ir:expr) => ({
-            let tok_stream = ast::parse::tok::Stream::new($p0);
-            let program = ast::parse::p0::parse_program(tok_stream).unwrap();
+            let tok_stream = tok::Stream::new($p0);
+            let program = p0::parse_program(tok_stream).unwrap();
             let ir: $crate::ir::Program = program.into();
             let expected = $ir.parse::<ir::Program>().unwrap();
             assert_eq!(ir, expected, "generated ir {:#?} does not equal expected {:#?}", ir, expected);
