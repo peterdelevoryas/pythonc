@@ -36,36 +36,13 @@
 //!
 
 pub mod parse;
+pub use self::parse::Parser;
 
 use self::parse::Error;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(pub String);
-
-impl Name {
-    /*
-    pub fn new(bytes: &[u8]) -> Option<Name> {
-        let valid_name = bytes
-            .split_first()
-            .and_then(|(&first, rest)| match first {
-                b'a'...b'z' | b'A'...b'Z' | b'_' => Some(rest),
-                _ => None,
-            })
-            .map_or(false, |rest| {
-                rest.iter().all(|&b| match b {
-                    b'a'...b'z' | b'A'...b'Z' | b'_' | b'0'...b'9' => true,
-                    _ => false,
-                })
-            });
-        if valid_name {
-            Some(Name(bytes.into()))
-        } else {
-            None
-        }
-    }
-    */
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct DecimalI32(pub i32);
