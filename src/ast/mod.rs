@@ -38,9 +38,6 @@
 pub mod parse;
 pub use self::parse::Parser;
 
-use self::parse::Error;
-use std::str::FromStr;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(pub String);
 
