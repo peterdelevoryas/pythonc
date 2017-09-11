@@ -1,0 +1,69 @@
+use token::{Token, Error};
+use ast::{
+    Expression,
+    Statement,
+    Name,
+    DecimalI32,
+    Input,
+    Module,
+    Program,
+};
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = Error;
+
+    enum Token {
+        "\n" => Token::Newline,
+        "print" => Token::Print,
+        "=" => Token::Equals,
+        "(" => Token::LeftParens,
+        ")" => Token::RightParens,
+        "-" => Token::Minus,
+        "+" => Token::Plus,
+        "<" => Token::Lt,
+        ">" => Token::Gt,
+        "," => Token::Comma,
+        "name" => Token::Name(<String>),
+        "decimal_i32" => Token::DecimalI32(<i32>),
+        "input" => Token::Input,
+    }
+}
+
+pub program: Program = {
+    <m:module> => Program { module: m },
+};
+
+pub module: Module = {
+    <s:statements> => Module { statements: s }
+};
+
+pub statements: Vec<Statement> = {
+    <v:statement*> => v,
+};
+
+pub statement: Statement = {
+    "print" <expression> => Statement::Print(<>),
+    <name> "=" <expression> => Statement::Assign(<>),
+    <expression> => Statement::Expression(<>),
+    "\n" => Statement::Newline,
+};
+
+pub expression: Expression = {
+    <left:expression> "+" <right:term> => Expression::Add(left.into(), right.into()),
+    term,
+};
+
+pub term: Expression = {
+    name => Expression::Name(<>),
+    decimal_i32 => Expression::DecimalI32(<>),
+    "-" <t:term> => Expression::UnaryNeg(t.into()),
+    "(" <expression> ")",
+    "input" "(" ")" => Expression::Input(Input),
+};
+
+pub name: Name = <s:"name"> => Name(s);
+
+pub decimal_i32: DecimalI32 = <i:"decimal_i32"> => DecimalI32(i);

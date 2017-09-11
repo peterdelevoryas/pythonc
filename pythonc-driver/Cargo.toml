@@ -1,0 +1,9 @@
+[package]
+name = "pythonc-driver"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+
+[dependencies]
+pythonc-syntax = { path = "../pythonc-syntax" }
+pythonc-core = { path = "../pythonc-core" }
+pythonc-trans = { path = "../pythonc-trans" }
