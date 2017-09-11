@@ -35,10 +35,12 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
-extern crate pythonc_token;
+extern crate pythonc_token as token;
 extern crate lalrpop_util;
 
 pub mod parse;
+pub use parse::parse_program;
+pub type ParseError = lalrpop_util::ParseError<usize, token::Token, token::Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(pub String);

@@ -1,4 +1,3 @@
 extern crate pythonc_driver;
 
-fn main() {
-}
+fn main() {}

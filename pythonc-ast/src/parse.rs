@@ -1,4 +1,4 @@
-use pythonc_token::{Token, Error};
+use token::{Token, Error};
 use ::{
     Expression,
     Statement,
@@ -13,7 +13,7 @@ extern crate lalrpop_util as __lalrpop_util;
 mod __parse__decimal_i32 {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -868,7 +868,7 @@ pub use self::__parse__decimal_i32::parse_decimal_i32;
 mod __parse__expression {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -1793,7 +1793,7 @@ pub use self::__parse__expression::parse_expression;
 mod __parse__module {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -2773,7 +2773,7 @@ pub use self::__parse__module::parse_module;
 mod __parse__name {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -3628,7 +3628,7 @@ pub use self::__parse__name::parse_name;
 mod __parse__program {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -4613,7 +4613,7 @@ pub use self::__parse__program::parse_program;
 mod __parse__statement {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -5573,7 +5573,7 @@ pub use self::__parse__statement::parse_statement;
 mod __parse__statements {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,
@@ -6548,7 +6548,7 @@ pub use self::__parse__statements::parse_statements;
 mod __parse__term {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
-    use pythonc_token::{Token, Error};
+    use token::{Token, Error};
     use ::{
     Expression,
     Statement,

@@ -1,4 +1,4 @@
-use pythonc_token::{Token, Error};
+use token::{Token, Error};
 use ::{
     Expression,
     Statement,

@@ -89,5 +89,4 @@ impl Reg for Reg32 {
 }
 
 #[cfg(test)]
-mod test {
-}
+mod test {}

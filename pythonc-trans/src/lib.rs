@@ -46,13 +46,7 @@ use self::reg::Reg32;
 use self::reg::EBP;
 use self::reg::ESP;
 use self::reg::EAX;
-use self::ia32::{
-    Push,
-    Mov,
-    Add,
-    Neg,
-    Call,
-};
+use self::ia32::{Push, Mov, Add, Neg, Call};
 
 impl Builder {
     fn new(tmp_count: usize) -> Builder {
@@ -135,25 +129,30 @@ impl Builder {
     }
 
     fn finish(self) -> String {
-        let mut program: String = format!("\
+        let mut program: String = format!(
+            "\
 .globl main
 main:
     pushl %ebp
     movl %esp, %ebp
     subl ${}, %esp
 
-", self.tmp_count * Bits32::SIZE_OF);
+",
+            self.tmp_count * Bits32::SIZE_OF
+        );
         for ia32 in self.stack {
             let s = ia32.trans();
             program.push_str("    ");
             program.push_str(&s);
             program.push_str("\n");
         }
-        program.push_str("
+        program.push_str(
+            "
     movl $0, %eax
     leave
     ret
-"       );
+",
+        );
         program
     }
 

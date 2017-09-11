@@ -15,9 +15,10 @@ use Bits32;
 ///
 #[derive(Debug, Copy, Clone)]
 pub struct Mem<B, R, I>
-    where B: Bits,
-          R: Reg<Size=B>,
-          I: Imm<Size=B>,
+where
+    B: Bits,
+    R: Reg<Size = B>,
+    I: Imm<Size = B>,
 {
     pub base: R,
     //pub index: Option<R>,

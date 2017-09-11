@@ -8,3 +8,4 @@ pythonc-token = { path = "../pythonc-token" }
 pythonc-ast = { path = "../pythonc-ast" }
 pythonc-ir = { path = "../pythonc-ir" }
 pythonc-trans = { path = "../pythonc-trans" }
+error-chain = "0.11.0"

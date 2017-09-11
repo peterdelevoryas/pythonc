@@ -119,10 +119,10 @@ impl<'input> Stream<'input> {
         let start = match self.peek() {
             Some((i, '0')) => {
                 self.consume1();
-                return Ok((i, (), i + 1))
+                return Ok((i, (), i + 1));
             }
             Some((i, _)) => i,
-            None => return Err(Error::UnexpectedEof)
+            None => return Err(Error::UnexpectedEof),
         };
         self.consume_until(|_, c| match c {
             '0'...'9' => false,
@@ -200,11 +200,11 @@ impl<'input> Iterator for Stream<'input> {
                             None => return None,
                         };
                         if c == '\n' {
-                            break
+                            break;
                         }
                         self.consume1();
                     }
-                    continue
+                    continue;
                 }
                 _ => None,
             };
@@ -229,7 +229,7 @@ impl<'input> Iterator for Stream<'input> {
                 'a'...'z' | 'A'...'Z' | '_' => self.name_or_keyword(i),
                 _ => {
                     if !c.is_whitespace() {
-                        return Some(Err(Error::UnexpectedChar))
+                        return Some(Err(Error::UnexpectedChar));
                     }
                     //println!("skipping over {:?}\n", c);
                     self.consume1();
