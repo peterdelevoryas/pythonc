@@ -16,7 +16,12 @@ pub mod error;
 
 // Re-exports
 pub use compiler::Compiler;
-pub use error::*;
+pub use error::{
+    Error,
+    ErrorKind,
+    Result,
+    ResultExt,
+};
 
 #[cfg(test)]
 mod test {

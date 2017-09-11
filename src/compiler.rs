@@ -1,6 +1,7 @@
 use tok;
+use ast::Program as Ast;
 use ast;
-use ir;
+use ir::Program as Ir;
 use x86;
 use error::Result;
 use error::ResultExt;
@@ -48,19 +49,19 @@ impl Compiler {
         tok::Stream::new(source)
     }
 
-    pub fn parse_ast<I>(&self, tok: I) -> Result<ast::Program>
+    pub fn parse_ast<I>(&self, tok: I) -> Result<Ast>
         where I: Iterator<Item=tok::Spanned<tok::Tok>>,
     {
         let mut parser = ast::Parser::new(tok);
         parser.parse_program().chain_err(|| "invalid program")
     }
 
-    pub fn build_ir(&self, ast: &ast::Program) -> Result<ir::Program> {
+    pub fn build_ir(&self, ast: &Ast) -> Result<Ir> {
         let ir = ast.into();
         Ok(ir)
     }
 
-    pub fn build_asm(&self, ir: &ir::Program) -> Result<String> {
+    pub fn build_asm(&self, ir: &Ir) -> Result<String> {
         let asm = x86::Builder::build(ir);
         Ok(asm)
     }
