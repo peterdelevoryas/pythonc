@@ -233,7 +233,11 @@ dependencies = [
 name = "pythonc"
 version = "0.1.0"
 dependencies = [
- "pythonc-driver 0.1.0",
+ "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pythonc-ast 0.1.0",
+ "pythonc-ir 0.1.0",
+ "pythonc-token 0.1.0",
+ "pythonc-trans 0.1.0",
 ]
 
 [[package]]
@@ -243,17 +247,6 @@ dependencies = [
  "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pythonc-token 0.1.0",
-]
-
-[[package]]
-name = "pythonc-driver"
-version = "0.1.0"
-dependencies = [
- "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pythonc-ast 0.1.0",
- "pythonc-ir 0.1.0",
- "pythonc-token 0.1.0",
- "pythonc-trans 0.1.0",
 ]
 
 [[package]]

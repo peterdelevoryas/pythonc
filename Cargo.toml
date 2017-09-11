@@ -2,29 +2,18 @@
 name = "pythonc"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
-#build = "build.rs"
-#
 
 [[bin]]
 name = "pythonc"
-path = "pythonc.rs"
+path = "src/main.rs"
 doc = false
 
 [dependencies]
-pythonc-driver = { path = "pythonc-driver" }
-
-#
-#[build-dependencies]
-#lalrpop = "0.13.1"
-#
-#[dependencies]
-#lalrpop-util = "0.13.1"
-#regex = "0.2.1"
-#lazy_static = "0.2"
-#error-chain = "0.11.0"
-#
-#[dev-dependencies]
-#rand = "0.3"
+pythonc-token = { path = "pythonc-token" }
+pythonc-ast = { path = "pythonc-ast" }
+pythonc-ir = { path = "pythonc-ir" }
+pythonc-trans = { path = "pythonc-trans" }
+error-chain = "0.11.0"
 
 [workspace]
 members = [
@@ -32,5 +21,4 @@ members = [
     "pythonc-ast",
     "pythonc-ir",
     "pythonc-trans",
-    "pythonc-driver",
 ]
