@@ -1,8 +1,8 @@
 extern crate error_chain;
-extern crate pythonc;
+extern crate python;
 
 use error_chain::ChainedError;
-use pythonc::{Compiler, Result, ResultExt};
+use python::{Compiler, Result, ResultExt};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;

@@ -15,7 +15,7 @@ BUILD=debug
 PYTHONC=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/pythonc
 COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
 
-.PHONY: pythonc cog install
+.PHONY: pythonc cog install test
 
 all: $(PYTHONC)
 
@@ -45,6 +45,10 @@ $(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
 $(PYTHONC): src crates
 	rustup target add i686-unknown-linux-gnu
 	cargo build
+
+test:
+	git submodule update --init
+	cargo test
 
 install:
 	cargo install
