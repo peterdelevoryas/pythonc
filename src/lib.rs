@@ -1,6 +1,6 @@
-extern crate pythonc_token as token;
-extern crate pythonc_ast as ast;
-extern crate pythonc_trans as trans;
+extern crate python_token as token;
+extern crate python_ast as ast;
+extern crate python_trans as trans;
 #[macro_use]
 extern crate error_chain;
 

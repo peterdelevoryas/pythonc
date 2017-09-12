@@ -14,7 +14,7 @@ cd ./pyyc-rust-python
 
 # builds cog.zip, places pythonc in working directory
 # by default, builds for i686-unknown-linux-gnu
-make
+make pythonc
 
 # view usage
 ./pythonc -h

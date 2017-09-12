@@ -3,11 +3,11 @@ extern crate serde_derive;
 extern crate docopt;
 #[macro_use]
 extern crate error_chain;
-extern crate pythonc;
+extern crate python;
 
 use docopt::Docopt;
-use pythonc::Result;
-use pythonc::Compiler;
+use python::Result;
+use python::Compiler;
 use std::path::Path;
 use std::path::PathBuf;
 

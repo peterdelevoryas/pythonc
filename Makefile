@@ -10,7 +10,14 @@ PYYC=$(THIS_DIR)/pyyc
 CC=gcc
 CFLAGS=-m32 -g -lm
 
-all: cog.zip
+TARGET=i686-unknown-linux-gnu
+BUILD=debug
+PYTHONC=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/pythonc
+COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
+
+.PHONY: install cog
+
+all: $(PYTHONC)
 
 # Create x86 assembly .s file using your compiler.
 %.s: %.py
@@ -28,10 +35,14 @@ all: cog.zip
 $(RUNTIME_ROOT)/$(RUNTIME_LIBNAME):
 	$(MAKE) -C $(RUNTIME_DIR)
 
-cog.zip: $(PYYC) runtime pythonc Makefile
-	zip -r cog.zip Makefile pyyc pythonc runtime
+cog: $(COG_ZIP)
 
-pythonc:
+$(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
+	zip -r $(COG_ZIP) $(PYYC) $(PYTHONC) Makefile runtime
+
+$(PYTHONC): src crates
 	rustup target add i686-unknown-linux-gnu
-	cargo build --release
-	cp ./target/i686-unknown-linux-gnu/release/pythonc ./pythonc
+	cargo build
+
+install:
+	cargo install

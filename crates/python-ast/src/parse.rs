@@ -1,5 +1,5 @@
 use token::{Token, Error};
-use ast::{
+use ::{
     Expression,
     Statement,
     Name,
@@ -14,7 +14,7 @@ mod __parse__decimal_i32 {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -869,7 +869,7 @@ mod __parse__expression {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -1794,7 +1794,7 @@ mod __parse__module {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -2774,7 +2774,7 @@ mod __parse__name {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -3629,7 +3629,7 @@ mod __parse__program {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -4614,7 +4614,7 @@ mod __parse__statement {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -5574,7 +5574,7 @@ mod __parse__statements {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,
@@ -6549,7 +6549,7 @@ mod __parse__term {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
 
     use token::{Token, Error};
-    use ast::{
+    use ::{
     Expression,
     Statement,
     Name,

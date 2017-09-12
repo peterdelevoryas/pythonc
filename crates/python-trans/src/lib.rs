@@ -1,4 +1,4 @@
-extern crate pythonc_ir as ir;
+extern crate python_ir as ir;
 
 pub mod reg;
 pub mod imm;

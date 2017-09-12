@@ -1,5 +1,5 @@
 [package]
-name = "pythonc"
+name = "python"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
@@ -9,10 +9,10 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-pythonc-token = { path = "pythonc-token" }
-pythonc-ast = { path = "pythonc-ast" }
-pythonc-ir = { path = "pythonc-ir" }
-pythonc-trans = { path = "pythonc-trans" }
+python-token = { path = "crates/python-token" }
+python-ast = { path = "crates/python-ast" }
+python-ir = { path = "crates/python-ir" }
+python-trans = { path = "crates/python-trans" }
 error-chain = "0.11.0"
 docopt = "0.8"
 serde = "1.0"
@@ -20,8 +20,8 @@ serde_derive = "1.0"
 
 [workspace]
 members = [
-    "pythonc-token",
-    "pythonc-ast",
-    "pythonc-ir",
-    "pythonc-trans",
+    "crates/python-token",
+    "crates/python-ast",
+    "crates/python-ir",
+    "crates/python-trans",
 ]

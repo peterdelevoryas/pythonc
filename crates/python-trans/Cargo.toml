@@ -1,6 +1,7 @@
 [package]
-name = "pythonc-token"
+name = "python-trans"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
 [dependencies]
+python-ir = { path = "../python-ir" }

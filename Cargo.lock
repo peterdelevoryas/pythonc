@@ -1,8 +1,8 @@
 [root]
-name = "pythonc-trans"
+name = "python-trans"
 version = "0.1.0"
 dependencies = [
- "pythonc-ir 0.1.0",
+ "python-ir 0.1.0",
 ]
 
 [[package]]
@@ -242,37 +242,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "pythonc"
+name = "python"
 version = "0.1.0"
 dependencies = [
  "docopt 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pythonc-ast 0.1.0",
- "pythonc-ir 0.1.0",
- "pythonc-token 0.1.0",
- "pythonc-trans 0.1.0",
+ "python-ast 0.1.0",
+ "python-ir 0.1.0",
+ "python-token 0.1.0",
+ "python-trans 0.1.0",
  "serde 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "pythonc-ast"
+name = "python-ast"
 version = "0.1.0"
 dependencies = [
  "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "pythonc-token 0.1.0",
+ "python-token 0.1.0",
 ]
 
 [[package]]
-name = "pythonc-ir"
+name = "python-ir"
 version = "0.1.0"
 dependencies = [
- "pythonc-ast 0.1.0",
+ "python-ast 0.1.0",
 ]
 
 [[package]]
-name = "pythonc-token"
+name = "python-token"
 version = "0.1.0"
 
 [[package]]
