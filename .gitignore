@@ -4,3 +4,4 @@
 runtime/*.o
 runtime/*.a
 cog.zip
+pythonc-ast/src/parse.rs
