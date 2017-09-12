@@ -1,6 +1,7 @@
 [package]
-name = "python-token"
+name = "ir"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
 [dependencies]
+ast = { path = "../ast" }

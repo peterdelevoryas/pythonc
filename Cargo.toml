@@ -3,16 +3,19 @@ name = "python"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
+[lib]
+name = "python"
+
 [[bin]]
 name = "pythonc"
 path = "src/main.rs"
 doc = false
 
 [dependencies]
-python-token = { path = "crates/python-token" }
-python-ast = { path = "crates/python-ast" }
-python-ir = { path = "crates/python-ir" }
-python-trans = { path = "crates/python-trans" }
+token = { path = "crates/token" }
+ast = { path = "crates/ast" }
+ir = { path = "crates/ir" }
+trans = { path = "crates/trans" }
 error-chain = "0.11.0"
 docopt = "0.8"
 serde = "1.0"
@@ -20,8 +23,8 @@ serde_derive = "1.0"
 
 [workspace]
 members = [
-    "crates/python-token",
-    "crates/python-ast",
-    "crates/python-ir",
-    "crates/python-trans",
+    "crates/token",
+    "crates/ast",
+    "crates/ir",
+    "crates/trans",
 ]

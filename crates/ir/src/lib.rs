@@ -24,7 +24,7 @@
 //!     }
 //!
 
-extern crate python_ast as ast;
+extern crate ast;
 
 use std::str::FromStr;
 use std::collections::HashMap;

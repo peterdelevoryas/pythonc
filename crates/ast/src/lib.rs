@@ -35,7 +35,7 @@
 //!                     | "5" | "6" | "7" | "8" | "9"
 //!
 
-extern crate python_token as token;
+extern crate token;
 extern crate lalrpop_util;
 
 pub mod parse;
