@@ -15,7 +15,7 @@ BUILD=debug
 PYTHONC=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/pythonc
 COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
 
-.PHONY: install cog
+.PHONY: pythonc cog install
 
 all: $(PYTHONC)
 
@@ -36,6 +36,8 @@ $(RUNTIME_ROOT)/$(RUNTIME_LIBNAME):
 	$(MAKE) -C $(RUNTIME_DIR)
 
 cog: $(COG_ZIP)
+
+pythonc: $(PYTHONC)
 
 $(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
 	zip -r $(COG_ZIP) $(PYYC) $(PYTHONC) Makefile runtime
