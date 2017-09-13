@@ -1,7 +1,7 @@
 [package]
-name = "ir"
+name = "python-ir"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
 [dependencies]
-ast = { path = "../ast" }
+python-ast = { path = "../ast" }

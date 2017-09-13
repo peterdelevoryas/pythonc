@@ -1,8 +1,8 @@
 [root]
-name = "trans"
+name = "python-trans"
 version = "0.1.0"
 dependencies = [
- "ir 0.1.0",
+ "python-ir 0.1.0",
 ]
 
 [[package]]
@@ -19,15 +19,6 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "term 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "ast"
-version = "0.1.0"
-dependencies = [
- "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "token 0.1.0",
 ]
 
 [[package]]
@@ -147,13 +138,6 @@ version = "0.3.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "ir"
-version = "0.1.0"
-dependencies = [
- "ast 0.1.0",
-]
-
-[[package]]
 name = "itertools"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,15 +245,35 @@ dependencies = [
 name = "python"
 version = "0.1.0"
 dependencies = [
- "ast 0.1.0",
  "docopt 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ir 0.1.0",
+ "python-ast 0.1.0",
+ "python-ir 0.1.0",
+ "python-token 0.1.0",
+ "python-trans 0.1.0",
  "serde 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
- "token 0.1.0",
- "trans 0.1.0",
 ]
+
+[[package]]
+name = "python-ast"
+version = "0.1.0"
+dependencies = [
+ "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lalrpop-util 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "python-token 0.1.0",
+]
+
+[[package]]
+name = "python-ir"
+version = "0.1.0"
+dependencies = [
+ "python-ast 0.1.0",
+]
+
+[[package]]
+name = "python-token"
+version = "0.1.0"
 
 [[package]]
 name = "quote"
@@ -367,10 +371,6 @@ dependencies = [
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "unreachable 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "token"
-version = "0.1.0"
 
 [[package]]
 name = "unicode-xid"

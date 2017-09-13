@@ -49,10 +49,10 @@ $(PYTHONC): src crates
 test:
 	git submodule update --init
 	cargo test
-	cargo test -p token
-	cargo test -p ast
-	cargo test -p ir
-	cargo test -p trans
+	cargo test -p python-token
+	cargo test -p python-ast
+	cargo test -p python-ir
+	cargo test -p python-trans
 
 install:
 	cargo install
