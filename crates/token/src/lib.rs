@@ -252,12 +252,29 @@ mod tests {
         Token,
         Error,
     };
+    use std::iter::{
+        Iterator,
+        IntoIterator,
+    };
+
+    trait CollectTokens {
+        fn collect_tokens(self) -> Result<Vec<Token>, Error>;
+    }
+
+    impl<T, I> CollectTokens for T
+    where
+        T: IntoIterator<Item=Spanned<Token>, IntoIter=I>,
+        I: Iterator<Item=Spanned<Token>>,
+    {
+        fn collect_tokens(self) -> Result<Vec<Token>, Error> {
+            self.into_iter().map(|r| r.map(|(_, t, _)| t)).collect()
+        }
+    }
 
     #[test]
     fn all_tokens() {
         let tokens = "\n = - + ( ) < > , ; # abcdefk akdkdkdl;lskdfjda \n identifier 123 0";
-        let tokens: Result<Vec<Token>, Error> = Stream::new(tokens).into_iter().map(|r| r.map(|(_, t, _)| t)).collect();
-        let tokens = tokens.unwrap();
+        let tokens = Stream::new(tokens).collect_tokens().unwrap();
         assert_eq!(tokens,
                    vec![
                         Token::Newline,
@@ -274,6 +291,17 @@ mod tests {
                         Token::Name("identifier".into()),
                         Token::DecimalI32(123),
                         Token::DecimalI32(0),
+                   ]);
+    }
+
+    #[test]
+    fn octal_number() {
+        let octal = "099";
+        let tokens = Stream::new(octal).collect_tokens().unwrap();
+        assert_eq!(tokens,
+                   vec![
+                        Token::DecimalI32(0),
+                        Token::DecimalI32(99),
                    ]);
     }
 }
