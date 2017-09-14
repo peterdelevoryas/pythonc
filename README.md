@@ -12,18 +12,21 @@ curl https://sh.rustup.rs -sSf | sh
 git clone https://github.com/csci4555-f17/pyyc-rust-python.git
 cd ./pyyc-rust-python
 
-# builds cog.zip, places pythonc in working directory
 # by default, builds for i686-unknown-linux-gnu
+# binary is output in target/i686-unknown-linux-gnu/debug
 make pythonc
 
 # view usage
 ./pythonc -h
+
+# cog.zip output in target/i686-unknown-linux-gnu/debug
+make cog
 ```
 
 # Testing against [`pyyc-tests-contrib`](https://github.com/csci4555-f17/pyyc-tests-contrib)
 
 ```bash
 # while in pyyc-rust-python directory
-git submodule update --init
-cargo test
+# runs cargo test for root and subdirectory crates
+make test
 ```
