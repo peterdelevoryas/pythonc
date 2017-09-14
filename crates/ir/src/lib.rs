@@ -210,7 +210,7 @@ impl FromStr for Stmt {
             static ref PRINT: Regex = Regex::new(r"print\s+([[:alnum:]-]+)").unwrap();
             static ref VAL: Regex = Regex::new(r"(t\d+)|(-?\d+)").unwrap();
             static ref TMP: Regex = Regex::new(r"t(\d+)").unwrap();
-            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|-(t\d+|-?\d+)|(input\(\))|(\([^\)]+\))").unwrap();
+            static ref EXPR: Regex = Regex::new(r"(t\d+|-?\d+)\s+\+\s+(t\d+|-?\d+)|(-t\d+|-?\d+)|(input\(\))|(\([^\)]+\))").unwrap();
         }
         fn parse_def(s: &str) -> Result<(Tmp, Expr), ()> {
             let captures = DEF.captures(s).ok_or(())?;
@@ -275,7 +275,7 @@ impl FromStr for Stmt {
 }
 
 impl FromStr for Program {
-    type Err = ();
+    type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut stmts = vec![];
         for line in s.lines() {
@@ -283,7 +283,7 @@ impl FromStr for Program {
             if line.is_empty() {
                 continue;
             }
-            stmts.push(line.parse::<Stmt>()?);
+            stmts.push(line.parse::<Stmt>().map_err(|_| format!("parse error on {:?}", line))?);
         }
         Ok(Program { stmts })
     }
@@ -297,9 +297,9 @@ mod test {
     macro_rules! test {
         ($p0:expr => $ir:expr) => ({
             let tok_stream = token::Stream::new($p0);
-            let program = ast::parse_program(tok_stream).unwrap();
+            let program = ast::parse_program(tok_stream).expect("ast::parse_program");
             let ir: $crate::Program = program.into();
-            let expected = $ir.parse::<$crate::Program>().unwrap();
+            let expected = $ir.parse::<$crate::Program>().expect("ir program");
             assert_eq!(ir, expected, "generated ir {:#?} does not equal expected {:#?}", ir, expected);
         })
     }
