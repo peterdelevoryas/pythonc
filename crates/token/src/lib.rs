@@ -18,6 +18,7 @@ pub enum Token {
     Lt,
     Gt,
     Comma,
+    Semicolon,
     DecimalI32(i32),
     Name(String),
 }
@@ -192,6 +193,7 @@ impl<'input> Iterator for Stream<'input> {
                 '<' => Some(Token::Lt),
                 '>' => Some(Token::Gt),
                 ',' => Some(Token::Comma),
+                ';' => Some(Token::Semicolon),
                 '#' => {
                     // eat comment
                     loop {

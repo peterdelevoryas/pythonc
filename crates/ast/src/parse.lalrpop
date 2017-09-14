@@ -26,6 +26,7 @@ extern {
         "<" => Token::Lt,
         ">" => Token::Gt,
         "," => Token::Comma,
+        ";" => Token::Semicolon,
         "name" => Token::Name(<String>),
         "decimal_i32" => Token::DecimalI32(<i32>),
         "input" => Token::Input,
@@ -49,6 +50,7 @@ pub statement: Statement = {
     <name> "=" <expression> => Statement::Assign(<>),
     <expression> => Statement::Expression(<>),
     "\n" => Statement::Newline,
+    ";" => Statement::Newline,
 };
 
 pub expression: Expression = {
