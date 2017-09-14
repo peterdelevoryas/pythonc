@@ -246,8 +246,34 @@ impl<'input> Iterator for Stream<'input> {
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        Stream,
+        Spanned,
+        Token,
+        Error,
+    };
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn all_tokens() {
+        let tokens = "\n = - + ( ) < > , ; # abcdefk akdkdkdl;lskdfjda \n identifier 123 0";
+        let tokens: Result<Vec<Token>, Error> = Stream::new(tokens).into_iter().map(|r| r.map(|(_, t, _)| t)).collect();
+        let tokens = tokens.unwrap();
+        assert_eq!(tokens,
+                   vec![
+                        Token::Newline,
+                        Token::Equals,
+                        Token::Minus,
+                        Token::Plus,
+                        Token::LeftParens,
+                        Token::RightParens,
+                        Token::Lt,
+                        Token::Gt,
+                        Token::Comma,
+                        Token::Semicolon,
+                        Token::Newline,
+                        Token::Name("identifier".into()),
+                        Token::DecimalI32(123),
+                        Token::DecimalI32(0),
+                   ]);
     }
 }
