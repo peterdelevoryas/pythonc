@@ -268,7 +268,10 @@ dependencies = [
 name = "python-ir"
 version = "0.1.0"
 dependencies = [
+ "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "python-ast 0.1.0",
+ "python-token 0.1.0",
+ "regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -24,10 +24,14 @@
 //!     }
 //!
 
+#[macro_use]
+extern crate lazy_static;
+extern crate regex;
 extern crate python_ast as ast;
 
 use std::str::FromStr;
 use std::collections::HashMap;
+use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
@@ -198,7 +202,6 @@ impl Builder {
     }
 }
 
-/*
 impl FromStr for Stmt {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -288,17 +291,15 @@ impl FromStr for Program {
 
 #[cfg(test)]
 mod test {
-    use tok;
+    extern crate python_token as token;
     use ast;
-    use ast::parse::p0;
-    use ir;
 
     macro_rules! test {
         ($p0:expr => $ir:expr) => ({
-            let tok_stream = tok::Stream::new($p0);
-            let program = p0::parse_program(tok_stream).unwrap();
-            let ir: $crate::ir::Program = program.into();
-            let expected = $ir.parse::<ir::Program>().unwrap();
+            let tok_stream = token::Stream::new($p0);
+            let program = ast::parse_program(tok_stream).unwrap();
+            let ir: $crate::Program = program.into();
+            let expected = $ir.parse::<$crate::Program>().unwrap();
             assert_eq!(ir, expected, "generated ir {:#?} does not equal expected {:#?}", ir, expected);
         })
     }
@@ -369,4 +370,3 @@ mod test {
         test!("print input()" => "t0 := input()\nprint t0");
     }
 }
-*/
