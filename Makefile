@@ -40,7 +40,8 @@ cog: $(COG_ZIP)
 pythonc: $(PYTHONC)
 
 $(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
-	zip -r $(COG_ZIP) $(PYYC) $(PYTHONC) Makefile runtime
+	zip -r $(COG_ZIP) $(PYYC) Makefile runtime
+	zip -j $(COG_ZIP) $(PYTHONC)
 
 $(PYTHONC): src crates
 	rustup target add i686-unknown-linux-gnu
