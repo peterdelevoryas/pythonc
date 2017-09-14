@@ -1,469 +1,158 @@
-extern crate lalrpop_util;
-extern crate regex;
+extern crate python_token as token;
+extern crate python_ast as ast;
+extern crate python_trans as trans;
 #[macro_use]
-extern crate lazy_static;
+extern crate error_chain;
 
-// dev-dependency for testing
+pub mod error;
+pub use error::{Error, ErrorKind, Result, ResultExt};
 
-#[cfg(test)]
-extern crate rand;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 
-pub mod p0;
-pub mod lexer;
-pub mod ast;
-pub mod ir;
-pub mod x86;
+pub struct Compiler {
+    source: PathBuf,
+    runtime: Option<PathBuf>,
+    out_path: Option<PathBuf>,
+    create_new: bool,
+}
 
-#[cfg(test)]
-mod test {
-    use lexer;
-    use p0;
-    use ast::*;
-    use std::fmt::Debug;
-
-    fn test<'input, F, E, T, R>(parse: F, s: &'input str, test: T) -> R
+impl Compiler {
+    pub fn new<P>(source: P) -> Compiler
     where
-        F: FnOnce(&'input str, lexer::Lexer<'input>) -> E,
-        E: Debug + PartialEq,
-        T: FnOnce(E) -> R,
+        P: Into<PathBuf>,
     {
-        let lexer = lexer::Lexer::new(s);
-        let parsed = parse(s, lexer);
-        test(parsed)
+        Compiler {
+            source: source.into(),
+            runtime: None,
+            out_path: None,
+            create_new: true,
+        }
     }
 
-    macro_rules! test {
-        (
-            parse: $func:expr,
-            input: $input:expr,
-            test: $test:expr
-        ) => ({
-            test($func, $input, $test)
+    pub fn runtime<P>(&mut self, path: P) -> &mut Compiler
+    where
+        P: Into<PathBuf>,
+    {
+        self.runtime = Some(path.into());
+        self
+    }
+
+    pub fn out_path<P>(&mut self, path: P) -> &mut Compiler
+    where
+        P: Into<PathBuf>,
+    {
+        self.out_path = Some(path.into());
+        self
+    }
+
+    pub fn create_new(&mut self, create_new: bool) -> &mut Compiler {
+        self.create_new = create_new;
+        self
+    }
+
+    pub fn run(&self) -> Result<()> {
+        if let Some(ref runtime) = self.runtime {
+            let asm = self.source.with_extension("s");
+            emit_asm(&self.source, &asm, self.create_new)?;
+            let out_path = self.out_path.clone().unwrap_or(
+                self.source.with_extension(""),
+            );
+            link(asm, runtime, out_path)?;
+        } else {
+            let out_path = self.out_path.clone().unwrap_or(
+                self.source.with_extension("s"),
+            );
+            emit_asm(&self.source, out_path, self.create_new)?;
+        }
+        Ok(())
+    }
+}
+
+pub fn compile(source: &str) -> Result<String> {
+    let tokens = token::Stream::new(source);
+    let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
+    let ir = ast.into();
+    let asm = trans::Builder::build(&ir);
+    Ok(asm)
+}
+
+pub fn emit_asm<P1, P2>(source: P1, output: P2, create_new: bool) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+{
+    let source = read_file(source).chain_err(|| "reading source file")?;
+    let asm = compile(&source).chain_err(|| {
+        format!("compiling source file {:?}", source)
+    })?;
+
+    write_file(&asm, output, create_new)
+}
+
+pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+    P3: AsRef<Path>,
+{
+    let (asm, runtime, output) = (asm.as_ref(), runtime.as_ref(), output.as_ref());
+    Command::new("gcc")
+        .args(&["-m32", "-g"])
+        .args(&[asm.as_os_str(), runtime.as_os_str()])
+        .arg("-o")
+        .arg(output.as_os_str())
+        .spawn()
+        .chain_err(|| "spawning gcc")?
+        .wait()
+        .chain_err(|| "gcc wasn't running")
+        .and_then(|e| if !e.success() {
+            Err(ErrorKind::Link(e).into())
+        } else {
+            Ok(())
         })
-    }
+}
 
-    macro_rules! parsed_is_err {
-        () => ({
-            |parsed| {
-                assert!(parsed.is_err(), "parsed is not err: {:#?}", parsed);
-            }
-        })
-    }
+fn read_file<P>(path: P) -> Result<String>
+where
+    P: AsRef<Path>,
+{
+    use std::fs::File;
+    use std::io::Read;
 
-    macro_rules! parsed_equals {
-        ($expected:expr) => ({
-            |parsed| {
-                let parsed = parsed.unwrap();
-                let expected = $expected;
-                assert_eq!(parsed, expected, "parsed: {:#?}, expected: {:#?}", parsed, expected);
-            }
-        })
-    }
+    let path = path.as_ref();
+    let mut f = File::open(path).chain_err(|| {
+        format!("opening file {:?}", path.display())
+    })?;
+    let size = f.metadata().chain_err(|| "getting file size")?.len() as usize;
+    let mut s = String::with_capacity(size);
+    f.read_to_string(&mut s).chain_err(|| "reading file")?;
+    Ok(s)
+}
 
-    macro_rules! expected_ne {
-        ($parsed:expr) => ({
-            let parsed = $parsed;
-            assert!(false, "parsed {:#?}, expected NOT equal", parsed);
-        })
-    }
+fn write_file<P>(data: &str, path: P, create_new: bool) -> Result<()>
+where
+    P: AsRef<Path>,
+{
+    use std::fs::OpenOptions;
+    use std::io::Write;
 
+    let path = path.as_ref();
+    let mut f = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .create_new(create_new)
+        .open(path)
+        .chain_err(|| format!("creating file {:?}", path.display()))?;
+    f.write_all(data.as_bytes()).chain_err(|| "writing data")?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
     #[test]
-    fn parse_print_parens() {
-        test! {
-            parse: p0::parse_statement,
-            input: "print(1)",
-            test: parsed_equals!(Statement::Print(Expression::DecimalI32(DecimalI32(1))))
-        }
-    }
-
-    #[test]
-    fn parse_assign_statement() {
-        test! {
-            parse: p0::parse_statement,
-            input: "x = 1",
-            test: parsed_equals!(
-                Statement::Assign(
-                    Name::new(b"x").unwrap(),
-                    Expression::DecimalI32(DecimalI32(1))
-                )
-            )
-        }
-
-        test! {
-            parse: p0::parse_statement,
-            input: "x = (-1 + x + (-y + 4))",
-            test: parsed_equals!(
-                Statement::Assign(
-                    Name::new(b"x").unwrap(),
-                    Expression::Add(
-                        // - 1 + x
-                        Expression::Add(
-                            Expression::DecimalI32(DecimalI32(-1)).into(),
-                            Expression::Name(Name::new(b"x").unwrap()).into()
-                        ).into(),
-                        // -y + 4
-                        Expression::Add(
-                            Expression::UnaryNeg(Expression::Name(Name::new(b"y").unwrap()).into()).into(),
-                            Expression::DecimalI32(DecimalI32(4)).into()
-                        ).into()
-                    )
-                )
-            )
-        }
-    }
-
-    #[test]
-    fn parse_print_statement() {
-        test! {
-            parse: p0::parse_statement,
-            input: "print 1 + x",
-            test: parsed_equals!(
-                Statement::Print(
-                    Expression::Add(
-                        Expression::DecimalI32(DecimalI32(1)).into(),
-                        Expression::Name(Name::new(b"x").unwrap()).into()
-                    )
-                )
-            )
-        }
-        test! {
-            parse: p0::parse_statement,
-            input: "print1",
-            test: |parsed| {
-                match parsed {
-                    Ok(Statement::Print(_)) => expected_ne!(parsed),
-                    _ => {}
-                }
-            }
-        }
-        test! {
-            parse: p0::parse_statement,
-            input: "printx+2",
-            test: |parsed| {
-                match parsed {
-                    Ok(Statement::Print(_)) => expected_ne!(parsed),
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn parse_input_call() {
-        test! {
-            parse: p0::parse_term,
-            input: "input()",
-            test: parsed_equals!(Expression::Input(Input))
-        }
-    }
-
-    #[test]
-    fn parse_parens_term() {
-        test! {
-            parse: p0::parse_term,
-            input: "(rust_python)",
-            test: parsed_equals!(Expression::Name(Name::new(b"rust_python").unwrap()))
-        }
-        test! {
-            parse: p0::parse_term,
-            input: "( (( rust_python + 222 )) )",
-            test: parsed_equals!(
-                Expression::Add(
-                    Expression::Name(Name::new(b"rust_python").unwrap()).into(),
-                    Expression::DecimalI32(DecimalI32(222)).into()
-                )
-            )
-        }
-        test! {
-            parse: p0::parse_term,
-            input: "( 1829102 + 291 )",
-            test: parsed_equals!(
-                Expression::Add(
-                    Expression::DecimalI32(DecimalI32(1829102)).into(),
-                    Expression::DecimalI32(DecimalI32(291)).into()
-                )
-            )
-        }
-        test! {
-            parse: p0::parse_term,
-            input: "-(_ + 2)",
-            test: parsed_equals!(
-                Expression::UnaryNeg(
-                    Expression::Add(
-                        Expression::Name(Name::new(b"_").unwrap()).into(),
-                        Expression::DecimalI32(DecimalI32(2)).into()
-                    ).into()
-                )
-            )
-        }
-
-    }
-
-    #[test]
-    fn parse_name_with_uppercase_letters() {
-        let uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for c in uppercase.chars() {
-            let name = format!("rust{c}python", c = c);
-            test! {
-                parse: p0::parse_name,
-                input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
-            }
-        }
-    }
-
-    #[test]
-    fn parse_name_with_lowercase_letters() {
-        let lowercase = "abcdefghijklmnopqrstuvwxyz";
-        for c in lowercase.chars() {
-            let name = format!("rust{c}python", c = c);
-            test! {
-                parse: p0::parse_name,
-                input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
-            }
-        }
-    }
-
-    #[test]
-    fn parse_name_with_numbers() {
-        for n in 0..10 {
-            let name = format!("rust{n}python", n = n);
-            test! {
-                parse: p0::parse_name,
-                input: name.as_str(),
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
-            }
-        }
-    }
-
-    #[test]
-    fn parse_name_with_all_valid_char_types() {
-        let names = &[
-            "_a9",
-            "b_0",
-            "c0_",
-            "rust_python2",
-            "_rust___python___292921901",
-            "r_jdjf929291lakd_9929292",
-        ];
-
-        for name in names {
-            test! {
-                parse: p0::parse_name,
-                input: name,
-                test: parsed_equals!(Name::new(name.as_bytes()).unwrap())
-            }
-        }
-    }
-
-    #[test]
-    fn parse_name_containing_invalid_characters() {
-        let invalid = "!@#$%^&*()-+=[]{}|\\\"':;?><,./";
-        for c in invalid.chars() {
-            let name = format!("rust{c}python", c = c);
-            test! {
-                parse: p0::parse_expression,
-                input: name.as_str(),
-                test: |parsed| {
-                    match parsed {
-                        Ok(Expression::Name(_)) => {
-                            expected_ne!(parsed);
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn parse_name_starting_with_number() {
-        for n in 0..10 {
-            let name = format!("{n}rust_python", n = n);
-            test! {
-                parse: p0::parse_name,
-                input: name.as_str(),
-                test: parsed_is_err!()
-            }
-        }
-    }
-
-    #[test]
-    fn parse_underscore_first_letter() {
-        test! {
-            parse: p0::parse_name,
-            input: "_rust_python",
-            test: parsed_equals!(Name::new(b"_rust_python").unwrap())
-        }
-    }
-
-    #[test]
-    fn parse_underscore_name() {
-        test! {
-            parse: p0::parse_name,
-            input: "_",
-            test: parsed_equals!(Name::new(b"_").unwrap())
-        }
-    }
-
-    #[test]
-    fn parse_negative_number() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: "-71",
-            test: parsed_equals!(DecimalI32(-71))
-        }
-    }
-
-    #[test]
-    fn parse_positive_number() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: "906",
-            test: parsed_equals!(DecimalI32(906))
-        }
-    }
-
-    #[test]
-    fn parse_number_zero() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: "0",
-            test: parsed_equals!(DecimalI32(0))
-        }
-
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: "-0",
-            test: parsed_equals!(DecimalI32(0))
-        }
-    }
-
-    #[test]
-    fn parse_01() {
-        // TODO: This might not be the right
-        // behavior to expect
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: "01",
-            test: parsed_equals!(DecimalI32(0))
-        }
-    }
-
-    #[test]
-    fn parse_i32_min_value() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: format!("{}", i32::min_value()).as_str(),
-            test: parsed_equals!(DecimalI32(i32::min_value()))
-        }
-    }
-
-    #[test]
-    fn parse_i32_max_value() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: format!("{}", i32::max_value()).as_str(),
-            test: parsed_equals!(DecimalI32(i32::max_value()))
-        }
-    }
-
-    #[test]
-    fn parse_i32_max_value_plus1() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: format!("{}", i32::max_value() as i64 + 1).as_str(),
-            test: parsed_is_err!()
-        }
-    }
-
-    #[test]
-    fn parse_i32_min_value_minus1() {
-        test! {
-            parse: p0::parse_decimal_i32,
-            input: format!("{}", i32::min_value() as i64 - 1).as_str(),
-            test: parsed_is_err!()
-        }
-    }
-
-    #[test]
-    fn parse_statement() {
-        let statement = "1 + 2";
-        let lexer = lexer::Lexer::new(statement);
-        assert_eq!(
-            p0::parse_statement(statement, lexer),
-            Ok(Statement::Expression(Expression::Add(
-                Expression::DecimalI32(DecimalI32(1)).into(),
-                Expression::DecimalI32(DecimalI32(2)).into(),
-            )))
-        );
-    }
-
-    #[test]
-    fn parse_statements() {
-        let statements = "\n\nprint 1 + 2\n\n3 + 4\n\n\n";
-        let lexer = lexer::Lexer::new(statements);
-        assert_eq!(
-            p0::parse_statements(statements, lexer),
-            Ok(vec![
-                Statement::Newline,
-                Statement::Newline,
-                Statement::Print(Expression::Add(
-                    Expression::DecimalI32(DecimalI32(1)).into(),
-                    Expression::DecimalI32(DecimalI32(2)).into(),
-                )),
-                Statement::Newline,
-                Statement::Newline,
-                Statement::Expression(Expression::Add(
-                    Expression::DecimalI32(DecimalI32(3)).into(),
-                    Expression::DecimalI32(DecimalI32(4)).into(),
-                )),
-                Statement::Newline,
-                Statement::Newline,
-                Statement::Newline,
-            ])
-        );
-
-        test! {
-            parse: p0::parse_statements,
-            input: "\n\n1 + 2 \n\n \nx +1\nprint 1 + 2 + 3 + --4",
-            test: parsed_equals!(
-                vec![
-                    Statement::Newline,
-                    Statement::Newline,
-                    Statement::Expression(
-                        Expression::Add(
-                            Expression::DecimalI32(DecimalI32(1)).into(),
-                            Expression::DecimalI32(DecimalI32(2)).into()
-                        ),
-                    ),
-                    Statement::Newline,
-                    Statement::Newline,
-                    Statement::Newline,
-                    Statement::Expression(
-                        Expression::Add(
-                            Expression::Name(Name::new(b"x").unwrap()).into(),
-                            Expression::DecimalI32(DecimalI32(1)).into()
-                        )
-                    ),
-                    Statement::Newline,
-                    Statement::Print(
-                        Expression::Add(
-                            Expression::Add(
-                                Expression::Add(
-                                    Expression::DecimalI32(DecimalI32(1)).into(),
-                                    Expression::DecimalI32(DecimalI32(2)).into(),
-                                ).into(),
-                                Expression::DecimalI32(DecimalI32(3)).into()
-                            ).into(),
-                            Expression::UnaryNeg(
-                                Expression::DecimalI32(DecimalI32(-4)).into()
-                            ).into()
-                        )
-                    )
-                ]
-            )
-        }
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
     }
 }

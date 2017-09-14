@@ -1,20 +1,30 @@
 [package]
-name = "rust-python"
+name = "python"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
-build = "build.rs"
+
+[lib]
+name = "python"
 
 [[bin]]
-name = "rust-python"
+name = "pythonc"
+path = "src/main.rs"
 doc = false
 
-[build-dependencies]
-lalrpop = "0.13.1"
-
 [dependencies]
-lalrpop-util = "0.13.1"
-regex = "0.2.1"
-lazy_static = "0.2"
+python-token = { path = "crates/token" }
+python-ast = { path = "crates/ast" }
+python-ir = { path = "crates/ir" }
+python-trans = { path = "crates/trans" }
+error-chain = "0.11.0"
+docopt = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
 
-[dev-dependencies]
-rand = "0.3"
+[workspace]
+members = [
+    "crates/token",
+    "crates/ast",
+    "crates/ir",
+    "crates/trans",
+]

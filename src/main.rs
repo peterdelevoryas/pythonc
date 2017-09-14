@@ -1,67 +1,58 @@
-extern crate rust_python;
+#[macro_use]
+extern crate serde_derive;
+extern crate docopt;
+#[macro_use]
+extern crate error_chain;
+extern crate python;
 
-use rust_python::lexer;
-use rust_python::p0;
-use rust_python::ir;
-use rust_python::x86;
-
-use std::env;
-use std::fs;
-use std::io::Read;
-use std::io::Write;
+use docopt::Docopt;
+use python::Result;
+use python::Compiler;
 use std::path::Path;
+use std::path::PathBuf;
 
-fn val_to_string(val: &ir::Val) -> String {
-    match *val {
-        ir::Val::Int(i) => format!("{}", i),
-        ir::Val::Ref(tmp) => format!("t{}", tmp.index()),
-    }
+const USAGE: &str = "
+pythonc.
+
+Usage:
+    pythonc <source> [--runtime=<runtime>] [--out=<out>]
+    pythonc (-h | --help)
+    pythonc --version
+
+Options:
+    -h --help   Show this message.
+    --version   Show version.
+";
+
+#[derive(Debug, Deserialize)]
+struct Args {
+    flag_runtime: Option<String>,
+    flag_out: Option<String>,
+    flag_version: bool,
+    arg_source: String,
 }
 
-fn main() {
-    let path = env::args().nth(1).unwrap();
-    let source = {
-        let mut f = fs::File::open(&path).unwrap();
-        let mut buf = String::new();
-        f.read_to_string(&mut buf).unwrap();
-        buf
-    };
-    let source = source.as_str();
+quick_main!(run);
 
-    /*
-    println!("source:");
-    for (i, line) in source.lines().enumerate() {
-        println!(" {:<4} {}", i, line);
+fn run() -> Result<()> {
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
+
+    if args.flag_version {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return Ok(());
     }
-    println!();
-    */
 
-    let lexer = lexer::Lexer::new(source);
-    let ast = p0::parse_program(source, lexer).unwrap();
-    let ir: ir::Program = ast.into();
+    let mut compiler = Compiler::new(&args.arg_source);
 
-    /*
-    //println!("\nintermediate representation:");
-    for (i, stmt) in ir.stmts.iter().enumerate() {
-        let line = match *stmt {
-            ir::Stmt::Print(ref val) => format!("print {}", val_to_string(val)),
-            ir::Stmt::Def(ref tmp, ref expr) => {
-                let tmp = val_to_string(&ir::Val::Ref(*tmp));
-                match *expr {
-                    ir::Expr::UnaryNeg(ref val) => format!("{:<3} := -{}", tmp, val_to_string(val)),
-                    ir::Expr::Add(ref l, ref r) => format!("{:<3} := {} + {}", tmp, val_to_string(l), val_to_string(r)),
-                    ir::Expr::Input => format!("{:<3} := input()", tmp),
-                }
-            }
-        };
-        //println!(" {:<4} {}", i, line);
+    if let Some(runtime) = args.flag_runtime {
+        compiler.runtime(runtime);
     }
-    //println!();
-    */
 
-    let x86 = x86::Builder::build(&ir);
-    //println!("x86:\n\n{}", x86);
-    let out_path = Path::new(&path).with_extension("s");
-    let mut f = fs::File::create(&out_path).unwrap();
-    f.write_all(x86.as_bytes()).unwrap();
+    if let Some(out) = args.flag_out {
+        compiler.out_path(out);
+    }
+
+    compiler.run()
 }

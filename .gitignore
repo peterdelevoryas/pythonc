@@ -1,11 +1,7 @@
-*.pyc
-*.o
-*.a
-*.s
-*.warn
-*.out
 /target/
 **/*.rs.bk
 *.swp
-src/p0.rs
+runtime/*.o
+runtime/*.a
 cog.zip
+pythonc-ast/src/parse.rs

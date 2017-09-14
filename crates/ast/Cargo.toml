@@ -1,0 +1,12 @@
+[package]
+name = "python-ast"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+build = "build.rs"
+
+[build-dependencies]
+lalrpop = "0.13.1"
+
+[dependencies]
+python-token = { path = "../token" }
+lalrpop-util = "0.13.1"

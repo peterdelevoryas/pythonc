@@ -12,7 +12,5 @@
 #
 # should create an x86 assembly file tests/test1.s.
 
-# THIS_DIR is bound to the directory that this script file is in.
-
-chmod +x ./rust-python
-./rust-python $*
+chmod +x ./pythonc
+./pythonc $*
