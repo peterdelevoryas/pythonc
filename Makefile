@@ -17,8 +17,6 @@ COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
 
 .PHONY: pythonc cog install test pyyruntime
 
-all: $(PYTHONC)
-
 # Create x86 assembly .s file using your compiler.
 %.s: %.py
 	$(PYYC) $<
