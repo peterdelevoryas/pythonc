@@ -1,8 +1,12 @@
 extern crate python_ir as ir;
 
 mod register;
+mod memory;
+mod immediate;
 
-pub use register::Register32;
+pub use register::Register;
+pub use memory::Memory;
+pub use immediate::Immediate;
 
 /*
 pub mod reg;

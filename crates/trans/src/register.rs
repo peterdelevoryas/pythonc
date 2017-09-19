@@ -1,5 +1,5 @@
 #[derive(Debug, Copy, Clone)]
-pub enum Register32 {
+pub enum Register {
     EAX,
     EBX,
     ECX,
