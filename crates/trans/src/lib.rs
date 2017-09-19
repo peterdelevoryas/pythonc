@@ -1,5 +1,10 @@
 extern crate python_ir as ir;
 
+mod register;
+
+pub use register::Register32;
+
+/*
 pub mod reg;
 pub mod imm;
 pub mod ia32;
@@ -37,7 +42,7 @@ impl Bits for Bits32 {
 }
 
 pub struct Builder {
-    stack: Vec<Box<ia32::Instr>>,
+    stack: Vec<ia32::Instr>,
     tmp_count: usize,
 }
 
@@ -207,3 +212,4 @@ main:
         self.stack.push(Box::new(Call { label: label.into() }));
     }
 }
+*/

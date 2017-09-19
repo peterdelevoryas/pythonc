@@ -5,20 +5,11 @@ use mem::Mem;
 use Bits;
 use Bits32;
 
-pub trait Instr {
-    fn trans(&self) -> String;
-}
-
 /// Uses AT&T syntax
 ///     RegReg => movB %reg, %reg
 ///     RegMem => movB %reg, mem
 #[derive(Debug)]
-pub enum Mov<B, R, I>
-where
-    B: Bits,
-    R: Reg<Size = B>,
-    I: Imm<Size = B>,
-{
+pub enum Movl {
     RegReg(R, R),
     RegMem(R, Mem<B, R, I>),
     MemReg(Mem<B, R, I>, R),
