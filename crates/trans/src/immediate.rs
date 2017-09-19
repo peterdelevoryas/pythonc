@@ -1,2 +1,2 @@
-#[derive(Debug, Copy, Clone)]
-pub struct Immediate(i32);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Immediate32(i32);

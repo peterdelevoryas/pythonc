@@ -1,5 +1,5 @@
-use Register;
-use Immediate;
+use Register32;
+use Immediate32;
 
 /// Intel:
 ///
@@ -10,10 +10,10 @@ use Immediate;
 ///
 ///     %segreg:disp(base, index, scale)
 ///
-#[derive(Debug, Copy, Clone)]
-pub struct Memory {
-    pub base: Register,
-    pub index: Option<Register>,
-    pub scale: Option<Immediate>,
-    pub disp: Immediate,
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Memory32 {
+    pub base: Register32,
+    pub index: Option<Register32>,
+    pub scale: Option<Immediate32>,
+    pub disp: Immediate32,
 }

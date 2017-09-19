@@ -1,12 +1,21 @@
+//!
+//! Currently, this crate makes a ton of simplifications around
+//! representing the IA-32 instruction set by assuming 32-bit
+//! operands and instruction variants for everything. This is
+//! further emphasized by (somewhat annoyingly) annotating
+//! all types with "32".
+//!
+
 extern crate python_ir as ir;
 
 mod register;
 mod memory;
 mod immediate;
+mod ia_32;
 
-pub use register::Register;
-pub use memory::Memory;
-pub use immediate::Immediate;
+pub use register::Register32;
+pub use memory::Memory32;
+pub use immediate::Immediate32;
 
 /*
 pub mod reg;
