@@ -3,6 +3,8 @@ extern crate python_ast as ast;
 extern crate python_trans as trans;
 #[macro_use]
 extern crate error_chain;
+#[cfg(feature = "fallback-parser")]
+extern crate python_fallback_parser;
 
 pub mod error;
 pub use error::{Error, ErrorKind, Result, ResultExt};
@@ -10,6 +12,7 @@ pub use error::{Error, ErrorKind, Result, ResultExt};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+
 
 pub struct Compiler {
     source: PathBuf,
@@ -70,9 +73,21 @@ impl Compiler {
     }
 }
 
+#[cfg(not(feature = "fallback-parser"))]
 pub fn compile(source: &str) -> Result<String> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
+    let ir = ast.into();
+    let asm = trans::Builder::build(&ir);
+    Ok(asm)
+}
+
+#[cfg(feature = "fallback-parser")]
+pub fn compile(source: &str) -> Result<String> {
+    let ast = match python_fallback_parser::parse_program_fallback(source) {
+        Ok(ast) => ast,
+        Err(e) => { panic!("Unhandled exception in fallback parser: {:?}", e); },
+    }; 
     let ir = ast.into();
     let asm = trans::Builder::build(&ir);
     Ok(asm)

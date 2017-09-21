@@ -1,0 +1,13 @@
+[package]
+name = "python-fallback-parser"
+version = "0.1.0"
+authors = ["wtemple"]
+
+[dependencies]
+python-ast = { path = "../ast" }
+
+
+[dependencies.cpython]
+version = "0.1"
+default-features = false
+features = ["python27-sys"]

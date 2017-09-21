@@ -11,6 +11,10 @@ name = "pythonc"
 path = "src/main.rs"
 doc = false
 
+[features]
+default = []
+fallback-parser = ["python-fallback-parser"]
+
 [dependencies]
 python-token = { path = "crates/token" }
 python-ast = { path = "crates/ast" }
@@ -21,10 +25,14 @@ docopt = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
 
+# Optional Dependencies
+python-fallback-parser = { path = "crates/python-fallback-parser", optional = true }
+
 [workspace]
 members = [
     "crates/token",
     "crates/ast",
     "crates/ir",
     "crates/trans",
+    "crates/python-fallback-parser",
 ]
