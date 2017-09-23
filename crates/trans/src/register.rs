@@ -1,7 +1,5 @@
-use std::fmt;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Register32 {
+pub enum Register {
     EAX,
     EBX,
     ECX,
@@ -12,10 +10,10 @@ pub enum Register32 {
     EBP,
 }
 
-impl fmt::Display for Register32 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Register32::*;
-        let s = match *self {
+impl Register {
+    pub fn as_str(&self) -> &'static str {
+        use self::Register::*;
+        match *self {
             EAX => "eax",
             EBX => "ebx",
             ECX => "ecx",
@@ -24,8 +22,7 @@ impl fmt::Display for Register32 {
             EDI => "edi",
             ESP => "esp",
             EBP => "ebp",
-        };
-        write!(f, "%{}", s)
+        }
     }
 }
 

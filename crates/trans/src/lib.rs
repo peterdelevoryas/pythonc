@@ -8,14 +8,18 @@
 
 extern crate python_ir as ir;
 
-mod register;
-mod memory;
-mod immediate;
-mod ia_32;
+pub mod register;
+pub mod memory;
+pub mod immediate;
+pub mod ia_32;
+//pub mod syntax;
+pub mod att;
+//pub mod intel;
 
-pub use register::Register32;
-pub use memory::Memory32;
-pub use immediate::Immediate32;
+pub use register::Register;
+pub use memory::Memory;
+pub use memory::ScaleFactor;
+pub use immediate::Immediate;
 
 /*
 pub mod reg;
