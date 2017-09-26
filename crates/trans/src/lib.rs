@@ -19,6 +19,7 @@ pub mod att;
 pub use register::Register;
 pub use memory::Memory;
 pub use memory::ScaleFactor;
+pub use memory::Displacement;
 pub use immediate::Immediate;
 
 /*

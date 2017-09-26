@@ -23,7 +23,7 @@ pub enum Value {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Load {
-    pub source: Memory,
+    pub memory: Memory,
     pub register: Register,
 }
 

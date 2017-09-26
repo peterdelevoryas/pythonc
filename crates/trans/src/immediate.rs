@@ -1,4 +1,2 @@
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Immediate {
-    pub value: i32
-}
+pub struct Immediate(pub i32);
