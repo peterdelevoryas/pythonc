@@ -128,7 +128,7 @@ impl<'a> fmt::Display for Att<'a, Instruction> {
 
 impl<'a> fmt::Display for Att<'a, Program> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\
+        write!(f, "
 .globl main
 main:
     pushl %ebp
@@ -140,7 +140,7 @@ main:
             writeln!(f, "    {}", Att(instruction))?;
         }
 
-        write!(f, "\
+        write!(f, "
     movl $0, %eax
     leave
     ret
