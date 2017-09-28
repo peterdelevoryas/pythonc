@@ -19,6 +19,7 @@ pub use memory::Memory;
 pub use memory::ScaleFactor;
 pub use memory::Displacement;
 pub use immediate::Immediate;
+pub use att::Att;
 
 use std::mem;
 use ia_32::*;
