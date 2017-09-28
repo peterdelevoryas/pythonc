@@ -12,15 +12,178 @@ pub mod register;
 pub mod memory;
 pub mod immediate;
 pub mod ia_32;
-//pub mod syntax;
 pub mod att;
-//pub mod intel;
 
 pub use register::Register;
 pub use memory::Memory;
 pub use memory::ScaleFactor;
 pub use memory::Displacement;
 pub use immediate::Immediate;
+
+use std::mem;
+use ia_32::*;
+
+pub struct Program {
+    instructions: Vec<ia_32::Instruction>,
+    stack_len: usize,
+}
+
+impl Program {
+    fn new(stack_len: usize) -> Self {
+        Self {
+            instructions: Vec::new(),
+            stack_len,
+        }
+    }
+
+    /// Computes length of stack (size in bytes of stack = len * 4)
+    fn compute_stack_len(ir: &ir::Program) -> usize {
+        let mut len = 0;
+        for stmt in &ir.stmts {
+            if let &ir::Stmt::Def(_, _) = stmt {
+                len += 1
+            }
+        }
+        len
+    }
+
+    fn stack_location(&self, tmp: ir::Tmp) -> Memory {
+        // 1 + index because we have to skip
+        // the ebp pushed on the stack in the assumed shim
+        let offset = ((tmp.index + 1) * mem::size_of::<u32>()) as isize * -1;
+        let m = Memory {
+            base: Register::EBP,
+            index: None,
+            displacement: Displacement(offset as i32),
+        };
+        m
+    }
+
+    pub fn build(ir: &ir::Program) -> Program {
+        let stack_len = Self::compute_stack_len(ir);
+        let mut program = Self::new(stack_len);
+        for stmt in &ir.stmts {
+            program.trans(stmt);
+        }
+        program
+    }
+
+    fn trans(&mut self, stmt: &ir::Stmt) {
+        use ir::Stmt::*;
+        use ir::Val::*;
+        use ir::Expr;
+        match *stmt {
+            Print(val) => {
+                let value = self.val_to_value(val, Register::EDI);
+                // push value onto stack (x86 call argument)
+                self.push(value);
+                self.call("print_int_nl");
+                // reset stack pointer
+                self.add_esp_4();
+            }
+            Def(tmp, Expr::UnaryNeg(val)) => {
+                let value = self.val_to_value(val, Register::EDI);
+                let value = self.negate(value);
+                let dst = self.stack_location(tmp);
+                self.store(value, dst);
+            }
+            Def(tmp, Expr::Add(left, right)) => {
+                // Be careful not to load tmps into same place here!!
+                // TODO somehow make it clean and simple to perform
+                // optimization of using EDI for right when left is value
+                let left = self.val_to_value(left, Register::EDI);
+                let right = self.val_to_value(right, Register::EDX);
+                let sum = self.add(left, right);
+                self.store_tmp(tmp, sum);
+            }
+            Def(tmp, Expr::Input) => {
+                self.call("input");
+                self.store_tmp(tmp, Value::Register(Register::EAX));
+            }
+        }
+    }
+
+    fn val_to_value(&mut self, val: ir::Val, tmp_storage: Register) -> Value {
+        use ir::Val::*;
+        match val {
+            Ref(tmp) => {
+                self.load_tmp(tmp, tmp_storage);
+                Value::Register(tmp_storage)
+            }
+            Int(int) => {
+                Value::Immediate(Immediate(int))
+            }
+        }
+    }
+
+    // Adds left to right, stores in dst if necessary
+    fn add(&mut self, left: Value, right: Value) -> Value {
+        let (dst, value) = match (left, right) {
+            (Value::Immediate(Immediate(l)), Value::Immediate(Immediate(r))) => {
+                return Value::Immediate(Immediate(l + r))
+            }
+            (Value::Register(l), r) => (l, r),
+            (l, Value::Register(r)) => (r, l),
+        };
+        self.push_instruction(Instruction::Add(Add {
+            value,
+            register: dst,
+        }));
+        Value::Register(dst)
+    }
+
+    /// If register, negate the register, otherwise just change the constant value!
+    fn negate(&mut self, value: Value) -> Value {
+        match value {
+            Value::Register(register) => {
+                self.push_instruction(Instruction::Neg(Neg { register }));
+                Value::Register(register)
+            }
+            Value::Immediate(Immediate(i)) => {
+                // Statically computing negation on constants!
+                Value::Immediate(Immediate(-i))
+            }
+        }
+    }
+
+    fn store_tmp(&mut self, tmp: ir::Tmp, value: Value) {
+        let mem = self.stack_location(tmp);
+        self.store(value, mem);
+    }
+
+    fn store(&mut self, value: Value, memory: Memory) {
+        self.push_instruction(Instruction::Store(Store { value, memory }));
+    }
+
+    fn load_tmp(&mut self, tmp: ir::Tmp, register: Register) {
+        let mem = self.stack_location(tmp);
+        self.load(mem, register);
+    }
+
+    fn push_instruction(&mut self, instruction: Instruction) {
+        self.instructions.push(instruction);
+    }
+
+    fn add_esp_4(&mut self) {
+        self.push_instruction(Instruction::Add(Add {
+            value: Value::Immediate(Immediate(4)),
+            register: Register::ESP,
+        }));
+    }
+
+    fn load(&mut self, memory: Memory, register: Register) {
+        self.push_instruction(Instruction::Load(Load { memory, register }));
+    }
+
+    fn push(&mut self, value: ia_32::Value) {
+        self.push_instruction(Instruction::Push(Push { value }));
+    }
+
+    fn call<S: Into<String>>(&mut self, label: S) {
+        let label = label.into();
+        self.push_instruction(Instruction::Call(Call { label }));
+    }
+}
 
 /*
 pub mod reg;
