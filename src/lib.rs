@@ -3,6 +3,7 @@ extern crate python_ast as ast;
 extern crate python_trans as trans;
 extern crate python_ir as ir;
 extern crate python_vm as vm;
+extern crate interference;
 extern crate liveness;
 #[macro_use]
 extern crate error_chain;
@@ -79,6 +80,8 @@ pub fn compile(source: &str) -> Result<trans::Program> {
     let ir: ir::Program = ast.into();
     let vm = vm::Program::build(&ir);
     liveness::debug_print_vm(&vm);
+    let ig = interference::Builder::build_graph(&vm);
+    println!("{:#?}", ig);
     let asm = trans::Program::build(&ir);
     Ok(asm)
 }

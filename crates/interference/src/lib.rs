@@ -13,6 +13,15 @@ pub enum Node {
     Register(trans::Register),
 }
 
+impl From<liveness::Val> for Node {
+    fn from(val: liveness::Val) -> Node {
+        match val {
+            liveness::Val::Virtual(tmp) => Node::Tmp(tmp),
+            liveness::Val::Register(r) => Node::Register(r),
+        }
+    }
+}
+
 pub type Graph = petgraph::Graph<Node, (), petgraph::Undirected>;
 pub type NodeIndex = petgraph::graph::NodeIndex;
 
@@ -32,7 +41,7 @@ impl Builder {
         let liveness = liveness::compute_vm(vm);
         builder.add_edges(vm, &liveness);
 
-        unimplemented!()
+        builder.graph
     }
 
     fn add_edges(&mut self, vm: &vm::Program, liveness: &[Liveness]) {
@@ -43,18 +52,42 @@ impl Builder {
             let instr = &vm.stack[liveness.k];
             match *instr {
                 Mov(val, tmp) => {
-                    for v in &liveness.live_after_k {
-                        match *v {
-                            Virtual(v_tmp) => {}
-                            Register(v_reg) => {}
+                    let val = match val {
+                        vm::Val::Int(i) => None,
+                        vm::Val::Virtual(t) => Some(Virtual(t)),
+                        vm::Val::Register(r) => Some(Register(r)),
+                    };
+                    for &v in &liveness.live_after_k {
+                        if val.is_some() && val.unwrap() == v {
+                            continue
                         }
+                        self.add_edge(Node::Tmp(tmp), v.into());
                     }
                 }
-                Neg(tmp) => {}
-                Add(val, tmp) => {}
-                Push(val) => {}
-                Call(ref label) => {}
+                Neg(tmp) | Add(_, tmp) => {
+                    for &v in &liveness.live_after_k {
+                        self.add_edge(Node::Tmp(tmp), v.into());
+                    }
+                }
+                Call(ref label) => {
+                    for &v in &liveness.live_after_k {
+                        self.add_edge(Node::Register(trans::Register::EAX), v.into());
+                        self.add_edge(Node::Register(trans::Register::ECX), v.into());
+                        self.add_edge(Node::Register(trans::Register::EDX), v.into());
+                    }
+                }
+                _ => {}
             }
+        }
+    }
+
+    fn add_edge(&mut self, l: Node, r: Node) {
+        assert!(self.nodes.contains_key(&l));
+        assert!(self.nodes.contains_key(&r));
+        if l != r {
+            let li = self.nodes[&l];
+            let ri = self.nodes[&r];
+            self.graph.add_edge(li, ri, ());
         }
     }
 
