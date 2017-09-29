@@ -1,5 +1,5 @@
 [root]
-name = "python-trans"
+name = "python-vm"
 version = "0.1.0"
 dependencies = [
  "python-ir 0.1.0",
@@ -277,6 +277,13 @@ dependencies = [
 [[package]]
 name = "python-token"
 version = "0.1.0"
+
+[[package]]
+name = "python-trans"
+version = "0.1.0"
+dependencies = [
+ "python-ir 0.1.0",
+]
 
 [[package]]
 name = "quote"

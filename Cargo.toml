@@ -26,5 +26,6 @@ members = [
     "crates/token",
     "crates/ast",
     "crates/ir",
+    "crates/vm",
     "crates/trans",
 ]
