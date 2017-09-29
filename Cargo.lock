@@ -74,6 +74,17 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "coloring"
+version = "0.1.0"
+dependencies = [
+ "interference 0.1.0",
+ "liveness 0.1.0",
+ "python-ir 0.1.0",
+ "python-trans 0.1.0",
+ "python-vm 0.1.0",
+]
+
+[[package]]
 name = "dbghelp-sys"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

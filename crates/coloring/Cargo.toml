@@ -1,0 +1,11 @@
+[package]
+name = "coloring"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+
+[dependencies]
+interference = { path = "../interference" }
+python-ir = { path = "../ir" }
+python-vm = { path = "../vm" }
+liveness = { path = "../liveness" }
+python-trans = { path = "../trans" }
