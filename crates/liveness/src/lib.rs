@@ -1,6 +1,7 @@
 #![feature(conservative_impl_trait)]
 extern crate python_ir as ir;
 extern crate python_vm as vm;
+extern crate python_trans as trans;
 
 macro_rules! set {
     ($($e:expr),*) => ({
@@ -15,19 +16,43 @@ macro_rules! set {
 use std::collections::HashSet;
 use std::fmt;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Val {
+    Virtual(ir::Tmp),
+    Register(trans::Register),
+}
+
+impl fmt::Display for Val {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Val::*;
+        match *self {
+            Virtual(tmp) => write!(f, "{}", tmp),
+            Register(r) => write!(f, "{}", trans::Att(&r)),
+        }
+    }
+}
+
 pub struct Liveness {
     // see course notes, k is statement index
     pub k: usize,
-    pub live_after_k: HashSet<ir::Tmp>,
+    pub live_after_k: HashSet<Val>,
 }
 
 impl fmt::Display for Liveness {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         if !self.live_after_k.is_empty() {
-            let mut tmps: Vec<ir::Tmp> = self.live_after_k.iter().map(|&tmp| tmp).collect();
+            let mut tmps: Vec<Val> = self.live_after_k.iter().map(|&tmp| tmp).collect();
             tmps.sort_by(|l, r| {
-                l.index.cmp(&r.index)
+                use self::Val::*;
+                use std::cmp::Ordering::*;
+                match (*l, *r) {
+                    (Virtual(l), Virtual(r)) => l.index.cmp(&r.index),
+                    (Virtual(_), Register(_)) => Less,
+                    (Register(_), Virtual(_)) => Greater,
+                    (Register(l), Register(r)) =>
+                        format!("{}", trans::Att(&l)).cmp(&format!("{}", trans::Att(&r)))
+                }
             });
             write!(f, "{}", tmps[0])?;
             for tmp in &tmps[1..] {
@@ -41,8 +66,8 @@ impl fmt::Display for Liveness {
 
 pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
     let mut stack = Vec::new();
-    let mut live_after_k: HashSet<ir::Tmp> = HashSet::new();
-    let mut live_before_k: HashSet<ir::Tmp>;
+    let mut live_after_k: HashSet<Val> = HashSet::new();
+    let mut live_before_k: HashSet<Val>;
 
     // iterate backwards, following algorithm from course notes
     for (k, instr) in vm.stack.iter().enumerate().rev() {
@@ -62,6 +87,7 @@ pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
     stack
 }
 
+/*
 pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
     let mut stack = Vec::new();
     let mut live_after_k: HashSet<ir::Tmp> = HashSet::new();
@@ -93,6 +119,7 @@ pub fn debug_print(ir: &ir::Program) {
         println!("{: <3} {:24} {}", "", "", l);
     }
 }
+*/
 
 pub fn debug_print_vm(vm: &vm::Program) {
     let liveness = compute_vm(vm);
@@ -111,29 +138,31 @@ fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
     }
 }
 
-fn w_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
+fn w_vm(instr: &vm::Instr) -> HashSet<Val> {
     use vm::Instr::*;
     match *instr {
-        Mov(val, tmp) => set!(tmp),
-        Neg(tmp) => set!(tmp),
-        Add(val, tmp) => set!(tmp),
+        Mov(val, tmp) => set!(Val::Virtual(tmp)),
+        Neg(tmp) => set!(Val::Virtual(tmp)),
+        Add(val, tmp) => set!(Val::Virtual(tmp)),
+        Call(_) => set!(Val::Register(trans::Register::EAX)),
         _ => set!(),
     }
 }
 
-fn r_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
+fn r_vm(instr: &vm::Instr) -> HashSet<Val> {
     use vm::Instr::*;
     match *instr {
         Mov(ref val, _) => r_val_vm(val),
-        Add(ref val, tmp) => r_val_vm(val).union(&set!(tmp)).map(|&tmp| tmp).collect(),
+        Add(ref val, tmp) => r_val_vm(val).union(&set!(Val::Virtual(tmp))).map(|&tmp| tmp).collect(),
         Push(ref val) => r_val_vm(val),
         _ => set!(),
     }
 }
 
-fn r_val_vm(val: &vm::Val) -> HashSet<ir::Tmp> {
+fn r_val_vm(val: &vm::Val) -> HashSet<Val> {
     match *val {
-        vm::Val::Virtual(tmp) => set!(tmp),
+        vm::Val::Virtual(tmp) => set!(Val::Virtual(tmp)),
+        vm::Val::Register(r) => set!(Val::Register(r)),
         _ => set!(),
     }
 }

@@ -2,6 +2,7 @@ extern crate python_ir as ir;
 extern crate python_trans as trans;
 
 use std::fmt;
+use trans::Att;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Val {
@@ -25,7 +26,7 @@ impl fmt::Display for Val {
         match *self {
             Virtual(tmp) => write!(f, "{}", tmp),
             Int(i) => write!(f, "{}", i),
-            Register(r) => write!(f, "{}", r),
+            Register(r) => write!(f, "{}", Att(&r)),
         }
     }
 }

@@ -6,4 +6,5 @@ authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 [dependencies]
 python-ir = { path = "../ir" }
 python-vm = { path = "../vm" }
+python-trans = { path = "../trans" }
 petgraph = "0.4.5"
