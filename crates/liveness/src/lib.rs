@@ -41,6 +41,12 @@ pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
     stack
 }
 
+pub fn debug_print<'liveness, I: Iterator<Item=&'liveness Liveness>>(liveness: I) {
+    for l in liveness {
+
+    }
+}
+
 fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
     use ir::Stmt::*;
     match *stmt {
