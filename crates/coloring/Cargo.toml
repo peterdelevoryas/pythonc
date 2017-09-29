@@ -9,3 +9,4 @@ python-ir = { path = "../ir" }
 python-vm = { path = "../vm" }
 liveness = { path = "../liveness" }
 python-trans = { path = "../trans" }
+petgraph = "0.4.5"

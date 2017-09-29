@@ -5,28 +5,54 @@ use std::fmt;
 use trans::Att;
 
 #[derive(Debug, Copy, Clone)]
-pub enum Val {
-    Virtual(ir::Tmp),
+pub enum RVal {
     Int(i32),
-    Register(trans::Register),
+    LVal(LVal),
 }
 
-impl From<ir::Val> for Val {
+
+#[derive(Debug, Copy, Clone)]
+pub enum LVal {
+    Tmp(ir::Tmp),
+    Register(trans::Register),
+    Stack(usize),
+}
+
+#[derive(Debug, Clone)]
+pub enum Instr {
+    Mov(RVal, LVal),
+    Neg(LVal),
+    Add(RVal, LVal),
+    Push(RVal),
+    Call(String),
+}
+
+impl From<ir::Val> for RVal {
     fn from(v: ir::Val) -> Self {
         match v {
-            ir::Val::Int(i) => Val::Int(i),
-            ir::Val::Ref(t) => Val::Virtual(t),
+            ir::Val::Int(i) => RVal::Int(i),
+            ir::Val::Ref(t) => RVal::LVal(LVal::Tmp(t)),
         }
     }
 }
 
-impl fmt::Display for Val {
+impl fmt::Display for RVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Val::*;
+        use self::RVal::*;
         match *self {
-            Virtual(tmp) => write!(f, "{}", tmp),
             Int(i) => write!(f, "{}", i),
+            LVal(lval) => write!(f, "{}", lval),
+        }
+    }
+}
+
+impl fmt::Display for LVal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::LVal::*;
+        match *self {
+            Tmp(tmp) => write!(f, "{}", tmp),
             Register(r) => write!(f, "{}", Att(&r)),
+            Stack(index) => write!(f, "s{}", index),
         }
     }
 }
@@ -35,21 +61,13 @@ impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Instr::*;
         match *self {
-            Mov(val, tmp) => write!(f, "mov {}, {}", val, tmp),
-            Neg(tmp) => write!(f, "neg {}", tmp),
-            Add(val, tmp) => write!(f, "add {}, {}", val, tmp),
-            Push(val) => write!(f, "push {}", val),
+            Mov(rval, lval) => write!(f, "mov {}, {}", rval, lval),
+            Neg(lval) => write!(f, "neg {}", lval),
+            Add(rval, lval) => write!(f, "add {}, {}", rval, lval),
+            Push(rval) => write!(f, "push {}", rval),
             Call(ref s) => write!(f, "call {}", s),
         }
     }
-}
-
-pub enum Instr {
-    Mov(Val, ir::Tmp),
-    Neg(ir::Tmp),
-    Add(Val, ir::Tmp),
-    Push(Val),
-    Call(String),
 }
 
 pub struct Program {
@@ -69,14 +87,7 @@ impl Program {
 
     pub fn print(&self) {
         for instr in &self.stack {
-            use self::Instr::*;
-            match *instr {
-                Mov(val, tmp) => println!("mov {}, {}", val, tmp),
-                Neg(tmp) => println!("neg {}", tmp),
-                Add(val, tmp) => println!("add {}, {}", val, tmp),
-                Push(val) => println!("push {}", val),
-                Call(ref label) => println!("call {}", label),
-            }
+            println!("{}", instr);
         }
     }
 
@@ -114,35 +125,35 @@ impl Program {
                 self.call("print_int_nl");
             }
             Def(tmp, Add(l, r)) => {
-                self.mov(l.into(), tmp);
-                self.add(r.into(), tmp);
+                self.mov(l.into(), LVal::Tmp(tmp));
+                self.add(r.into(), LVal::Tmp(tmp));
             }
             Def(tmp, UnaryNeg(v)) => {
-                self.mov(v.into(), tmp);
-                self.neg(tmp);
+                self.mov(v.into(), LVal::Tmp(tmp));
+                self.neg(LVal::Tmp(tmp));
             }
             Def(tmp, Input) => {
                 self.call("input");
-                let eax = Val::Register(trans::Register::EAX);
-                self.mov(eax, tmp);
+                let eax = RVal::LVal(LVal::Register(trans::Register::EAX));
+                self.mov(eax, LVal::Tmp(tmp));
             }
         }
     }
 
-    fn neg(&mut self, tmp: ir::Tmp) {
-        self.stack.push(Instr::Neg(tmp));
+    fn neg(&mut self, lval: LVal) {
+        self.stack.push(Instr::Neg(lval));
     }
 
-    fn add(&mut self, val: Val, tmp: ir::Tmp) {
-        self.stack.push(Instr::Add(val, tmp));
+    fn add(&mut self, rval: RVal, lval: LVal) {
+        self.stack.push(Instr::Add(rval, lval));
     }
 
-    fn mov(&mut self, val: Val, tmp: ir::Tmp) {
-        self.stack.push(Instr::Mov(val, tmp));
+    fn mov(&mut self, rval: RVal, lval: LVal) {
+        self.stack.push(Instr::Mov(rval, lval));
     }
 
-    fn push(&mut self, val: Val) {
-        self.stack.push(Instr::Push(val));
+    fn push(&mut self, rval: RVal) {
+        self.stack.push(Instr::Push(rval));
     }
 
     fn call(&mut self, s: &str) {

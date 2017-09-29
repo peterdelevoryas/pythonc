@@ -9,6 +9,18 @@ use liveness::Liveness;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Node {
+    Forced(trans::Register),
+    Variable {
+        color: Option<Color>,
+        unspillable: bool,
+        tmp: ir::Tmp,
+    }
+}
+
+pub type Color = trans::Register;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Name {
     Tmp(ir::Tmp),
     Register(trans::Register),
 }
@@ -16,7 +28,9 @@ pub enum Node {
 impl From<liveness::Val> for Node {
     fn from(val: liveness::Val) -> Node {
         match val {
-            liveness::Val::Virtual(tmp) => Node::Tmp(tmp),
+            liveness::Val::Virtual(tmp) => Node::Variable {
+                
+            }
             liveness::Val::Register(r) => Node::Register(r),
         }
     }
@@ -51,6 +65,8 @@ impl Builder {
         for liveness in liveness {
             let instr = &vm.stack[liveness.k];
             match *instr {
+                // generate spillable data
+                // register | tmp
                 Mov(val, tmp) => {
                     let val = match val {
                         vm::Val::Int(i) => None,
@@ -58,6 +74,7 @@ impl Builder {
                         vm::Val::Register(r) => Some(Register(r)),
                     };
                     for &v in &liveness.live_after_k {
+                        // if source in live set, then skip
                         if val.is_some() && val.unwrap() == v {
                             continue
                         }

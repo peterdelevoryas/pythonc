@@ -22,6 +22,14 @@ pub enum Val {
     Register(trans::Register),
 }
 
+fn lval_to_val(lval: vm::LVal) -> Option<Val> {
+    match lval {
+        vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
+        vm::LVal::Register(r) => Some(Val::Register(r)),
+        vm::LVal::Stack(_) => None,
+    }
+}
+
 impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Val::*;
@@ -141,15 +149,15 @@ fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
 fn w_vm(instr: &vm::Instr) -> HashSet<Val> {
     use vm::Instr::*;
     match *instr {
-        Mov(val, tmp) => set!(Val::Virtual(tmp)),
-        Neg(tmp) => set!(Val::Virtual(tmp)),
-        Add(val, tmp) => set!(Val::Virtual(tmp)),
+        Mov(_, lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
+        Neg(lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
+        Add(_, lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
         Call(_) => set!(
             Val::Register(trans::Register::EAX),
             Val::Register(trans::Register::ECX),
             Val::Register(trans::Register::EDX)
         ),
-        _ => set!(),
+        //_ => set!(),
     }
 }
 
