@@ -43,7 +43,7 @@ pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
 
 pub fn debug_print<'liveness, I: Iterator<Item=&'liveness Liveness>>(liveness: I) {
     for l in liveness {
-
+        println!("live after {} = {:?}", l.k, l.live_after_k);
     }
 }
 
