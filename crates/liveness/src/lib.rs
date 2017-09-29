@@ -144,7 +144,11 @@ fn w_vm(instr: &vm::Instr) -> HashSet<Val> {
         Mov(val, tmp) => set!(Val::Virtual(tmp)),
         Neg(tmp) => set!(Val::Virtual(tmp)),
         Add(val, tmp) => set!(Val::Virtual(tmp)),
-        Call(_) => set!(Val::Register(trans::Register::EAX)),
+        Call(_) => set!(
+            Val::Register(trans::Register::EAX),
+            Val::Register(trans::Register::ECX),
+            Val::Register(trans::Register::EDX)
+        ),
         _ => set!(),
     }
 }
