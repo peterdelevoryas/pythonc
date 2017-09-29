@@ -37,25 +37,34 @@ impl Builder {
 
     fn add_edges(&mut self, vm: &vm::Program, liveness: &[Liveness]) {
         use vm::Instr::*;
+        use liveness::Val::*;
 
-        unimplemented!()
-            /*
         for liveness in liveness {
             let instr = &vm.stack[liveness.k];
             match *instr {
-                Mov(val, tmp) => {}
+                Mov(val, tmp) => {
+                    for v in &liveness.live_after_k {
+                        match *v {
+                            Virtual(v_tmp) => {}
+                            Register(v_reg) => {}
+                        }
+                    }
+                }
                 Neg(tmp) => {}
                 Add(val, tmp) => {}
                 Push(val) => {}
                 Call(ref label) => {}
             }
         }
-        */
     }
 
     fn create_vertices(&mut self, vm: &vm::Program) {
         use vm::Instr::*;
-        // create tmp nodes and register nodes
+
+        self.add_node(Node::Register(trans::Register::EAX));
+        self.add_node(Node::Register(trans::Register::ECX));
+        self.add_node(Node::Register(trans::Register::EDX));
+
         for instr in &vm.stack {
             match *instr {
                 Mov(val, tmp) => {
