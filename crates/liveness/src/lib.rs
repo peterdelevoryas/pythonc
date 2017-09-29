@@ -91,6 +91,15 @@ pub fn debug_print(ir: &ir::Program) {
     }
 }
 
+pub fn debug_print_vm(vm: &vm::Program) {
+    let liveness = compute_vm(vm);
+    for (l, s) in liveness.iter().zip(vm.stack.iter()) {
+        let s = format!("{}", s);
+        println!("{: <3} {}", l.k, s);
+        println!("{: <3} {:24} {}", "", "", l);
+    }
+}
+
 fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
     use ir::Stmt::*;
     match *stmt {
@@ -100,11 +109,30 @@ fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
 }
 
 fn w_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
-    unimplemented!()
+    use vm::Instr::*;
+    match *instr {
+        Mov(val, tmp) => set!(tmp),
+        Neg(tmp) => set!(tmp),
+        Add(val, tmp) => set!(tmp),
+        _ => set!(),
+    }
 }
 
 fn r_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
-    unimplemented!()
+    use vm::Instr::*;
+    match *instr {
+        Mov(ref val, _) => r_val_vm(val),
+        Add(ref val, _) => r_val_vm(val),
+        Push(ref val) => r_val_vm(val),
+        _ => set!(),
+    }
+}
+
+fn r_val_vm(val: &vm::Val) -> HashSet<ir::Tmp> {
+    match *val {
+        vm::Val::Virtual(tmp) => set!(tmp),
+        _ => set!(),
+    }
 }
 
 

@@ -29,6 +29,19 @@ impl fmt::Display for Val {
     }
 }
 
+impl fmt::Display for Instr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Instr::*;
+        match *self {
+            Mov(val, tmp) => write!(f, "mov {}, {}", val, tmp),
+            Neg(tmp) => write!(f, "neg {}", tmp),
+            Add(val, tmp) => write!(f, "add {}, {}", val, tmp),
+            Push(val) => write!(f, "push {}", val),
+            Call(ref s) => write!(f, "call {}", s),
+        }
+    }
+}
+
 pub enum Instr {
     Mov(Val, ir::Tmp),
     Neg(ir::Tmp),
