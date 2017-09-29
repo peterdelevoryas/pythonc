@@ -16,8 +16,8 @@ use std::fmt;
 
 pub struct Liveness {
     // see course notes, k is statement index
-    k: usize,
-    live_after_k: HashSet<ir::Tmp>,
+    pub k: usize,
+    pub live_after_k: HashSet<ir::Tmp>,
 }
 
 impl fmt::Display for Liveness {
