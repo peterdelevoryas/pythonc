@@ -6,14 +6,15 @@ use std::fmt;
 #[derive(Debug, Copy, Clone)]
 pub enum Val {
     Virtual(ir::Tmp),
-    Const(i32),
+    Int(i32),
     Register(trans::Register),
 }
 
 impl From<ir::Val> for Val {
     fn from(v: ir::Val) -> Self {
         match v {
-            ir::Val::Int(i) => Val::Const(i), ir::Val::Ref(t) => Val::Virtual(t),
+            ir::Val::Int(i) => Val::Int(i),
+            ir::Val::Ref(t) => Val::Virtual(t),
         }
     }
 }
@@ -23,8 +24,8 @@ impl fmt::Display for Val {
         use self::Val::*;
         match *self {
             Virtual(tmp) => write!(f, "{}", tmp),
-            Const(i) => write!(f, "{}", i),
-            Register(r) => write!(f, "{}", trans::Att(&r)),
+            Int(i) => write!(f, "{}", i),
+            Register(r) => write!(f, "{}", r),
         }
     }
 }
@@ -91,7 +92,8 @@ impl Program {
     /// }
     ///
     /// tmp := input() => {
-    ///     call input
+    ///     call input, eax // eax acts as destination operand implicitly,
+    ///                     // this is hardcoded in liveness analysis
     ///     mov eax, tmp
     /// }
     ///
