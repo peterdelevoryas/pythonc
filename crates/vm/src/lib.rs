@@ -68,15 +68,42 @@ impl Program {
         match *stmt {
             Print(v) => {
                 self.push(v.into());
+                self.call("print_int_nl");
             }
-            Def(t, ref e) => {
-
+            Def(tmp, Add(l, r)) => {
+                self.mov(l.into(), tmp);
+                self.add(r.into(), tmp);
+            }
+            Def(tmp, UnaryNeg(v)) => {
+                self.mov(v.into(), tmp);
+                self.neg(tmp);
+            }
+            Def(tmp, Input) => {
+                self.call("input");
+                let eax = Val::Register(trans::Register::EAX);
+                self.mov(eax, tmp);
             }
         }
     }
 
+    fn neg(&mut self, tmp: ir::Tmp) {
+        self.stack.push(Instr::Neg(tmp));
+    }
+
+    fn add(&mut self, val: Val, tmp: ir::Tmp) {
+        self.stack.push(Instr::Add(val, tmp));
+    }
+
+    fn mov(&mut self, val: Val, tmp: ir::Tmp) {
+        self.stack.push(Instr::Mov(val, tmp));
+    }
+
     fn push(&mut self, val: Val) {
         self.stack.push(Instr::Push(val));
+    }
+
+    fn call(&mut self, s: &str) {
+        self.stack.push(Instr::Call(s.into()));
     }
 }
 
