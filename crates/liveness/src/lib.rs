@@ -125,7 +125,7 @@ fn r_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
     use vm::Instr::*;
     match *instr {
         Mov(ref val, _) => r_val_vm(val),
-        Add(ref val, _) => r_val_vm(val),
+        Add(ref val, tmp) => r_val_vm(val).union(&set!(tmp)).map(|&tmp| tmp).collect(),
         Push(ref val) => r_val_vm(val),
         _ => set!(),
     }
