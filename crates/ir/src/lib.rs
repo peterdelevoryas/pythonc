@@ -31,7 +31,51 @@ extern crate python_ast as ast;
 
 use std::str::FromStr;
 use std::collections::HashMap;
+use std::fmt;
 use regex::Regex;
+
+pub fn debug_print<'ir, I: Iterator<Item=&'ir Stmt>>(stmts: I) {
+    for (k, stmt) in stmts.enumerate() {
+        println!("{:<3}: {}", k, stmt);
+    }
+}
+
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Stmt::*;
+        match *self {
+            Print(ref val) => write!(f, "print {}", val),
+            Def(tmp, ref expr) => write!(f, "{} := {}", tmp, expr),
+        }
+    }
+}
+
+impl fmt::Display for Val {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Val::*;
+        match *self {
+            Int(i) => write!(f, "{}", i),
+            Ref(tmp) => write!(f, "{}", tmp),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Expr::*;
+        match *self {
+            UnaryNeg(ref val) => write!(f, "-{}", val),
+            Add(ref l, ref r) => write!(f, "{} + {}", l, r),
+            Input => write!(f, "input()"),
+        }
+    }
+}
+
+impl fmt::Display for Tmp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "t{}", self.index)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
