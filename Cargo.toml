@@ -28,4 +28,5 @@ members = [
     "crates/ir",
     "crates/vm",
     "crates/trans",
+    "crates/liveness",
 ]
