@@ -5,3 +5,4 @@ authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
 [dependencies]
 python-ir = { path = "../ir" }
+python-trans = { path = "../trans" }

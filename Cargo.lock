@@ -3,6 +3,7 @@ name = "python-vm"
 version = "0.1.0"
 dependencies = [
  "python-ir 0.1.0",
+ "python-trans 0.1.0",
 ]
 
 [[package]]
