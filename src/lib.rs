@@ -2,6 +2,7 @@ extern crate python_token as token;
 extern crate python_ast as ast;
 extern crate python_trans as trans;
 extern crate python_ir as ir;
+extern crate python_vm as vm;
 extern crate liveness;
 #[macro_use]
 extern crate error_chain;
@@ -76,7 +77,9 @@ pub fn compile(source: &str) -> Result<trans::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
     let ir: ir::Program = ast.into();
-    liveness::debug_print(&ir);
+    let vm = vm::Program::build(&ir);
+    vm.print();
+    //liveness::debug_print(&ir);
     let asm = trans::Program::build(&ir);
     Ok(asm)
 }

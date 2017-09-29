@@ -1,5 +1,6 @@
 #![feature(conservative_impl_trait)]
 extern crate python_ir as ir;
+extern crate python_vm as vm;
 
 macro_rules! set {
     ($($e:expr),*) => ({
@@ -33,6 +34,29 @@ impl fmt::Display for Liveness {
         write!(f, ")")?;
         Ok(())
     }
+}
+
+pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
+    let mut stack = Vec::new();
+    let mut live_after_k: HashSet<ir::Tmp> = HashSet::new();
+    let mut live_before_k: HashSet<ir::Tmp>;
+
+    // iterate backwards, following algorithm from course notes
+    for (k, instr) in vm.stack.iter().enumerate().rev() {
+        //
+        // live_before_k = (live_after_k - w(stmt_k)) U r(stmt_k);
+        //
+        live_before_k = (&live_after_k - &w_vm(instr)).union(&r_vm(instr)).map(|&tmp| tmp).collect();
+
+        let live = Liveness { k, live_after_k: live_after_k.clone() };
+        stack.push(live);
+
+        // k = k - 1, so live_after_(k-1) == live_before_k
+        live_after_k = live_before_k;
+    }
+
+    stack.reverse();
+    stack
 }
 
 pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
@@ -74,6 +98,15 @@ fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
         Def(tmp, ref expr) => set!(tmp),
     }
 }
+
+fn w_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
+    unimplemented!()
+}
+
+fn r_vm(instr: &vm::Instr) -> HashSet<ir::Tmp> {
+    unimplemented!()
+}
+
 
 fn r(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
     use ir::Stmt::*;

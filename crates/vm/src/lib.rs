@@ -38,7 +38,7 @@ pub enum Instr {
 }
 
 pub struct Program {
-    stack: Vec<Instr>,
+    pub stack: Vec<Instr>,
 }
 
 impl Program {

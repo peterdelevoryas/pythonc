@@ -17,6 +17,7 @@ python-ast = { path = "crates/ast" }
 python-ir = { path = "crates/ir" }
 python-trans = { path = "crates/trans" }
 liveness = { path = "crates/liveness" }
+python-vm = { path = "crates/vm" }
 error-chain = "0.11.0"
 docopt = "0.8"
 serde = "1.0"
