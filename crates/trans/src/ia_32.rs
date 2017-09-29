@@ -3,19 +3,6 @@ use Memory;
 use Immediate;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Source {
-    Register(Register),
-    Memory(Memory),
-    Immediate(Immediate),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Destination {
-    Register(Register),
-    Memory(Memory),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
     Register(Register),
     Immediate(Immediate),
