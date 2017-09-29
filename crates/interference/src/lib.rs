@@ -5,6 +5,7 @@ extern crate python_trans as trans;
 extern crate petgraph;
 
 use std::collections::HashMap;
+use liveness::Liveness;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Node {
@@ -28,8 +29,28 @@ impl Builder {
         };
         
         builder.create_vertices(vm);
+        let liveness = liveness::compute_vm(vm);
+        builder.add_edges(vm, &liveness);
 
         unimplemented!()
+    }
+
+    fn add_edges(&mut self, vm: &vm::Program, liveness: &[Liveness]) {
+        use vm::Instr::*;
+
+        unimplemented!()
+            /*
+        for liveness in liveness {
+            let instr = &vm.stack[liveness.k];
+            match *instr {
+                Mov(val, tmp) => {}
+                Neg(tmp) => {}
+                Add(val, tmp) => {}
+                Push(val) => {}
+                Call(ref label) => {}
+            }
+        }
+        */
     }
 
     fn create_vertices(&mut self, vm: &vm::Program) {
