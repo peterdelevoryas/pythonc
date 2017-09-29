@@ -25,7 +25,10 @@ impl fmt::Display for Liveness {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         if !self.live_after_k.is_empty() {
-            let tmps: Vec<ir::Tmp> = self.live_after_k.iter().map(|&tmp| tmp).collect();
+            let mut tmps: Vec<ir::Tmp> = self.live_after_k.iter().map(|&tmp| tmp).collect();
+            tmps.sort_by(|l, r| {
+                l.index.cmp(&r.index)
+            });
             write!(f, "{}", tmps[0])?;
             for tmp in &tmps[1..] {
                 write!(f, ", {}", tmp)?;
