@@ -145,6 +145,8 @@ dependencies = [
  "liveness 0.1.0",
  "petgraph 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "python-ir 0.1.0",
+ "python-trans 0.1.0",
+ "python-vm 0.1.0",
 ]
 
 [[package]]
