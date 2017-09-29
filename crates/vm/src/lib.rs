@@ -1,6 +1,9 @@
 extern crate python_ir as ir;
 extern crate python_trans as trans;
 
+use std::fmt;
+
+#[derive(Debug, Copy, Clone)]
 pub enum Val {
     Virtual(ir::Tmp),
     Const(i32),
@@ -11,6 +14,17 @@ impl From<ir::Val> for Val {
     fn from(v: ir::Val) -> Self {
         match v {
             ir::Val::Int(i) => Val::Const(i), ir::Val::Ref(t) => Val::Virtual(t),
+        }
+    }
+}
+
+impl fmt::Display for Val {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Val::*;
+        match *self {
+            Virtual(tmp) => write!(f, "{}", tmp),
+            Const(i) => write!(f, "{}", i),
+            Register(r) => write!(f, "{}", trans::Att(&r)),
         }
     }
 }
@@ -36,6 +50,19 @@ impl Program {
             program.trans(stmt);
         }
         program
+    }
+
+    pub fn print(&self) {
+        for instr in &self.stack {
+            use self::Instr::*;
+            match *instr {
+                Mov(val, tmp) => println!("mov {}, {}", val, tmp),
+                Neg(tmp) => println!("neg {}", tmp),
+                Add(val, tmp) => println!("add {}, {}", val, tmp),
+                Push(val) => println!("push {}", val),
+                Call(ref label) => println!("call {}", label),
+            }
+        }
     }
 
     ///
