@@ -1,0 +1,9 @@
+[package]
+name = "interference"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+
+[dependencies]
+python-ir = { path = "../ir" }
+liveness = { path = "../liveness" }
+petgraph = "0.4.5"
