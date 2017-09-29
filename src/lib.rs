@@ -76,9 +76,7 @@ pub fn compile(source: &str) -> Result<trans::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
     let ir: ir::Program = ast.into();
-    ir::debug_print(ir.stmts.iter());
-    let liveness = liveness::compute(&ir);
-    liveness::debug_print(liveness.iter());
+    liveness::debug_print(&ir);
     let asm = trans::Program::build(&ir);
     Ok(asm)
 }

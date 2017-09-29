@@ -54,12 +54,16 @@ pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
         live_after_k = live_before_k;
     }
 
+    stack.reverse();
     stack
 }
 
-pub fn debug_print<'liveness, I: Iterator<Item=&'liveness Liveness>>(liveness: I) {
-    for l in liveness {
-        println!("live after {} = {}", l.k, l);
+pub fn debug_print(ir: &ir::Program) {
+    let liveness = compute(ir);
+    for (l, s) in liveness.iter().zip(ir.stmts.iter()) {
+        let s = format!("{}", s);
+        println!("{: <3} {}", l.k, s);
+        println!("{: <3} {:24} {}", "", "", l);
     }
 }
 
