@@ -12,11 +12,27 @@ macro_rules! set {
 }
 
 use std::collections::HashSet;
+use std::fmt;
 
 pub struct Liveness {
     // see course notes, k is statement index
     k: usize,
     live_after_k: HashSet<ir::Tmp>,
+}
+
+impl fmt::Display for Liveness {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        if !self.live_after_k.is_empty() {
+            let tmps: Vec<ir::Tmp> = self.live_after_k.iter().map(|&tmp| tmp).collect();
+            write!(f, "{}", tmps[0])?;
+            for tmp in &tmps[1..] {
+                write!(f, ", {}", tmp)?;
+            }
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
 }
 
 pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
@@ -43,7 +59,7 @@ pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
 
 pub fn debug_print<'liveness, I: Iterator<Item=&'liveness Liveness>>(liveness: I) {
     for l in liveness {
-        println!("live after {} = {:?}", l.k, l.live_after_k);
+        println!("live after {} = {}", l.k, l);
     }
 }
 

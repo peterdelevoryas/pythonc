@@ -36,7 +36,7 @@ use regex::Regex;
 
 pub fn debug_print<'ir, I: Iterator<Item=&'ir Stmt>>(stmts: I) {
     for (k, stmt) in stmts.enumerate() {
-        println!("{:<3}: {}", k, stmt);
+        println!("{:<3} {}", k, stmt);
     }
 }
 
