@@ -326,19 +326,69 @@ impl Graph {
     fn add_node(&mut self, node: Node) {
         self.graph.add_node(node);
     }
+
+    pub fn run_dsatur(&mut self) -> DSaturResult {
+        unimplemented!()
+    }
+
+    fn saturation(&self, node: Node) -> Saturation {
+        match node {
+            Node::Variable(tmp) => {
+                let unspillable = self.unspillable.contains(&tmp);
+                let count = self.count_adjacent_colored(node);
+                if unspillable {
+                    Saturation::Unspillable(count)
+                } else {
+                    Saturation::Spillable(count)
+                }
+            }
+            Node::Forced(_) => Saturation::Forced,
+        }
+    }
+
+    fn count_adjacent_colored(&self, node: Node) -> usize {
+        self.graph
+            .neighbors(node)
+            .map(|n| if self.node_color(n).is_some() { 1 } else { 0 })
+            .sum()
+    }
+
+    fn node_color(&self, node: Node) -> Option<Color> {
+        match node {
+            Node::Variable(tmp) => self.colors.get(&tmp).map(|&c| c),
+            Node::Forced(r) => Some(r), // register is the color
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Saturation {
-    Forced,
-    Unspillable(usize),
     Spillable(usize),
+    Unspillable(usize),
+    Forced,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum DSaturResult {
+    Success,
+    Spill,
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Saturation;
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn saturation_ordering() {
+        let forced = Saturation::Forced;
+        let unspillable_1 = Saturation::Unspillable(1);
+        let unspillable_2 = Saturation::Unspillable(2);
+        let spillable_1 = Saturation::Spillable(1);
+        let spillable_2 = Saturation::Spillable(2);
+
+        assert!(forced > unspillable_1);
+        assert!(unspillable_2 > unspillable_1);
+        assert!(unspillable_1 > spillable_2);
+        assert!(spillable_2 > spillable_1);
     }
 }
