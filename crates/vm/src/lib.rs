@@ -133,22 +133,44 @@ impl Program {
     }
 
     pub fn spill(&mut self, tmp: ir::Tmp, stack_index: usize) {
-        // instruction index
-        let mut k = 0;
-        loop {
+        for instr in self.stack.iter_mut() {
             // If the instruction doesn't reference tmp, then
             // this won't modify the instruction
-            self.stack[k].replace_with_stack(tmp, stack_index);
+            instr.replace_with_stack(tmp, stack_index);
         }
-        unimplemented!()
     }
 
     pub fn to_asm(self) -> trans::Program {
         unimplemented!()
     }
 
-    pub fn replace_stack_to_stack_movs(&mut self, alloc: &mut ir::TmpAllocator) {
-        unimplemented!()
+    /// Fixes up mov stack, stack and add stack, stack
+    pub fn replace_stack_to_stack_ops(&self, alloc: &mut ir::TmpAllocator) -> Program {
+        use self::Instr::*;
+        use self::LVal::*;
+        use self::RVal::*;
+        let mut fixed = Program { stack: vec![] };
+        for instr in &self.stack {
+            match *instr {
+                Mov(LVal(Stack(left)), Stack(right)) => {
+                    let tmp = alloc.alloc().expect("tmp allocation error");
+                    let mov_to_tmp = Mov(LVal(Stack(left)), Tmp(tmp));
+                    let mov_from_tmp = Mov(LVal(Tmp(tmp)), Stack(right));
+                    fixed.stack.push(mov_to_tmp);
+                    fixed.stack.push(mov_from_tmp);
+                }
+                Add(LVal(Stack(left)), Stack(right)) => {
+                    let tmp = alloc.alloc().expect("tmp allocation error");
+                    let mov_to_tmp = Mov(LVal(Stack(right)), Tmp(tmp));
+                    let add_to_tmp = Add(LVal(Stack(left)), Tmp(tmp));
+                    fixed.stack.push(mov_to_tmp);
+                    fixed.stack.push(add_to_tmp);
+                }
+                ref i => fixed.stack.push(i.clone());
+            }
+        }
+
+        fixed
     }
 
     ///

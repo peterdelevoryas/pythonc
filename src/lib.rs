@@ -97,7 +97,7 @@ pub fn compile(source: &str) -> Result<trans::Program> {
             Spill(u) => {
                 // replaces u with stack_index
                 vm.spill(u, stack_index);
-                vm.replace_stack_to_stack_movs(&mut tmp_allocator);
+                vm = vm.replace_stack_to_stack_ops(&mut tmp_allocator);
             }
         }
     }
