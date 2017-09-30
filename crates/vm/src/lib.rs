@@ -98,10 +98,13 @@ impl Instr {
 
         match *self {
             Mov(LVal(left), right) => union(left.tmp(), right.tmp()),
+            Mov(Int(_), right) => right.tmp(),
             Neg(lval) => lval.tmp(),
             Add(LVal(left), right) => union(left.tmp(), right.tmp()),
+            Add(Int(_), right) => right.tmp(),
             Push(LVal(lval)) => lval.tmp(),
-            _ => HashSet::new(),
+            Push(_) => HashSet::new(),
+            Call(_) => HashSet::new(),
         }
     }
 }
@@ -159,6 +162,7 @@ impl Program {
     }
 
     pub fn spill(&mut self, tmp: ir::Tmp) {
+        println!("spilling into stack {}", self.stack_index);
         for instr in self.stack.iter_mut() {
             // If the instruction doesn't reference tmp, then
             // this won't modify the instruction
@@ -172,7 +176,7 @@ impl Program {
         use self::Instr::*;
         use self::LVal::*;
         use self::RVal::*;
-        let mut fixed = Program { stack: vec![], stack_index: 0, };
+        let mut fixed = Program { stack: vec![], stack_index: self.stack_index, };
         for instr in &self.stack {
             match *instr {
                 Mov(LVal(Stack(left)), Stack(right)) => {
@@ -277,9 +281,15 @@ impl fmt::Display for Program {
 main:
     pushl %ebp
     movl %esp, %ebp
-    subl ${}, %esp
-",
-            self.stack_index * 4)?;
+    {}
+", {
+    let len = (self.stack_index + 1) * 4;
+    if len != 0 {
+        format!("subl ${}, %esp", len)
+    } else {
+        "".into()
+    }
+})?;
 
         for instr in &self.stack {
             writeln!(f, "    {}", instr)?;

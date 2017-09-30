@@ -79,17 +79,21 @@ pub fn compile(source: &str) -> Result<vm::Program> {
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
     let mut tmp_allocator = ir::TmpAllocator::new();
     let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
+    ir::debug_print(ir.stmts.iter());
 
     let mut vm = vm::Program::build(&ir);
     let asm;
+    let mut iteration = 0;
     loop {
         use interference::DSaturResult::*;
-        //liveness::debug_print(&vm);
+        println!("iteration {}", iteration);
+        liveness::debug_print(&vm);
 
         let mut ig = interference::Graph::build(&vm);
         match ig.run_dsatur() {
             Success => {
                 asm = ig.assign_homes(vm);
+                println!("asm:\n{}", asm);
                 break
             }
             Spill(u) => {
@@ -98,6 +102,7 @@ pub fn compile(source: &str) -> Result<vm::Program> {
                 vm = vm.replace_stack_to_stack_ops(&mut tmp_allocator);
             }
         }
+        iteration += 1;
     }
 
     //let asm = trans::Program::build(&ir);

@@ -340,10 +340,18 @@ impl Graph {
 
         // I think with non-lexical lifetimes, this can be a while let Some(u)
         loop {
-            let (u, r) = if let Some(u) = self.uncolored_nodes().max_by_key(|&tmp| self.saturation(tmp)) {
-                let r = match self.adjacent_colors(u).difference(&registers).next() {
-                    Some(&r) => r,
-                    None => return DSaturResult::Spill(u),
+            let uncolored_nodes: Vec<ir::Tmp> = self.uncolored_nodes().collect();
+            //let (u, r) = if let Some(u) = self.uncolored_nodes().max_by_key(|&tmp| self.saturation(tmp)) {
+            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(|&tmp| self.saturation(*tmp)) {
+                let diff: HashSet<Register> = registers.difference(&self.adjacent_colors(u)).map(|&r| r).collect();
+                let r = match diff.iter().next() {
+                //let r = match self.adjacent_colors(u).difference(&registers).next() {
+                    Some(&r) => {
+                        r
+                    }
+                    None => {
+                        return DSaturResult::Spill(u)
+                    }
                 };
                 (u, r)
             } else {
@@ -431,6 +439,7 @@ impl Graph {
             let tmps = instr.tmps();
             for &tmp in &tmps {
                 let color = self.tmp_color(tmp).expect("tmp is not colored");
+                println!("{} := {}", tmp, trans::Att(&color));
                 instr.replace_with(tmp, vm::LVal::Register(color));
             }
         }
