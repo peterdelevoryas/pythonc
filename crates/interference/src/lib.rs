@@ -7,6 +7,7 @@ extern crate petgraph;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use liveness::Liveness;
+use trans::Register;
 use petgraph::graphmap::UnGraphMap;
 
 // TODO I feel like Node and NodeVariant could be refactored
@@ -27,27 +28,10 @@ pub struct Graph {
     colors: HashMap<ir::Tmp, Color>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Node {
     Forced(trans::Register),
     Variable(ir::Tmp),
-}
-
-// Node also needs an impl of PartialOrd and Ord for ordering
-// an edge (a, b), required by UnGraphMap<Node>.
-// There is no ordering that makes sense, so this always returns "eq"
-use std::cmp::Ord;
-use std::cmp::PartialOrd;
-use std::cmp::Ordering;
-impl PartialOrd for Node {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for Node {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Ordering::Equal
-    }
 }
 
 /// 
@@ -72,6 +56,9 @@ impl Graph {
     pub fn build(vm: &vm::Program) -> Graph {
         let mut graph = Self::new();
 
+        let eax = Node::Forced(Register::EAX);
+        let ecx = Node::Forced(Register::ECX);
+
         //graph.create_vertices(vm);
         //let liveness = liveness::compute(vm);
         //graph.add_edges(vm, &liveness);
@@ -85,6 +72,33 @@ impl Graph {
             unspillable: HashSet::new(),
             colors: HashMap::new(),
         }
+    }
+
+    fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
+        assert!(!self.colors.contains_key(&tmp),
+            "Did you mean to overwrite the previous color for {}?", tmp);
+        self.colors.insert(tmp, color);
+    }
+
+    fn add_unspillable(&mut self, tmp: ir::Tmp) {
+        self.add_node(Node::Variable(tmp));
+        self.unspillable.insert(tmp);
+    }
+
+    fn add_spillable(&mut self, tmp: ir::Tmp) {
+        self.add_node(Node::Variable(tmp));
+    }
+
+    fn add_forced(&mut self, register: Register) {
+        self.add_node(Node::Forced(register));
+    }
+
+    fn add_node(&mut self, node: Node) {
+        self.graph.add_node(node);
+    }
+
+    fn add_edge(&mut self, l: Node, r: Node) -> Option<()> {
+        self.graph.add_edge(l, r, ())
     }
 
     /*

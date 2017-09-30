@@ -100,7 +100,7 @@ impl From<ast::Program> for Program {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tmp {
     pub index: usize,
 }
