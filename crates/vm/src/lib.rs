@@ -41,19 +41,8 @@ impl fmt::Display for RVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::RVal::*;
         match *self {
-            Int(i) => write!(f, "{}", i),
+            Int(i) => write!(f, "${}", i),
             LVal(lval) => write!(f, "{}", lval),
-        }
-    }
-}
-
-impl fmt::Display for LVal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::LVal::*;
-        match *self {
-            Tmp(tmp) => write!(f, "{}", tmp),
-            Register(r) => write!(f, "{}", Att(&r)),
-            Stack(index) => write!(f, "s{}", index),
         }
     }
 }
@@ -62,10 +51,10 @@ impl fmt::Display for Instr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Instr::*;
         match *self {
-            Mov(rval, lval) => write!(f, "mov {}, {}", rval, lval),
-            Neg(lval) => write!(f, "neg {}", lval),
-            Add(rval, lval) => write!(f, "add {}, {}", rval, lval),
-            Push(rval) => write!(f, "push {}", rval),
+            Mov(rval, lval) => write!(f, "movl {}, {}", rval, lval),
+            Neg(lval) => write!(f, "negl {}", lval),
+            Add(rval, lval) => write!(f, "addl {}, {}", rval, lval),
+            Push(rval) => write!(f, "pushl {}", rval),
             Call(ref s) => write!(f, "call {}", s),
         }
     }
@@ -147,11 +136,16 @@ impl LVal {
 
 pub struct Program {
     pub stack: Vec<Instr>,
+    pub stack_index: usize,
 }
 
 impl Program {
+    fn increment_stack_index(&mut self) {
+        self.stack_index += 1;
+    }
+
     pub fn build(ir: &ir::Program) -> Program {
-        let mut program = Program { stack: vec![] };
+        let mut program = Program { stack: vec![], stack_index: 0, };
         for stmt in &ir.stmts {
             program.trans(stmt);
         }
@@ -164,16 +158,13 @@ impl Program {
         }
     }
 
-    pub fn spill(&mut self, tmp: ir::Tmp, stack_index: usize) {
+    pub fn spill(&mut self, tmp: ir::Tmp) {
         for instr in self.stack.iter_mut() {
             // If the instruction doesn't reference tmp, then
             // this won't modify the instruction
-            instr.replace_with_stack(tmp, stack_index);
+            instr.replace_with_stack(tmp, self.stack_index);
         }
-    }
-
-    pub fn to_asm(self) -> trans::Program {
-        unimplemented!()
+        self.increment_stack_index();
     }
 
     /// Fixes up mov stack, stack and add stack, stack
@@ -181,7 +172,7 @@ impl Program {
         use self::Instr::*;
         use self::LVal::*;
         use self::RVal::*;
-        let mut fixed = Program { stack: vec![] };
+        let mut fixed = Program { stack: vec![], stack_index: 0, };
         for instr in &self.stack {
             match *instr {
                 Mov(LVal(Stack(left)), Stack(right)) => {
@@ -272,6 +263,53 @@ impl Program {
 
     fn call(&mut self, s: &str) {
         self.stack.push(Instr::Call(s.into()));
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Instr::*;
+        use self::LVal::*;
+        use self::RVal::*;
+        write!(f,
+"
+.globl main
+main:
+    pushl %ebp
+    movl %esp, %ebp
+    subl ${}, %esp
+",
+            self.stack_index * 4)?;
+
+        for instr in &self.stack {
+            writeln!(f, "    {}", instr)?;
+        }
+
+        write!(f,
+"
+    movl $0, %eax
+    leave
+    ret
+")?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for LVal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            LVal::Tmp(tmp) => write!(f, "{}", tmp),
+            LVal::Register(r) => write!(f, "{}", trans::Att(&r)),
+            LVal::Stack(index) => {
+                let offset = (index as i32 + 1) * -4;
+                let mem = trans::Memory {
+                    base: trans::Register::EBP,
+                    index: None,
+                    displacement: trans::Displacement(offset as i32),
+                };
+                write!(f, "{}", trans::Att(&mem))
+            }
+        }
     }
 }
 

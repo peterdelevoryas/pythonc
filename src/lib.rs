@@ -74,14 +74,13 @@ impl Compiler {
     }
 }
 
-pub fn compile(source: &str) -> Result<trans::Program> {
+pub fn compile(source: &str) -> Result<vm::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
     let mut tmp_allocator = ir::TmpAllocator::new();
     let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
 
     let mut vm = vm::Program::build(&ir);
-    let mut stack_index = 0;
     let asm;
     loop {
         use interference::DSaturResult::*;
@@ -90,13 +89,12 @@ pub fn compile(source: &str) -> Result<trans::Program> {
         let mut ig = interference::Graph::build(&vm);
         match ig.run_dsatur() {
             Success => {
-                let assigned = ig.assign_homes(vm);
-                asm = assigned.to_asm();
+                asm = ig.assign_homes(vm);
                 break
             }
             Spill(u) => {
                 // replaces u with stack_index
-                vm.spill(u, stack_index);
+                vm.spill(u);
                 vm = vm.replace_stack_to_stack_ops(&mut tmp_allocator);
             }
         }
@@ -116,7 +114,7 @@ where
         format!("compiling source file {:?}", source)
     })?;
 
-    write_file(trans::Att(&asm), output, create_new)
+    write_file(asm, output, create_new)
 }
 
 pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
