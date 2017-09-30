@@ -426,6 +426,10 @@ impl Graph {
             Node::Forced(r) => Some(r)
         }
     }
+
+    pub fn assign_homes(&self, vm: &vm::Program) -> vm::Program {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

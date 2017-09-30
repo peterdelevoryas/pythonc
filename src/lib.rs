@@ -78,11 +78,28 @@ pub fn compile(source: &str) -> Result<trans::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
     let ir: ir::Program = ast.into();
-    let vm = vm::Program::build(&ir);
-    liveness::debug_print(&vm);
-    let ig = interference::Graph::build(&vm);
-    println!("{:#?}", ig);
-    let asm = trans::Program::build(&ir);
+
+    let mut vm = vm::Program::build(&ir);
+    let final_vm;
+    loop {
+        use interference::DSaturResult::*;
+        //liveness::debug_print(&vm);
+
+        let mut ig = interference::Graph::build(&vm);
+        match ig.run_dsatur() {
+            Success => {
+                final_vm = ig.assign_homes(&vm);
+                break
+            }
+            Spill => {
+
+            }
+        }
+    }
+
+    let asm = unimplemented!();
+
+    //let asm = trans::Program::build(&ir);
     Ok(asm)
 }
 
