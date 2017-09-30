@@ -22,14 +22,6 @@ pub enum Val {
     Register(trans::Register),
 }
 
-fn lval_to_val(lval: vm::LVal) -> Option<Val> {
-    match lval {
-        vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
-        vm::LVal::Register(r) => Some(Val::Register(r)),
-        vm::LVal::Stack(_) => None,
-    }
-}
-
 impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Val::*;
@@ -82,7 +74,7 @@ pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
         //
         // live_before_k = (live_after_k - w(stmt_k)) U r(stmt_k);
         //
-        live_before_k = (&live_after_k - &w_vm(instr)).union(&r_vm(instr)).map(|&tmp| tmp).collect();
+        live_before_k = (&live_after_k - &write_set(instr)).union(&read_set(instr)).map(|&tmp| tmp).collect();
 
         let live = Liveness { k, live_after_k: live_after_k.clone() };
         stack.push(live);
@@ -95,41 +87,7 @@ pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
     stack
 }
 
-/*
-pub fn compute(ir: &ir::Program) -> Vec<Liveness> {
-    let mut stack = Vec::new();
-    let mut live_after_k: HashSet<ir::Tmp> = HashSet::new();
-    let mut live_before_k: HashSet<ir::Tmp>;
-
-    // iterate backwards, following algorithm from course notes
-    for (k, stmt) in ir.stmts.iter().enumerate().rev() {
-        //
-        // live_before_k = (live_after_k - w(stmt_k)) U r(stmt_k);
-        //
-        live_before_k = (&live_after_k - &w(stmt)).union(&r(stmt)).map(|&tmp| tmp).collect();
-
-        let live = Liveness { k, live_after_k: live_after_k.clone() };
-        stack.push(live);
-
-        // k = k - 1, so live_after_(k-1) == live_before_k
-        live_after_k = live_before_k;
-    }
-
-    stack.reverse();
-    stack
-}
-
-pub fn debug_print(ir: &ir::Program) {
-    let liveness = compute(ir);
-    for (l, s) in liveness.iter().zip(ir.stmts.iter()) {
-        let s = format!("{}", s);
-        println!("{: <3} {}", l.k, s);
-        println!("{: <3} {:24} {}", "", "", l);
-    }
-}
-*/
-
-pub fn debug_print_vm(vm: &vm::Program) {
+pub fn debug_print(vm: &vm::Program) {
     let liveness = compute_vm(vm);
     for (l, s) in liveness.iter().zip(vm.stack.iter()) {
         let s = format!("{}", s);
@@ -138,20 +96,51 @@ pub fn debug_print_vm(vm: &vm::Program) {
     }
 }
 
-fn w(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
-    use ir::Stmt::*;
-    match *stmt {
-        Print(val) => set!(),
-        Def(tmp, ref expr) => set!(tmp),
+fn lval_to_val(lval: vm::LVal) -> Option<Val> {
+    match lval {
+        vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
+        vm::LVal::Register(r) => Some(Val::Register(r)),
+        vm::LVal::Stack(_) => None,
     }
 }
 
-fn w_vm(instr: &vm::Instr) -> HashSet<Val> {
+fn rval_to_val(rval: vm::RVal) -> Option<Val> {
+    match rval {
+        vm::RVal::LVal(lval) => lval_to_val(lval),
+        vm::RVal::Int(i) => None,
+    }
+}
+
+fn option_to_set(opt: Option<Val>) -> HashSet<Val> {
+    match opt {
+        Some(val) => set!(val),
+        None => set!(),
+    }
+}
+
+fn union(lhs: HashSet<Val>, rhs: HashSet<Val>) -> HashSet<Val> {
+    lhs.union(&rhs).map(|&v| v).collect()
+}
+
+fn rval_(rval: vm::RVal) -> HashSet<Val> {
+    option_to_set(rval_to_val(rval))
+}
+fn lval_(lval: vm::LVal) -> HashSet<Val> {
+    option_to_set(lval_to_val(lval))
+}
+
+fn write_set(instr: &vm::Instr) -> HashSet<Val> {
     use vm::Instr::*;
     match *instr {
-        Mov(_, lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
-        Neg(lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
-        Add(_, lval) => lval_to_val(lval).map(|v| set!(v)).unwrap_or(set!()),
+        // writes the destination
+        Mov(_, lval) => lval_(lval),
+        // writes the destination
+        Neg(lval) => lval_(lval),
+        // writes the destination
+        Add(_, lval) => lval_(lval),
+        // writes the stack, so nothing
+        Push(_) => set!(),
+        // writes caller-save registers
         Call(_) => set!(
             Val::Register(trans::Register::EAX),
             Val::Register(trans::Register::ECX),
@@ -161,48 +150,19 @@ fn w_vm(instr: &vm::Instr) -> HashSet<Val> {
     }
 }
 
-fn r_vm(instr: &vm::Instr) -> HashSet<Val> {
+fn read_set(instr: &vm::Instr) -> HashSet<Val> {
     use vm::Instr::*;
     match *instr {
-        Mov(ref val, _) => r_val_vm(val),
-        Add(ref val, tmp) => r_val_vm(val).union(&set!(Val::Virtual(tmp))).map(|&tmp| tmp).collect(),
-        Push(ref val) => r_val_vm(val),
-        _ => set!(),
-    }
-}
-
-fn r_val_vm(val: &vm::Val) -> HashSet<Val> {
-    match *val {
-        vm::Val::Virtual(tmp) => set!(Val::Virtual(tmp)),
-        vm::Val::Register(r) => set!(Val::Register(r)),
-        _ => set!(),
-    }
-}
-
-
-fn r(stmt: &ir::Stmt) -> HashSet<ir::Tmp> {
-    use ir::Stmt::*;
-    match *stmt {
-        Print(ref val) => r_val(val),
-        Def(_, ref expr) => r_expr(expr),
-    }
-}
-
-fn r_val(val: &ir::Val) -> HashSet<ir::Tmp> {
-    use ir::Val::*;
-    match *val {
-        Int(_) => set!(),
-        Ref(tmp) => set!(tmp),
-    }
-}
-
-fn r_expr(expr: &ir::Expr) -> HashSet<ir::Tmp> {
-    use ir::Expr::*;
-    match *expr {
-        UnaryNeg(ref val) => r_val(val),
-        // r_val(l) U r_val(r)
-        Add(ref l, ref r) => r_val(l).union(&r_val(r)).map(|&tmp| tmp).collect(),
-        Input => set!(),
+        // only read from the source of mov's
+        Mov(rval, _) => rval_(rval),
+        // negation first reads from destination before writing
+        Neg(lval) => lval_(lval),
+        // read from the source and destination on add's
+        Add(rval, lval) => union(rval_(rval), lval_(lval)),
+        // just read from the rval
+        Push(rval) => rval_(rval),
+        // this just reads from the stack
+        Call(_) => set!(),
     }
 }
 
