@@ -1,3 +1,4 @@
+#![feature(conservative_impl_trait)]
 extern crate liveness;
 extern crate python_ir as ir;
 extern crate python_vm as vm;
@@ -329,6 +330,14 @@ impl Graph {
 
     pub fn run_dsatur(&mut self) -> DSaturResult {
         unimplemented!()
+    }
+
+    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=Node> {
+        self.graph
+            .nodes()
+            .filter(move |&n| {
+                self.node_color(n).is_none()
+            })
     }
 
     fn saturation(&self, node: Node) -> Saturation {
