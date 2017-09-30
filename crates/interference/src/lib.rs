@@ -1,4 +1,5 @@
 #![feature(conservative_impl_trait)]
+#[macro_use]
 extern crate liveness;
 extern crate python_ir as ir;
 extern crate python_vm as vm;
@@ -31,8 +32,20 @@ pub struct Graph {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Node {
-    Forced(trans::Register),
+    Forced(Register),
     Variable(ir::Tmp),
+}
+
+impl From<Register> for Node {
+    fn from(r: Register) -> Node {
+        Node::Forced(r)
+    }
+}
+
+impl From<ir::Tmp> for Node {
+    fn from(tmp: ir::Tmp) -> Node {
+        Node::Variable(tmp)
+    }
 }
 
 ///
@@ -272,14 +285,6 @@ impl Graph {
         }
     }
 
-    fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
-        assert!(
-            !self.colors.contains_key(&tmp),
-            "A color should only be written once"
-        );
-        self.colors.insert(tmp, color);
-    }
-
     /// This just exists so that we don't have to write
     /// RVal::Int(i) => {} everywhere there's an rval.
     /// This uses add_lval internally to handle lval's,
@@ -329,18 +334,55 @@ impl Graph {
     }
 
     pub fn run_dsatur(&mut self) -> DSaturResult {
-        unimplemented!()
+        use Register::*;
+
+        let registers = set!(EAX, EBX, ECX, EDX, ESI, EDI);
+
+        loop {
+            let (u, r) = if let Some(u) = self.uncolored_nodes().max_by_key(|&tmp| self.saturation(tmp)) {
+                let r = match self.adjacent_colors(u).difference(&registers).next() {
+                    Some(&r) => r,
+                    None => {
+                        unimplemented!("spill here!");
+                    }
+                };
+                (u, r)
+            } else {
+                // no more uncolored nodes
+                break
+            };
+            self.write_color(u, r);
+        }
+        DSaturResult::Success
     }
 
-    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=Node> {
+    fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
+        assert!(
+            !self.colors.contains_key(&tmp),
+            "A color should only be written once"
+        );
+        self.colors.insert(tmp, color);
+    }
+
+    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=ir::Tmp> {
         self.graph
             .nodes()
-            .filter(move |&n| {
-                self.node_color(n).is_none()
+            .filter_map(|n| {
+                match n {
+                    Node::Variable(tmp) => Some(tmp),
+                    Node::Forced(_) => None,
+                }
+            })
+            .filter_map(move |tmp| {
+                match self.tmp_color(tmp) {
+                    None => Some(tmp),
+                    Some(_) => None,
+                }
             })
     }
 
-    fn saturation(&self, node: Node) -> Saturation {
+    fn saturation<N: Into<Node>>(&self, node: N) -> Saturation {
+        let node = node.into();
         match node {
             Node::Variable(tmp) => {
                 let unspillable = self.unspillable.contains(&tmp);
@@ -355,17 +397,33 @@ impl Graph {
         }
     }
 
-    fn count_adjacent_colored(&self, node: Node) -> usize {
+    fn adjacent_colors<N: Into<Node>>(&self, node: N) -> HashSet<Color> {
+        let node = node.into();
+        self.graph
+            .neighbors(node)
+            .filter_map(|n| {
+                self.node_color(n)
+            })
+            .collect()
+    }
+
+    fn count_adjacent_colored<N: Into<Node>>(&self, node: N) -> usize {
+        let node = node.into();
         self.graph
             .neighbors(node)
             .map(|n| if self.node_color(n).is_some() { 1 } else { 0 })
             .sum()
     }
 
-    fn node_color(&self, node: Node) -> Option<Color> {
+    fn tmp_color(&self, tmp: ir::Tmp) -> Option<Color> {
+        self.colors.get(&tmp).map(|&c| c)
+    }
+
+    fn node_color<N: Into<Node>>(&self, node: N) -> Option<Color> {
+        let node = node.into();
         match node {
-            Node::Variable(tmp) => self.colors.get(&tmp).map(|&c| c),
-            Node::Forced(r) => Some(r), // register is the color
+            Node::Variable(tmp) => self.tmp_color(tmp),
+            Node::Forced(r) => Some(r)
         }
     }
 }

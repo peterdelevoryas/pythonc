@@ -3,6 +3,7 @@ extern crate python_ir as ir;
 extern crate python_vm as vm;
 extern crate python_trans as trans;
 
+#[macro_export]
 macro_rules! set {
     ($($e:expr),*) => ({
         let mut set = HashSet::new();
