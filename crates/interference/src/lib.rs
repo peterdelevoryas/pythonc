@@ -5,53 +5,89 @@ extern crate python_trans as trans;
 extern crate petgraph;
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use liveness::Liveness;
+use petgraph::graphmap::UnGraphMap;
+
+// TODO I feel like Node and NodeVariant could be refactored
+// into a single enum, but I'm not sure how
+
+
+#[derive(Debug)]
+pub struct Graph {
+    /// Undirected graph that only contains
+    /// the virtual location name (`ir::Tmp`)
+    /// or the un-named, pre-colored forced-register
+    /// locations.
+    graph: UnGraphMap<Node, ()>,
+    /// The set of unspillable virtual locations
+    unspillable: HashSet<ir::Tmp>,
+    /// Virtual location colors (registers), if
+    /// not allocated yet, then `colors.get(tmp) == None`
+    colors: HashMap<ir::Tmp, Color>,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Node {
     Forced(trans::Register),
-    Variable {
-        color: Option<Color>,
-        unspillable: bool,
-        tmp: ir::Tmp,
+    Variable(ir::Tmp),
+}
+
+// Node also needs an impl of PartialOrd and Ord for ordering
+// an edge (a, b), required by UnGraphMap<Node>.
+// There is no ordering that makes sense, so this always returns "eq"
+use std::cmp::Ord;
+use std::cmp::PartialOrd;
+use std::cmp::Ordering;
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ordering::Equal
     }
 }
 
+/// 
+/// `Color` is just the register that
+/// a virtual location has been allocated.
+/// Some virtual locations will be assigned stack
+/// locations, however these are removed from the graph,
+/// so they have no `Color` value.
+///
 pub type Color = trans::Register;
 
 impl From<liveness::Val> for Node {
     fn from(val: liveness::Val) -> Node {
         match val {
-            liveness::Val::Virtual(tmp) => Node::Variable {
-                
-            }
-            liveness::Val::Register(r) => Node::Register(r),
+            liveness::Val::Virtual(tmp) => Node::Variable(tmp),
+            liveness::Val::Register(r) => Node::Forced(r),
         }
     }
 }
 
-pub type Graph = petgraph::Graph<Node, (), petgraph::Undirected>;
-pub type NodeIndex = petgraph::graph::NodeIndex;
+impl Graph {
+    pub fn build(vm: &vm::Program) -> Graph {
+        let mut graph = Self::new();
 
-pub struct Builder {
-    graph: Graph,
-    nodes: HashMap<Node, NodeIndex>,
-}
+        //graph.create_vertices(vm);
+        //let liveness = liveness::compute(vm);
+        //graph.add_edges(vm, &liveness);
 
-impl Builder {
-    pub fn build_graph(vm: &vm::Program) -> Graph {
-        let mut builder = Builder {
-            graph: Graph::new_undirected(),
-            nodes: HashMap::new(),
-        };
-        
-        builder.create_vertices(vm);
-        let liveness = liveness::compute_vm(vm);
-        builder.add_edges(vm, &liveness);
-
-        builder.graph
+        graph
     }
 
+    fn new() -> Graph {
+        Graph {
+            graph: UnGraphMap::new(),
+            unspillable: HashSet::new(),
+            colors: HashMap::new(),
+        }
+    }
+
+    /*
     fn add_edges(&mut self, vm: &vm::Program, liveness: &[Liveness]) {
         use vm::Instr::*;
         use liveness::Val::*;
@@ -141,6 +177,7 @@ impl Builder {
             self.nodes.insert(node, index);
         }
     }
+    */
 }
 
 #[cfg(test)]
