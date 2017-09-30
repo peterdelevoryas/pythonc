@@ -56,9 +56,6 @@ impl Graph {
     pub fn build(vm: &vm::Program) -> Graph {
         let mut graph = Self::new();
 
-        let eax = Node::Forced(Register::EAX);
-        let ecx = Node::Forced(Register::ECX);
-
         //graph.create_vertices(vm);
         //let liveness = liveness::compute(vm);
         //graph.add_edges(vm, &liveness);
@@ -77,42 +74,108 @@ impl Graph {
     /// Adds all variables referenced in the
     /// instruction to the internal graph.
     /// If the variable already exists in the graph,
-    /// it is not modified.
+    /// it is not modified. If an LVal
+    /// is a stack location, it is not added
+    /// to the graph.
+    ///
+    /// If the variables referenced in the instruction
+    /// have already been added to the graph, then
+    /// they won't be affected, unless they need to
+    /// be added as unspillable, in which case
+    /// they are added to the unspillable set. For example,
+    ///
+    /// ```
+    /// 0. mov stack_0, tmp_7
+    /// 1. mov tmp_7, stack_1
+    /// ```
+    /// If you do `add_referenced_variables(0)`,
+    /// `tmp_7` will be added to the graph and to the unspillable
+    /// set. `add_referenced_variables(1)` will then try to
+    /// add `tmp_7` as a spillable variable, but this will
+    /// not remove it from the unspillable set, so everything
+    /// is ok.
+    ///
     fn add_referenced_variables(&mut self, instr: &vm::Instr) {
         use vm::Instr::*;
+        use vm::RVal::*;
+        use vm::LVal::*;
         match *instr {
+            // If moving from a stack location to any destination,
+            // add the destination as an unspillable variable
+            // I don't think it's necessary to match Tmp, Stack and
+            // make tmp unspillable in that case, since this case is
+            // handled: as long as 1 of the 2 is handled, it's ok?
+            // Not entirely sure!! If this is not correct, Add
+            // probably also needs to be changed
+            Mov(LVal(Stack(_)), Tmp(tmp)) => {
+                self.add_unspillable(tmp);
+            }
+            // I don't think this should be possible?? If it occurs,
+            // panic so that we can debug it
+            Mov(LVal(Stack(_)), Stack(_)) => {
+                panic!("mov stack, stack encountered in virtual asm!")
+            }
+            // add_lval and add_rval don't consider context, so they
+            // only add tmp's as spillable (forced registers don't
+            // change depending on context)
             Mov(rval, lval) => {
-                unimplemented!()
+                self.add_rval(rval);
+                self.add_lval(lval);
             }
-            Neg(lval) => {
-                unimplemented!()
-            }
-            Add(rval, lval) => {
-                unimplemented!()
-            }
-            Push(rval) => {
-                unimplemented!()
-            }
-            Call(ref label) => {
-                unimplemented!()
-            }
+            // For Neg, Add, and Push, pretty sure we
+            // can
+            Neg(lval) => self.add_lval(lval),
+            Add(rval, lval) => self.add_rval(rval),
+            Push(rval) => self.add_rval(rval),
+            // Nothing gets referenced in a Call right now
+            Call(ref label) => {}
         }
     }
 
     fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
         assert!(
             !self.colors.contains_key(&tmp),
-            "Did you mean to overwrite the previous color for {}?",
-            tmp
+            "A color should only be written once"
         );
         self.colors.insert(tmp, color);
     }
 
+    /// This just exists so that we don't have to write
+    /// RVal::Int(i) => {} everywhere there's an rval.
+    /// This uses add_lval internally to handle lval's,
+    /// see that function's documentation.
+    fn add_rval(&mut self, rval: vm::RVal) {
+        use vm::RVal::*;
+        match rval {
+            Int(_) => {},
+            LVal(lval) => self.add_lval(lval),
+        }
+    }
+
+    /// This does not consider context at all,
+    /// so it always adds tmp's as spillable.
+    fn add_lval(&mut self, lval: vm::LVal) {
+        use vm::LVal::*;
+        match lval {
+            Tmp(tmp) => self.add_spillable(tmp),
+            Register(r) => self.add_forced(r),
+            // We don't add stack locations to the graph
+            Stack(_) => {}
+        }
+    }
+
+    /// If `tmp` already exists in the graph,
+    /// but is not unspillable, then this will
+    /// also make it unspillable.
     fn add_unspillable(&mut self, tmp: ir::Tmp) {
         self.add_node(Node::Variable(tmp));
         self.unspillable.insert(tmp);
     }
 
+    /// This will only add the tmp to the graph.
+    /// If the tmp is already in the graph,
+    /// and unspillable, then this will not make
+    /// it spillable
     fn add_spillable(&mut self, tmp: ir::Tmp) {
         self.add_node(Node::Variable(tmp));
     }
