@@ -328,6 +328,13 @@ impl Graph {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Saturation {
+    Forced,
+    Unspillable(usize),
+    Spillable(usize),
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
