@@ -81,7 +81,7 @@ pub fn compile(source: &str) -> Result<trans::Program> {
 
     let mut vm = vm::Program::build(&ir);
     let mut stack_index = 0;
-    let final_vm;
+    let asm;
     loop {
         use interference::DSaturResult::*;
         //liveness::debug_print(&vm);
@@ -89,7 +89,14 @@ pub fn compile(source: &str) -> Result<trans::Program> {
         let mut ig = interference::Graph::build(&vm);
         match ig.run_dsatur() {
             Success => {
-                final_vm = ig.assign_homes(vm);
+                let assigned = ig.assign_homes(vm);
+                asm = match assigned.to_asm() {
+                    Ok(asm) => asm,
+                    Err(rerun) => {
+                        vm = rerun;
+                        continue
+                    }
+                };
                 break
             }
             Spill(u) => {
@@ -97,8 +104,6 @@ pub fn compile(source: &str) -> Result<trans::Program> {
             }
         }
     }
-
-    let asm = unimplemented!();
 
     //let asm = trans::Program::build(&ir);
     Ok(asm)

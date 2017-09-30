@@ -93,6 +93,13 @@ impl Program {
         unimplemented!()
     }
 
+    /// If there are any instructions that are
+    /// mov stack, stack, this will split them into
+    /// two mov's using a new tmp, and return Err(self)
+    pub fn to_asm(self) -> Result<trans::Program, Self> {
+        unimplemented!()
+    }
+
     ///
     /// ```
     /// tmp := l + r => {
