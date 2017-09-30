@@ -56,9 +56,23 @@ impl Graph {
     pub fn build(vm: &vm::Program) -> Graph {
         let mut graph = Self::new();
 
-        //graph.create_vertices(vm);
-        //let liveness = liveness::compute(vm);
-        //graph.add_edges(vm, &liveness);
+        // add all nodes to the graph, must be done before
+        // creating edges (I think? I suppose maybe not,
+        // if it's true that a variable must have been 
+        // referenced. Additionally, it might be totally
+        // unnecessary if add_edge will add the node if it
+        // doesn't already exist)
+        for instr in &vm.stack {
+            graph.add_referenced_variables(instr);
+        }
+
+        // add edges using liveness sets for each instruction
+        let liveness = liveness::compute(vm);
+        for l in liveness {
+            let instr_k = &vm.stack[l.k];
+            let live_after_k = &l.live_after_k;
+            graph.add_edges(instr_k, live_after_k);
+        }
 
         graph
     }
@@ -69,6 +83,131 @@ impl Graph {
             unspillable: HashSet::new(),
             colors: HashMap::new(),
         }
+    }
+
+    ///
+    /// This is the algorithm from the course notes:
+    /// 
+    /// ```
+    /// instr "mov _, v2"
+    /// where
+    ///     v2 == stack location
+    /// {
+    ///     // no edges to add, stack doesn't interfere with anything
+    /// }
+    ///
+    /// instr "mov v1, v2"
+    /// where
+    ///     v2 != stack location
+    /// {
+    ///     // v2 should interfere with all values in live set
+    ///     // except for 1. itself and 2. v1 
+    ///     // COMMENT: why not v1?
+    ///     // Because it would be ok to allocate them to the
+    ///     // same register in that case? I feel like that's
+    ///     // only a valid optimization if the assembly is
+    ///     // in static single assignment form. For example,
+    ///     //     mov 1, t0
+    ///     //     mov t0, t1
+    ///     //     add 1, t1
+    ///     //     print t0 + t1
+    ///     // If we don't add an edge between t0 and t1,
+    ///     // and we allocate them both to eax,
+    ///     // that would become:
+    ///     //     mov 1, eax
+    ///     //     mov eax, eax
+    ///     //     add 1, eax
+    ///     //     print eax + eax
+    ///     // which would print 4 instead of 3!!
+    ///     // So, actually I'm going to implement it with the edge
+    ///     // between v1 and v2 for now...
+    ///     live_set.filter(v != v2).add_edge()
+    /// }
+    ///
+    /// TODO the arithmetic instructions are all the same as the above mov??
+    ///
+    /// instr "call label" {
+    ///     // Add edge between each caller-save register
+    ///     // and virtual location in the live set
+    ///     (eax, ecx, edx).for_each(|r| live_set.add_edge(r))
+    /// }
+    /// ```
+    ///
+    fn add_edges(&mut self, instr: &vm::Instr, live_set: &HashSet<liveness::Val>) {
+        use vm::Instr::*;
+        use vm::RVal::*;
+        use vm::LVal::*;
+        use liveness::Val as LiveVal;
+        // it's really interesting that this import works,
+        // cause we're also importing Register from LVal::*
+        // and using it in pattern matching
+        use trans::Register;
+
+        match *instr {
+            // Stack locations don't interfere with anything,
+            // and aren't even in the graph, so there's no edges to add
+            // here. And I don't think it matters that the source value
+            // is, since reads in general don't affect the graph
+            Mov(_, Stack(_)) | Neg(Stack(_)) | Add(_, Stack(_)) | Push(LVal(Stack(_))) | Push(Int(_)) => {}
+            // Don't really need to look explicitly at rval, I don't think!
+            // If it's live after this, it will be in the live set and we'll
+            // add an edge to it, if it's not live or it's a constant,
+            // then it won't be in the live set!
+            Mov(_, Tmp(tmp)) | Neg(Tmp(tmp)) | Add(_, Tmp(tmp)) | Push(LVal(Tmp(tmp))) => {
+                let dst = LiveVal::Virtual(tmp);
+                self.add_edges_to_all(dst, live_set);
+            }
+            // This is the same thing as above, just with registers
+            // I chose to do it like this to try to take advantadge
+            // of the exhaustive variant matching check Rust gives
+            Mov(_, Register(r)) | Neg(Register(r)) | Add(_, Register(r)) | Push(LVal(Register(r))) => {
+                let dst = LiveVal::Register(r);
+                self.add_edges_to_all(dst, live_set);
+            }
+            Call(_) => {
+                let caller_save_registers = &[
+                    Register::EAX,
+                    Register::ECX,
+                    Register::EDX,
+                ];
+
+                // How to handle the edge from eax to itself?
+                // Because the live set for a call always
+                // contains eax...I guess we just say don't add it?
+                // Also, this still ends up with like eax -- ecx and eax -- edx,
+                // so idk I guess just ignore edges between 2 forced
+                // nodes?
+                for &v in live_set {
+                    for &r in caller_save_registers {
+                        if LiveVal::Register(r) == v {
+                            assert_eq!(r, Register::EAX, "expected eax");
+                            continue
+                        }
+                        self.add_edge(LiveVal::Register(r), v);
+                    }
+                }
+            }
+        }
+    }
+
+    fn add_edges_to_all(&mut self, val: liveness::Val, live_set: &HashSet<liveness::Val>) {
+        for &v in live_set {
+            // filter out self
+            if v == val {
+                continue
+            }
+            self.add_edge(val, v);
+        }
+    }
+
+
+    /// This won't hurt anything if the edge already exists. At least,
+    /// it shouldn't, I hope... O_O
+    fn add_edge<L: Into<Node>, R: Into<Node>>(&mut self, l: L, r: R) {
+        let l = l.into();
+        let r = r.into();
+        assert_ne!(l, r, "trying to add an edge from a node to itself");
+        self.graph.add_edge(l, r, ());
     }
 
     /// Adds all variables referenced in the
@@ -186,10 +325,6 @@ impl Graph {
 
     fn add_node(&mut self, node: Node) {
         self.graph.add_node(node);
-    }
-
-    fn add_edge(&mut self, l: Node, r: Node) -> Option<()> {
-        self.graph.add_edge(l, r, ())
     }
 
     /*

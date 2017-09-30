@@ -22,6 +22,27 @@ pub enum Val {
     Register(trans::Register),
 }
 
+impl Val {
+    /// TODO: Really just need this for convenience, should replace
+    /// lval_to_val and rval_to_val uses in this crate
+    pub fn from_lval(lval: vm::LVal) -> Option<Self> {
+        match lval {
+            vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
+            vm::LVal::Register(r) => Some(Val::Register(r)),
+            vm::LVal::Stack(_) => None,
+        }
+    }
+
+    /// TODO: Really just need this for convenience, should replace
+    /// lval_to_val and rval_to_val uses in this crate
+    pub fn from_rval(rval: vm::RVal) -> Option<Self> {
+        match rval {
+            vm::RVal::LVal(lval) => Self::from_lval(lval),
+            vm::RVal::Int(i) => None,
+        }
+    }
+}
+
 impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Val::*;
@@ -65,7 +86,7 @@ impl fmt::Display for Liveness {
     }
 }
 
-pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
+pub fn compute(vm: &vm::Program) -> Vec<Liveness> {
     let mut stack = Vec::new();
     let mut live_after_k: HashSet<Val> = HashSet::new();
     let mut live_before_k: HashSet<Val>;
@@ -95,7 +116,7 @@ pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
 }
 
 pub fn debug_print(vm: &vm::Program) {
-    let liveness = compute_vm(vm);
+    let liveness = compute(vm);
     for (l, s) in liveness.iter().zip(vm.stack.iter()) {
         let s = format!("{}", s);
         println!("{: <3} {}", l.k, s);
