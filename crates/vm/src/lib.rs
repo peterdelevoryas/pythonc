@@ -89,6 +89,10 @@ impl Program {
         }
     }
 
+    pub fn spill(&mut self, tmp: ir::Tmp, stack_index: usize) {
+        unimplemented!()
+    }
+
     ///
     /// ```
     /// tmp := l + r => {

@@ -80,6 +80,7 @@ pub fn compile(source: &str) -> Result<trans::Program> {
     let ir: ir::Program = ast.into();
 
     let mut vm = vm::Program::build(&ir);
+    let mut stack_index = 0;
     let final_vm;
     loop {
         use interference::DSaturResult::*;
@@ -88,11 +89,11 @@ pub fn compile(source: &str) -> Result<trans::Program> {
         let mut ig = interference::Graph::build(&vm);
         match ig.run_dsatur() {
             Success => {
-                final_vm = ig.assign_homes(&vm);
+                final_vm = ig.assign_homes(vm);
                 break
             }
-            Spill => {
-
+            Spill(u) => {
+                vm.spill(u, stack_index);
             }
         }
     }

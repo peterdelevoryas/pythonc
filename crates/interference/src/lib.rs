@@ -338,13 +338,12 @@ impl Graph {
 
         let registers = set!(EAX, EBX, ECX, EDX, ESI, EDI);
 
+        // I think with non-lexical lifetimes, this can be a while let Some(u)
         loop {
             let (u, r) = if let Some(u) = self.uncolored_nodes().max_by_key(|&tmp| self.saturation(tmp)) {
                 let r = match self.adjacent_colors(u).difference(&registers).next() {
                     Some(&r) => r,
-                    None => {
-                        unimplemented!("spill here!");
-                    }
+                    None => return DSaturResult::Spill(u),
                 };
                 (u, r)
             } else {
@@ -427,7 +426,7 @@ impl Graph {
         }
     }
 
-    pub fn assign_homes(&self, vm: &vm::Program) -> vm::Program {
+    pub fn assign_homes(&self, vm: vm::Program) -> vm::Program {
         unimplemented!()
     }
 }
@@ -442,7 +441,7 @@ pub enum Saturation {
 #[derive(Debug, Copy, Clone)]
 pub enum DSaturResult {
     Success,
-    Spill,
+    Spill(ir::Tmp),
 }
 
 #[cfg(test)]
