@@ -82,24 +82,6 @@ pub struct Program {
     pub stmts: Vec<Stmt>,
 }
 
-impl<'a> From<&'a ast::Program> for Program {
-    fn from(program: &'a ast::Program) -> Program {
-        let mut builder = Builder::new();
-        for statement in &program.module.statements {
-            //println!("builder: {:#?}", builder);
-            builder.flatten_statement(statement);
-        }
-        Program { stmts: builder.stack }
-    }
-}
-
-impl From<ast::Program> for Program {
-    fn from(program: ast::Program) -> Program {
-        let program = &program;
-        program.into()
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tmp {
     pub index: usize,
@@ -126,10 +108,10 @@ pub enum Stmt {
 }
 
 #[derive(Debug)]
-pub struct Builder {
+pub struct Builder<'alloc> {
     stack: Vec<Stmt>,
     names: HashMap<ast::Name, Val>,
-    tmp: TmpAllocator,
+    tmp: &'alloc mut TmpAllocator,
 }
 
 impl Tmp {
@@ -162,12 +144,21 @@ impl TmpAllocator {
     }
 }
 
-impl Builder {
-    pub fn new() -> Builder {
+impl<'tmp_allocator> Builder<'tmp_allocator> {
+    pub fn build(ast: ast::Program, tmp: &mut TmpAllocator) -> Program {
+        let mut builder = Builder::new(tmp);
+        for statement in &ast.module.statements {
+            //println!("builder: {:#?}", builder);
+            builder.flatten_statement(statement);
+        }
+        Program { stmts: builder.stack }
+    }
+
+    pub fn new(tmp: &'tmp_allocator mut TmpAllocator) -> Builder<'tmp_allocator> {
         Builder {
             stack: vec![],
             names: HashMap::new(),
-            tmp: TmpAllocator::new(),
+            tmp,
         }
     }
 

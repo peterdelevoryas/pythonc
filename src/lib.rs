@@ -77,7 +77,8 @@ impl Compiler {
 pub fn compile(source: &str) -> Result<trans::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
-    let ir: ir::Program = ast.into();
+    let mut tmp_allocator = ir::TmpAllocator::new();
+    let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
 
     let mut vm = vm::Program::build(&ir);
     let mut stack_index = 0;
@@ -90,17 +91,13 @@ pub fn compile(source: &str) -> Result<trans::Program> {
         match ig.run_dsatur() {
             Success => {
                 let assigned = ig.assign_homes(vm);
-                asm = match assigned.to_asm() {
-                    Ok(asm) => asm,
-                    Err(rerun) => {
-                        vm = rerun;
-                        continue
-                    }
-                };
+                asm = assigned.to_asm();
                 break
             }
             Spill(u) => {
+                // replaces u with stack_index
                 vm.spill(u, stack_index);
+                vm.replace_stack_to_stack_movs(&mut tmp_allocator);
             }
         }
     }

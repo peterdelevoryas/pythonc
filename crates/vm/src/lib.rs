@@ -70,6 +70,49 @@ impl fmt::Display for Instr {
     }
 }
 
+impl Instr {
+    fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
+        use self::Instr::*;
+        use self::LVal::*;
+        use self::RVal::*;
+        match *self {
+            Mov(Int(_), ref mut lval) => lval.replace_with(tmp, new),
+            Mov(LVal(ref mut l), ref mut r) => {
+                l.replace_with(tmp, new);
+                r.replace_with(tmp, new);
+            }
+            Neg(ref mut lval) => lval.replace_with(tmp, new),
+            Add(Int(_), ref mut lval) => lval.replace_with(tmp, new),
+            Add(LVal(ref mut l), ref mut r) => {
+                l.replace_with(tmp, new);
+                r.replace_with(tmp, new);
+            }
+            Push(Int(_)) => {},
+            Push(LVal(ref mut lval)) => lval.replace_with(tmp, new),
+            Call(_) => {},
+        }
+    }
+
+    pub fn replace_with_stack(&mut self, tmp: ir::Tmp, stack_index: usize) {
+        unimplemented!()
+    }
+}
+
+impl LVal {
+    /// If this LVal is a Tmp, it is replaced with the new value,
+    /// otherwise it is not modified
+    fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
+        use self::LVal::*;
+        use std::mem;
+        match *self {
+            Tmp(t) if t == tmp => {
+                mem::replace(self, new);
+            }
+            _ => {}
+        }
+    }
+}
+
 pub struct Program {
     pub stack: Vec<Instr>,
 }
@@ -90,13 +133,21 @@ impl Program {
     }
 
     pub fn spill(&mut self, tmp: ir::Tmp, stack_index: usize) {
+        // instruction index
+        let mut k = 0;
+        loop {
+            // If the instruction doesn't reference tmp, then
+            // this won't modify the instruction
+            self.stack[k].replace_with_stack(tmp, stack_index);
+        }
         unimplemented!()
     }
 
-    /// If there are any instructions that are
-    /// mov stack, stack, this will split them into
-    /// two mov's using a new tmp, and return Err(self)
-    pub fn to_asm(self) -> Result<trans::Program, Self> {
+    pub fn to_asm(self) -> trans::Program {
+        unimplemented!()
+    }
+
+    pub fn replace_stack_to_stack_movs(&mut self, alloc: &mut ir::TmpAllocator) {
         unimplemented!()
     }
 
