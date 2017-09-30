@@ -74,6 +74,31 @@ impl Graph {
         }
     }
 
+    /// Adds all variables referenced in the
+    /// instruction to the internal graph.
+    /// If the variable already exists in the graph,
+    /// it is not modified.
+    fn add_referenced_variables(&mut self, instr: &vm::Instr) {
+        use vm::Instr::*;
+        match *instr {
+            Mov(rval, lval) => {
+                unimplemented!()
+            }
+            Neg(lval) => {
+                unimplemented!()
+            }
+            Add(rval, lval) => {
+                unimplemented!()
+            }
+            Push(rval) => {
+                unimplemented!()
+            }
+            Call(ref label) => {
+                unimplemented!()
+            }
+        }
+    }
+
     fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
         assert!(
             !self.colors.contains_key(&tmp),
