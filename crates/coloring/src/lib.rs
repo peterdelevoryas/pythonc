@@ -7,8 +7,6 @@ extern crate petgraph;
 
 use trans::Register;
 
-pub type Graph = petgraph::Graph<
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Color {
     Register(Register),

@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use std::fmt;
 use regex::Regex;
 
-pub fn debug_print<'ir, I: Iterator<Item=&'ir Stmt>>(stmts: I) {
+pub fn debug_print<'ir, I: Iterator<Item = &'ir Stmt>>(stmts: I) {
     for (k, stmt) in stmts.enumerate() {
         println!("{:<3} {}", k, stmt);
     }
@@ -327,7 +327,9 @@ impl FromStr for Program {
             if line.is_empty() {
                 continue;
             }
-            stmts.push(line.parse::<Stmt>().map_err(|_| format!("parse error on {:?}", line))?);
+            stmts.push(line.parse::<Stmt>().map_err(
+                |_| format!("parse error on {:?}", line),
+            )?);
         }
         Ok(Program { stmts })
     }

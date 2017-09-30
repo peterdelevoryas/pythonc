@@ -34,7 +34,7 @@ pub struct Add {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Push {
-    pub value: Value
+    pub value: Value,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

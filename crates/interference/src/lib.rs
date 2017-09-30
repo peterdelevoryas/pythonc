@@ -34,7 +34,7 @@ pub enum Node {
     Variable(ir::Tmp),
 }
 
-/// 
+///
 /// `Color` is just the register that
 /// a virtual location has been allocated.
 /// Some virtual locations will be assigned stack
@@ -75,8 +75,11 @@ impl Graph {
     }
 
     fn write_color(&mut self, tmp: ir::Tmp, color: Color) {
-        assert!(!self.colors.contains_key(&tmp),
-            "Did you mean to overwrite the previous color for {}?", tmp);
+        assert!(
+            !self.colors.contains_key(&tmp),
+            "Did you mean to overwrite the previous color for {}?",
+            tmp
+        );
         self.colors.insert(tmp, color);
     }
 

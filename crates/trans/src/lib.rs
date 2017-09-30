@@ -111,9 +111,7 @@ impl Program {
                 self.load_tmp(tmp, tmp_storage);
                 Value::Register(tmp_storage)
             }
-            Int(int) => {
-                Value::Immediate(Immediate(int))
-            }
+            Int(int) => Value::Immediate(Immediate(int)),
         }
     }
 

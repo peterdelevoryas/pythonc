@@ -42,12 +42,16 @@ impl<'a> fmt::Display for Att<'a, Memory> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0.index {
             Some((index, scale_factor)) => {
-                write!(f, "{}({}, {}, {})", Att(&self.0.displacement), Att(&self.0.base), Att(&index), Att(&scale_factor))
-                    
+                write!(
+                    f,
+                    "{}({}, {}, {})",
+                    Att(&self.0.displacement),
+                    Att(&self.0.base),
+                    Att(&index),
+                    Att(&scale_factor)
+                )
             }
-            None => {
-                write!(f, "{}({})", Att(&self.0.displacement), Att(&self.0.base))
-            }
+            None => write!(f, "{}({})", Att(&self.0.displacement), Att(&self.0.base)),
         }
     }
 }
@@ -128,23 +132,30 @@ impl<'a> fmt::Display for Att<'a, Instruction> {
 
 impl<'a> fmt::Display for Att<'a, Program> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "
+        write!(
+            f,
+            "
 .globl main
 main:
     pushl %ebp
     movl %esp, %ebp
     subl ${}, %esp
-", self.0.stack_len * 4)?;
+",
+            self.0.stack_len * 4
+        )?;
 
         for instruction in &self.0.instructions {
             writeln!(f, "    {}", Att(instruction))?;
         }
 
-        write!(f, "
+        write!(
+            f,
+            "
     movl $0, %eax
     leave
     ret
-")?;
+"
+        )?;
         Ok(())
     }
 }
@@ -183,7 +194,7 @@ mod test {
         let memory = Memory {
             base: Register::EAX,
             index: Some((Register::ECX, ScaleFactor::eight())),
-            displacement: Displacement(64)
+            displacement: Displacement(64),
         };
         let load = Load {
             memory,

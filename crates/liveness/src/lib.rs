@@ -50,8 +50,9 @@ impl fmt::Display for Liveness {
                     (Virtual(l), Virtual(r)) => l.index.cmp(&r.index),
                     (Virtual(_), Register(_)) => Less,
                     (Register(_), Virtual(_)) => Greater,
-                    (Register(l), Register(r)) =>
+                    (Register(l), Register(r)) => {
                         format!("{}", trans::Att(&l)).cmp(&format!("{}", trans::Att(&r)))
+                    }
                 }
             });
             write!(f, "{}", tmps[0])?;
@@ -74,9 +75,15 @@ pub fn compute_vm(vm: &vm::Program) -> Vec<Liveness> {
         //
         // live_before_k = (live_after_k - w(stmt_k)) U r(stmt_k);
         //
-        live_before_k = (&live_after_k - &write_set(instr)).union(&read_set(instr)).map(|&tmp| tmp).collect();
+        live_before_k = (&live_after_k - &write_set(instr))
+            .union(&read_set(instr))
+            .map(|&tmp| tmp)
+            .collect();
 
-        let live = Liveness { k, live_after_k: live_after_k.clone() };
+        let live = Liveness {
+            k,
+            live_after_k: live_after_k.clone(),
+        };
         stack.push(live);
 
         // k = k - 1, so live_after_(k-1) == live_before_k
@@ -141,11 +148,13 @@ fn write_set(instr: &vm::Instr) -> HashSet<Val> {
         // writes the stack, so nothing
         Push(_) => set!(),
         // writes caller-save registers
-        Call(_) => set!(
-            Val::Register(trans::Register::EAX),
-            Val::Register(trans::Register::ECX),
-            Val::Register(trans::Register::EDX)
-        ),
+        Call(_) => {
+            set!(
+                Val::Register(trans::Register::EAX),
+                Val::Register(trans::Register::ECX),
+                Val::Register(trans::Register::EDX)
+            )
+        }
         //_ => set!(),
     }
 }
@@ -178,7 +187,7 @@ mod tests {
                 ir::Stmt::Print(ir::Val::Int(1)),
                 ir::Stmt::Print(ir::Val::Int(2)),
                 ir::Stmt::Print(ir::Val::Int(3)),
-            ]
+            ],
         };
         let liveness = compute(&ir);
         for (i, l) in liveness.iter().enumerate() {

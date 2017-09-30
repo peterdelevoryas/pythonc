@@ -76,9 +76,7 @@ pub struct Program {
 
 impl Program {
     pub fn build(ir: &ir::Program) -> Program {
-        let mut program = Program {
-            stack: vec![],
-        };
+        let mut program = Program { stack: vec![] };
         for stmt in &ir.stmts {
             program.trans(stmt);
         }
