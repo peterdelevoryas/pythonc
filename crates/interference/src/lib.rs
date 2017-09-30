@@ -19,12 +19,6 @@ pub enum Node {
 
 pub type Color = trans::Register;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Name {
-    Tmp(ir::Tmp),
-    Register(trans::Register),
-}
-
 impl From<liveness::Val> for Node {
     fn from(val: liveness::Val) -> Node {
         match val {
