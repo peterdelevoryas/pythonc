@@ -426,8 +426,15 @@ impl Graph {
         }
     }
 
-    pub fn assign_homes(&self, vm: vm::Program) -> vm::Program {
-        unimplemented!()
+    pub fn assign_homes(&self, mut vm: vm::Program) -> vm::Program {
+        for instr in vm.stack.iter_mut() {
+            let tmps = instr.tmps();
+            for &tmp in &tmps {
+                let color = self.tmp_color(tmp).expect("tmp is not colored");
+                instr.replace_with(tmp, vm::LVal::Register(color));
+            }
+        }
+        vm
     }
 }
 

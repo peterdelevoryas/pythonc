@@ -3,6 +3,7 @@ extern crate python_trans as trans;
 
 use std::fmt;
 use trans::Att;
+use std::collections::HashSet;
 
 #[derive(Debug, Copy, Clone)]
 pub enum RVal {
@@ -71,7 +72,7 @@ impl fmt::Display for Instr {
 }
 
 impl Instr {
-    fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
+    pub fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
         use self::Instr::*;
         use self::LVal::*;
         use self::RVal::*;
@@ -94,14 +95,32 @@ impl Instr {
     }
 
     pub fn replace_with_stack(&mut self, tmp: ir::Tmp, stack_index: usize) {
-        unimplemented!()
+        self.replace_with(tmp, LVal::Stack(stack_index));
+    }
+
+    pub fn tmps(&self) -> HashSet<ir::Tmp> {
+        use self::Instr::*;
+        use self::LVal::*;
+        use self::RVal::*;
+
+        fn union(lhs: HashSet<ir::Tmp>, rhs: HashSet<ir::Tmp>) -> HashSet<ir::Tmp> {
+            lhs.union(&rhs).map(|&v| v).collect()
+        }
+
+        match *self {
+            Mov(LVal(left), right) => union(left.tmp(), right.tmp()),
+            Neg(lval) => lval.tmp(),
+            Add(LVal(left), right) => union(left.tmp(), right.tmp()),
+            Push(LVal(lval)) => lval.tmp(),
+            _ => HashSet::new(),
+        }
     }
 }
 
 impl LVal {
     /// If this LVal is a Tmp, it is replaced with the new value,
     /// otherwise it is not modified
-    fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
+    pub fn replace_with(&mut self, tmp: ir::Tmp, new: LVal) {
         use self::LVal::*;
         use std::mem;
         match *self {
@@ -109,6 +128,19 @@ impl LVal {
                 mem::replace(self, new);
             }
             _ => {}
+        }
+    }
+
+    /// TODO replace with stuff
+    fn tmp(&self) -> HashSet<ir::Tmp> {
+        use self::LVal::*;
+        match *self {
+            Tmp(t) => {
+                let mut set = HashSet::new();
+                set.insert(t);
+                set
+            }
+            _ => HashSet::new(),
         }
     }
 }
@@ -166,7 +198,7 @@ impl Program {
                     fixed.stack.push(mov_to_tmp);
                     fixed.stack.push(add_to_tmp);
                 }
-                ref i => fixed.stack.push(i.clone());
+                ref i => fixed.stack.push(i.clone()),
             }
         }
 
