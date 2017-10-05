@@ -9,6 +9,7 @@ use ::{
     Program,
 };
 
+#[LALR]
 grammar;
 
 extern {
