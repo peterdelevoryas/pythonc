@@ -1,6 +1,10 @@
 extern crate python_token as token;
 extern crate python_ast as ast;
 extern crate python_trans as trans;
+extern crate python_ir as ir;
+extern crate python_vm as vm;
+extern crate interference;
+extern crate liveness;
 #[macro_use]
 extern crate error_chain;
 
@@ -70,11 +74,38 @@ impl Compiler {
     }
 }
 
-pub fn compile(source: &str) -> Result<String> {
+pub fn compile(source: &str) -> Result<vm::Program> {
     let tokens = token::Stream::new(source);
     let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
-    let ir = ast.into();
-    let asm = trans::Builder::build(&ir);
+    let mut tmp_allocator = ir::TmpAllocator::new();
+    let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
+    ir::debug_print(ir.stmts.iter());
+
+    let mut vm = vm::Program::build(&ir);
+    let asm;
+    let mut iteration = 0;
+    loop {
+        use interference::DSaturResult::*;
+        println!("iteration {}", iteration);
+        liveness::debug_print(&vm);
+
+        let mut ig = interference::Graph::build(&vm);
+        match ig.run_dsatur() {
+            Success => {
+                asm = ig.assign_homes(vm);
+                println!("asm:\n{}", asm);
+                break
+            }
+            Spill(u) => {
+                // replaces u with stack_index
+                vm.spill(u);
+                vm = vm.replace_stack_to_stack_ops(&mut tmp_allocator);
+            }
+        }
+        iteration += 1;
+    }
+
+    //let asm = trans::Program::build(&ir);
     Ok(asm)
 }
 
@@ -88,7 +119,7 @@ where
         format!("compiling source file {:?}", source)
     })?;
 
-    write_file(&asm, output, create_new)
+    write_file(asm, output, create_new)
 }
 
 pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
@@ -131,9 +162,10 @@ where
     Ok(s)
 }
 
-fn write_file<P>(data: &str, path: P, create_new: bool) -> Result<()>
+fn write_file<P, D>(data: D, path: P, create_new: bool) -> Result<()>
 where
     P: AsRef<Path>,
+    D: ::std::fmt::Display,
 {
     use std::fs::OpenOptions;
     use std::io::Write;
@@ -145,7 +177,7 @@ where
         .create_new(create_new)
         .open(path)
         .chain_err(|| format!("creating file {:?}", path.display()))?;
-    f.write_all(data.as_bytes()).chain_err(|| "writing data")?;
+    write!(f, "{}", data).chain_err(|| "writing data")?;
     Ok(())
 }
 

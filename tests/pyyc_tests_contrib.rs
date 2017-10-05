@@ -62,7 +62,7 @@ where
         let path = entry.path();
         let ext = path.extension();
         if ext.is_none() || ext.unwrap() != "py" {
-            continue
+            continue;
         }
         let source = &path;
         let mut compiler = Compiler::new(source);
@@ -77,45 +77,39 @@ where
         let output = source.with_extension("out");
         let expected = source.with_extension("expected");
 
-        let input_file: Stdio = File::open(&input)
-            .map(Stdio::from)
-            .unwrap_or(Stdio::null());
+        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
         let compiled = Command::new(&compiled)
             .stdin(input_file)
             .stdout(File::create(&output).chain_err(|| "creating output file")?)
             .spawn()
             .chain_err(|| "spawning child process")?;
 
-        let input_file: Stdio = File::open(&input)
-            .map(Stdio::from)
-            .unwrap_or(Stdio::null());
+        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
         let reference = Command::new("python")
             .arg(&source)
             .stdin(input_file)
-            .stdout(File::create(&expected).chain_err(|| "creating expected file")?)
+            .stdout(File::create(&expected).chain_err(
+                || "creating expected file",
+            )?)
             .spawn()
             .chain_err(|| "spawning child process")?;
 
         compiled
             .wait_with_output()
             .chain_err(|| "waiting on compiled")
-            .and_then(|output| {
-                if output.stderr.len() > 0 {
-                    Err(String::from_utf8(output.stderr).unwrap().into())
-                } else {
-                    Ok(())
-                }
+            .and_then(|output| if output.stderr.len() > 0 {
+                Err(String::from_utf8(output.stderr).unwrap().into())
+            } else {
+                Ok(())
             })?;
 
         reference
             .wait_with_output()
             .chain_err(|| "waiting on reference")
-            .and_then(|output| {
-                if output.stderr.len() > 0 {
-                    Err(String::from_utf8(output.stderr).unwrap().into())
-                } else {
-                    Ok(())
-                }
+            .and_then(|output| if output.stderr.len() > 0 {
+                Err(String::from_utf8(output.stderr).unwrap().into())
+            } else {
+                Ok(())
             })?;
 
         diff(&output, &expected)?;
@@ -141,12 +135,14 @@ where
 
     for ((left_i, left_c), right_c) in left_buf.char_indices().zip(right_buf.chars()) {
         if left_c != right_c {
-            let mismatch = format!("diff {:?} {:?} at index {:?}",
-                                   lpath.display(),
-                                   rpath.display(),
-                                   left_i);
-            return Err(mismatch.into())
+            let mismatch = format!(
+                "diff {:?} {:?} at index {:?}",
+                lpath.display(),
+                rpath.display(),
+                left_i
+            );
+            return Err(mismatch.into());
         }
     }
-    return Ok(())
+    return Ok(());
 }
