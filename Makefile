@@ -33,7 +33,7 @@ COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
 $(RUNTIME_ROOT)/$(RUNTIME_LIBNAME):
 	$(MAKE) -C $(RUNTIME_DIR)
 
-cog: $(COG_ZIP)
+cog: $(COG_ZIP) src crates
 
 pythonc: $(PYTHONC)
 
