@@ -190,8 +190,10 @@ impl Program {
                     let tmp = alloc.alloc().expect("tmp allocation error");
                     let mov_to_tmp = Mov(LVal(Stack(right)), Tmp(tmp));
                     let add_to_tmp = Add(LVal(Stack(left)), Tmp(tmp));
+                    let store_tmp = Mov(LVal(Tmp(tmp)), Stack(right));
                     fixed.stack.push(mov_to_tmp);
                     fixed.stack.push(add_to_tmp);
+                    fixed.stack.push(store_tmp);
                 }
                 ref i => fixed.stack.push(i.clone()),
             }
