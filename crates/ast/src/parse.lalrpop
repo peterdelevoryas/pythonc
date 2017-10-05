@@ -43,15 +43,13 @@ pub module: Module = {
 };
 
 pub statements: Vec<Statement> = {
-    <v:statement*> => v,
+    <v:(<statement> "\n")*> => v,
 };
 
 pub statement: Statement = {
     "print" <expression> => Statement::Print(<>),
     <name> "=" <expression> => Statement::Assign(<>),
     <expression> => Statement::Expression(<>),
-    "\n" => Statement::Newline,
-    ";" => Statement::Newline,
 };
 
 pub expression: Expression = {
