@@ -7,7 +7,6 @@ pub type Spanned<T> = Result<(usize, T, usize), Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
-    Newline,
     Print,
     Equals,
     LeftParens,
@@ -18,7 +17,7 @@ pub enum Token {
     Lt,
     Gt,
     Comma,
-    Semicolon,
+    Terminator(char),
     DecimalI32(i32),
     Name(String),
 }
@@ -167,7 +166,7 @@ impl<'input> Iterator for Stream<'input> {
             };
             //println!("i={}, c={:?}: {:?}", i, c, &self.text[i..]);
             let single_char_tok = match c {
-                '\n' => Some(Token::Newline),
+                '\n' => Some(Token::Terminator('\n')),
                 '=' => Some(Token::Equals),
                 '+' => Some(Token::Plus),
                 '-' => {
@@ -193,7 +192,7 @@ impl<'input> Iterator for Stream<'input> {
                 '<' => Some(Token::Lt),
                 '>' => Some(Token::Gt),
                 ',' => Some(Token::Comma),
-                ';' => Some(Token::Semicolon),
+                ';' => Some(Token::Terminator(';')),
                 '#' => {
                     // eat comment
                     loop {
