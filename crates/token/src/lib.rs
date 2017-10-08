@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                Token::Newline,
+                Token::Terminator('\n'),
                 Token::Equals,
                 Token::Minus,
                 Token::Plus,
@@ -278,8 +278,8 @@ mod tests {
                 Token::Lt,
                 Token::Gt,
                 Token::Comma,
-                Token::Semicolon,
-                Token::Newline,
+                Token::Terminator(';'),
+                Token::Terminator('\n'),
                 Token::Name("identifier".into()),
                 Token::DecimalI32(123),
                 Token::DecimalI32(0),
