@@ -20,6 +20,9 @@ python-token = { path = "crates/token" }
 python-ast = { path = "crates/ast" }
 python-ir = { path = "crates/ir" }
 python-trans = { path = "crates/trans" }
+liveness = { path = "crates/liveness" }
+python-vm = { path = "crates/vm" }
+interference = { path = "crates/interference" }
 error-chain = "0.11.0"
 docopt = "0.8"
 serde = "1.0"
@@ -33,6 +36,10 @@ members = [
     "crates/token",
     "crates/ast",
     "crates/ir",
+    "crates/vm",
     "crates/trans",
     "crates/python-fallback-parser",
+    "crates/liveness",
+    "crates/interference",
+    "crates/coloring",
 ]

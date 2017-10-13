@@ -7,7 +7,6 @@ pub type Spanned<T> = Result<(usize, T, usize), Error>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
-    Newline,
     Print,
     Equals,
     LeftParens,
@@ -18,7 +17,7 @@ pub enum Token {
     Lt,
     Gt,
     Comma,
-    Semicolon,
+    Terminator(char),
     DecimalI32(i32),
     Name(String),
 }
@@ -167,7 +166,7 @@ impl<'input> Iterator for Stream<'input> {
             };
             //println!("i={}, c={:?}: {:?}", i, c, &self.text[i..]);
             let single_char_tok = match c {
-                '\n' => Some(Token::Newline),
+                '\n' => Some(Token::Terminator('\n')),
                 '=' => Some(Token::Equals),
                 '+' => Some(Token::Plus),
                 '-' => {
@@ -193,7 +192,7 @@ impl<'input> Iterator for Stream<'input> {
                 '<' => Some(Token::Lt),
                 '>' => Some(Token::Gt),
                 ',' => Some(Token::Comma),
-                ';' => Some(Token::Semicolon),
+                ';' => Some(Token::Terminator(';')),
                 '#' => {
                     // eat comment
                     loop {
@@ -246,16 +245,8 @@ impl<'input> Iterator for Stream<'input> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        Stream,
-        Spanned,
-        Token,
-        Error,
-    };
-    use std::iter::{
-        Iterator,
-        IntoIterator,
-    };
+    use super::{Stream, Spanned, Token, Error};
+    use std::iter::{Iterator, IntoIterator};
 
     trait CollectTokens {
         fn collect_tokens(self) -> Result<Vec<Token>, Error>;
@@ -263,8 +254,8 @@ mod tests {
 
     impl<T, I> CollectTokens for T
     where
-        T: IntoIterator<Item=Spanned<Token>, IntoIter=I>,
-        I: Iterator<Item=Spanned<Token>>,
+        T: IntoIterator<Item = Spanned<Token>, IntoIter = I>,
+        I: Iterator<Item = Spanned<Token>>,
     {
         fn collect_tokens(self) -> Result<Vec<Token>, Error> {
             self.into_iter().map(|r| r.map(|(_, t, _)| t)).collect()
@@ -275,33 +266,31 @@ mod tests {
     fn all_tokens() {
         let tokens = "\n = - + ( ) < > , ; # abcdefk akdkdkdl;lskdfjda \n identifier 123 0";
         let tokens = Stream::new(tokens).collect_tokens().unwrap();
-        assert_eq!(tokens,
-                   vec![
-                        Token::Newline,
-                        Token::Equals,
-                        Token::Minus,
-                        Token::Plus,
-                        Token::LeftParens,
-                        Token::RightParens,
-                        Token::Lt,
-                        Token::Gt,
-                        Token::Comma,
-                        Token::Semicolon,
-                        Token::Newline,
-                        Token::Name("identifier".into()),
-                        Token::DecimalI32(123),
-                        Token::DecimalI32(0),
-                   ]);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Terminator('\n'),
+                Token::Equals,
+                Token::Minus,
+                Token::Plus,
+                Token::LeftParens,
+                Token::RightParens,
+                Token::Lt,
+                Token::Gt,
+                Token::Comma,
+                Token::Terminator(';'),
+                Token::Terminator('\n'),
+                Token::Name("identifier".into()),
+                Token::DecimalI32(123),
+                Token::DecimalI32(0),
+            ]
+        );
     }
 
     #[test]
     fn octal_number() {
         let octal = "099";
         let tokens = Stream::new(octal).collect_tokens().unwrap();
-        assert_eq!(tokens,
-                   vec![
-                        Token::DecimalI32(0),
-                        Token::DecimalI32(99),
-                   ]);
+        assert_eq!(tokens, vec![Token::DecimalI32(0), Token::DecimalI32(99)]);
     }
 }

@@ -31,32 +31,58 @@ extern crate python_ast as ast;
 
 use std::str::FromStr;
 use std::collections::HashMap;
+use std::fmt;
 use regex::Regex;
+
+pub fn debug_print<'ir, I: Iterator<Item = &'ir Stmt>>(stmts: I) {
+    for (k, stmt) in stmts.enumerate() {
+        println!("{:<3} {}", k, stmt);
+    }
+}
+
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Stmt::*;
+        match *self {
+            Print(ref val) => write!(f, "print {}", val),
+            Def(tmp, ref expr) => write!(f, "{} := {}", tmp, expr),
+        }
+    }
+}
+
+impl fmt::Display for Val {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Val::*;
+        match *self {
+            Int(i) => write!(f, "{}", i),
+            Ref(tmp) => write!(f, "{}", tmp),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Expr::*;
+        match *self {
+            UnaryNeg(ref val) => write!(f, "-{}", val),
+            Add(ref l, ref r) => write!(f, "{} + {}", l, r),
+            Input => write!(f, "input()"),
+        }
+    }
+}
+
+impl fmt::Display for Tmp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "t{}", self.index)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Program {
     pub stmts: Vec<Stmt>,
 }
 
-impl<'a> From<&'a ast::Program> for Program {
-    fn from(program: &'a ast::Program) -> Program {
-        let mut builder = Builder::new();
-        for statement in &program.module.statements {
-            //println!("builder: {:#?}", builder);
-            builder.flatten_statement(statement);
-        }
-        Program { stmts: builder.stack }
-    }
-}
-
-impl From<ast::Program> for Program {
-    fn from(program: ast::Program) -> Program {
-        let program = &program;
-        program.into()
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tmp {
     pub index: usize,
 }
@@ -116,10 +142,10 @@ pub enum Stmt {
 }
 
 #[derive(Debug)]
-pub struct Builder {
+pub struct Builder<'alloc> {
     stack: Vec<Stmt>,
     names: HashMap<ast::Name, Val>,
-    tmp: TmpAllocator,
+    tmp: &'alloc mut TmpAllocator,
 }
 
 impl Tmp {
@@ -152,12 +178,21 @@ impl TmpAllocator {
     }
 }
 
-impl Builder {
-    pub fn new() -> Builder {
+impl<'tmp_allocator> Builder<'tmp_allocator> {
+    pub fn build(ast: ast::Program, tmp: &mut TmpAllocator) -> Program {
+        let mut builder = Builder::new(tmp);
+        for statement in &ast.module.statements {
+            //println!("builder: {:#?}", builder);
+            builder.flatten_statement(statement);
+        }
+        Program { stmts: builder.stack }
+    }
+
+    pub fn new(tmp: &'tmp_allocator mut TmpAllocator) -> Builder<'tmp_allocator> {
         Builder {
             stack: vec![],
             names: HashMap::new(),
-            tmp: TmpAllocator::new(),
+            tmp,
         }
     }
 
@@ -383,7 +418,9 @@ impl FromStr for Program {
             if line.is_empty() {
                 continue;
             }
-            stmts.push(line.parse::<Stmt>().map_err(|_| format!("parse error on {:?}", line))?);
+            stmts.push(line.parse::<Stmt>().map_err(
+                |_| format!("parse error on {:?}", line),
+            )?);
         }
         Ok(Program { stmts })
     }

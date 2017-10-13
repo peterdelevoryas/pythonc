@@ -9,6 +9,7 @@ use ::{
     Program,
 };
 
+#[LALR]
 grammar;
 
 extern {
@@ -16,7 +17,6 @@ extern {
     type Error = Error;
 
     enum Token {
-        "\n" => Token::Newline,
         "print" => Token::Print,
         "=" => Token::Equals,
         "(" => Token::LeftParens,
@@ -26,7 +26,7 @@ extern {
         "<" => Token::Lt,
         ">" => Token::Gt,
         "," => Token::Comma,
-        ";" => Token::Semicolon,
+        ";" => Token::Terminator(<char>),
         "name" => Token::Name(<String>),
         "decimal_i32" => Token::DecimalI32(<i32>),
         "input" => Token::Input,
@@ -42,15 +42,20 @@ pub module: Module = {
 };
 
 pub statements: Vec<Statement> = {
-    <v:statement*> => v,
+    ";"* <v:(<statement> ";"+)*> <e:statement?> => match e {
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+        None => v,
+    }
 };
 
 pub statement: Statement = {
     "print" <expression> => Statement::Print(<>),
     <name> "=" <expression> => Statement::Assign(<>),
     <expression> => Statement::Expression(<>),
-    "\n" => Statement::Newline,
-    ";" => Statement::Newline,
 };
 
 pub expression: Expression = {

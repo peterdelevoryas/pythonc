@@ -40,6 +40,7 @@ extern crate lalrpop_util;
 
 //pub mod parse;
 //pub use parse::parse_program;
+
 pub type ParseError = lalrpop_util::ParseError<usize, token::Token, token::Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
