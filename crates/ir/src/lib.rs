@@ -61,24 +61,58 @@ pub struct Tmp {
     pub index: usize,
 }
 
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    Int,
+    Bool,
+    List,
+    Dict
+}
+
+impl Type {
+    fn is_big(self) -> bool {
+        match self {
+            Int => false,
+            Bool => false,
+            List => true,
+            Dict => true,
+        }
+    }
+}
+
 /// Tmp(index) -> index of Tmp in stack
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Val {
-    Int(i32),
-    Ref(Tmp),
+    ConstInt(i32),
+    ConstBool(bool),
+    Any(Tmp),
+    Int(Tmp),
+    Bool(Tmp),
+    List(Tmp),
+    Dict(Tmp),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     UnaryNeg(Val),
     Add(Val, Val),
-    Input,
+    PolyEqv(Val, Val),
+    Not(Val),
+    Eq(Val, Val),
+    NotEq(Val, Val),
+    And(Val, Val),
+    Or(Val,Val),
+    If(Val,Val,Val),
+    FunCall(String),
+    Subscript(Val, Val),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Print(Val),
     Def(Tmp, Expr),
+    TypeAssert(Tmp, Type),
 }
 
 #[derive(Debug)]
@@ -136,28 +170,79 @@ impl Builder {
     /// simply returned)
     pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
         match *expression {
-            ast::Expression::DecimalI32(ast::DecimalI32(i)) => Val::Int(i),
-            ast::Expression::Name(ref name) => {
+            ast::Expression::Target(ast::Target::Name(ref name)) => {
                 match self.names.get(name) {
                     Some(&val) => val,
                     None => panic!("reference to undefined name {:?}", name),
                 }
-            }
-            ast::Expression::Input(_) => {
-                let tmp = self.def(Expr::Input);
-                Val::Ref(tmp)
-            }
+            },
+            ast::Expression::Target(ast::Target::Subscript(_)) => {
+                unimplemented!("Target Subscript!")
+            },
+            ast::Expression::DecimalI32(i) => Val::ConstInt(i),
+            ast::Expression::Boolean(b) => Val::ConstBool(b),
+            ast::Expression::Input => {
+                let tmp = self.def(Expr::FunCall(String::from("input"));
+                Val::Int(tmp)
+            },
             ast::Expression::UnaryNeg(ref expr) => {
-                let val = self.flatten_expression(expr);
-                let tmp = self.def(Expr::UnaryNeg(val));
-                Val::Ref(tmp)
-            }
+                match self.flatten_expression(expr) {
+                    v @ Val::Int(_) => {
+                        Val::Int(self.def(Expr::UnaryNeg(v)))
+                    },
+                    v @ Val:ConstInt(i) => {
+                        Val::ConstInt(-i)
+                    },
+                    v @ Val::Any(_) => {
+                        Val::Int(self.def(Expr::UnaryNeg(self.typed(v, Type::Int))))
+                    }
+                }
+            },
             ast::Expression::Add(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
                 let tmp = self.def(Expr::Add(left, right));
-                Val::Ref(tmp)
-            }
+                Val::Int(tmp)
+            },
+            ast::Expression::LogicalNot(ref expr) => {
+                let val = self.flatten_expression(expr);
+                let tmp = self.def(Expr::Not(val));
+                Val::Int(tmp)
+            },
+            ast::Expression::LogicalAnd(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::And(left, right));
+                Val::Int(tmp)
+            },
+            ast::Expression::LogicalOr(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::Or(left, right));
+                Val::Int(tmp)
+            },
+            ast::Expression::LogicalEq(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::PolyEqv(left, right));
+                Val::Int(tmp)
+            },
+            ast::Expression::LogicalNotEq(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::And(left, right));
+                Val::Int(tmp)
+            },
+            ast::Expression::List(l) => {
+            },
+            ast::Expression::Dict(kvl) => {
+            },
+            ast::Expression::Is(ref left, ref right) => {
+                let left = self.flatten_expression(left);
+                let right = self.flatten_expression(right);
+                let tmp = self.def(Expr::Eq(left, right));
+                Val::Int(tmp)
+            },
         }
     }
 
@@ -175,6 +260,21 @@ impl Builder {
                 let _ = self.flatten_expression(expression);
             }
             ast::Statement::Newline => {}
+        }
+    }
+
+    pub fn typed(&mut self, v : Val, ty : Type) -> Val {
+        match v {
+            Val::Any(tmp) => {
+                self.push(Stmt::TypeAssert(tmp, ty));
+                match ty {
+                    Type::Int => Val::Int(tmp),
+                    Type::Bool => Val::Bool(tmp),
+                    Type::Dict => Val::Dict(tmp),
+                    Type::List => Val::List(tmp)
+                }
+            },
+            _ => unreachable!("typed() called with non-any, only reachable from any match")
         }
     }
 
@@ -231,11 +331,11 @@ impl FromStr for Stmt {
                 .ok_or(())
                 .and_then(|m| {
                     let s = m.as_str();
-                    parse_tmp(s).map(Val::Ref)
+                    parse_tmp(s).map(Val::Int)
                 })
                 .or(captures.get(2).ok_or(()).and_then(|m| {
                     let s = m.as_str();
-                    s.parse::<i32>().map_err(|_| ()).map(Val::Int)
+                    s.parse::<i32>().map_err(|_| ()).map(Val::ConstInt)
                 }))
         }
         fn parse_expr(s: &str) -> Result<Expr, ()> {

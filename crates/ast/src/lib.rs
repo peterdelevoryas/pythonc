@@ -38,32 +38,39 @@
 extern crate python_token as token;
 extern crate lalrpop_util;
 
-pub mod parse;
-pub use parse::parse_program;
+//pub mod parse;
+//pub use parse::parse_program;
 pub type ParseError = lalrpop_util::ParseError<usize, token::Token, token::Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Name(pub String);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct DecimalI32(pub i32);
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Input;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expression {
-    Name(Name),
-    DecimalI32(DecimalI32),
-    Input(Input),
+    Target(Target),
+    DecimalI32(i32),
+    Boolean(bool),
+    Input,
     UnaryNeg(Box<Expression>),
     Add(Box<Expression>, Box<Expression>),
+    LogicalNot(Box<Expression>),
+    LogicalAnd(Box<Expression>, Box<Expression>),
+    LogicalOr(Box<Expression>, Box<Expression>),
+    LogicalEq(Box<Expression>, Box<Expression>),
+    LogicalNotEq(Box<Expression>, Box<Expression>),
+    If(Box<Expression>, Box<Expression>, Box<Expression>),
+    List(Vec<Expression>),
+    Dict(Vec<(Expression,Expression)>),
+    Is(Box<Expression>, Box<Expression>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Target {
+    Name(String),
+    Subscript(Box<Expression>, Box<Expression>)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
     Print(Expression),
-    Assign(Name, Expression),
+    Assign(Target, Expression),
     Expression(Expression),
     Newline,
 }

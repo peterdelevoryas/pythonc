@@ -8,8 +8,6 @@ extern crate python;
 use docopt::Docopt;
 use python::Result;
 use python::Compiler;
-use std::path::Path;
-use std::path::PathBuf;
 
 const USAGE: &str = "
 pythonc.
