@@ -35,7 +35,9 @@ pub enum Node<'a> {
     // CallFunc(node, args)
     CallFunc(BoxNode<'a>, Vec<Node<'a>>),
     // Compare(expr, ops)
-    Compare(BoxNode<'a>, Vec<Node<'a>>),
+    // 1 == 2 == 3
+    // Compare(Const(1), [('==', Const(2)), ('==', Const(3))])
+    Compare(BoxNode<'a>, Vec<(&'a str, Node<'a>)>),
     // Or(nodes)
     Or(Vec<Node<'a>>),
     // And(nodes)
@@ -65,7 +67,15 @@ named!(
         map!(assign_name, |(name, flags)| Node::AssignName(name, flags))        |
         map!(add, |(l, r)| Node::Add(Box::new(l), Box::new(r)))                 |
         map!(unary_sub, |node| Node::UnarySub(Box::new(node)))                  |
-        map!(call_func, |(node, args)| Node::CallFunc(Box::new(node), args))
+        map!(call_func, |(node, args)| Node::CallFunc(Box::new(node), args))    |
+        map!(compare, |(node, ops)| Node::Compare(Box::new(node), ops))         |
+        map!(or, |nodes| Node::Or(nodes))                                       |
+        map!(and, |nodes| Node::And(nodes))                                     |
+        map!(not, |node| Node::Not(Box::new(node)))                             |
+        map!(list, |nodes| Node::List(nodes))                                   |
+        map!(dict, |tuples| Node::Dict(tuples))                                 |
+        map!(subscript, |(target, flags, subs)| Node::Subscript(Box::new(target), flags, subs)) |
+        map!(if_exp, |(test, then, els)| Node::IfExp(Box::new(test), Box::new(then), Box::new(els)))
     )
 );
 
@@ -99,6 +109,23 @@ named!(
 );
 
 named!(node_list<Vec<Node>>, delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(node)), tag!("]")));
+
+named!(
+    node_tuple<(Node, Node)>,
+    do_parse!(
+        left: delimited!(tag!("("), node, tag!(",")) >>
+        right: terminated!(ws!(node), tag!(")")) >>
+        ((left, right))
+    )
+);
+
+named!(
+    tuple_list<Vec<(Node, Node)>>,
+    do_parse!(
+        tuples: delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(node_tuple)), tag!("]")) >>
+        (tuples)
+    )
+);
 
 named!(
     constant<&str>,
@@ -176,6 +203,92 @@ named!(
         terminated!(ws!(tag!("None")), tag!(",")) >>
         terminated!(ws!(tag!("None")), tag!(")")) >>
         ((n, args))
+    )
+);
+
+named!(
+    compare<(Node, Vec<(&str, Node)>)>,
+    do_parse!(
+        tag!("Compare") >>
+        e: delimited!(tag!("("), node, tag!(",")) >>
+        o: terminated!(ws!(delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(compare_op)), tag!("]"))), tag!(")")) >>
+        ((e, o))
+    )
+);
+
+named!(
+    compare_op<(&str, Node)>,
+    do_parse!(
+        op: delimited!(tag!("("), is_not!(","), tag!(",")) >>
+        node: terminated!(ws!(node), tag!(")")) >>
+        ((to_str(op), node))
+    )
+);
+
+named!(
+    or<Vec<Node>>,
+    do_parse!(
+        tag!("Or") >>
+        nodes: delimited!(tag!("("), node_list, tag!(")")) >>
+        (nodes)
+    )
+);
+
+named!(
+    and<Vec<Node>>,
+    do_parse!(
+        tag!("And") >>
+        nodes: delimited!(tag!("("), node_list, tag!(")")) >>
+        (nodes)
+    )
+);
+
+named!(
+    not<Node>,
+    do_parse!(
+        tag!("Not") >>
+        node: delimited!(tag!("("), node, tag!(")")) >>
+        (node)
+    )
+);
+
+named!(
+    list<Vec<Node>>,
+    do_parse!(
+        tag!("List") >>
+        nodes: delimited!(tag!("("), node_list, tag!(")")) >>
+        (nodes)
+    )
+);
+
+named!(
+    dict<Vec<(Node, Node)>>,
+    do_parse!(
+        tag!("Dict") >>
+        tuples: delimited!(tag!("("), tuple_list, tag!(")")) >>
+        (tuples)
+    )
+);
+
+named!(
+    subscript<(Node, &str, Vec<Node>)>,
+    do_parse!(
+        tag!("Subscript") >>
+        target: delimited!(tag!("("), node, tag!(",")) >>
+        flags: terminated!(ws!(is_not!(",")), tag!(",")) >>
+        subs: terminated!(ws!(node_list), tag!(")")) >>
+        ((target, to_str(flags), subs))
+    )
+);
+
+named!(
+    if_exp<(Node, Node, Node)>,
+    do_parse!(
+        tag!("IfExp") >>
+        test: delimited!(tag!("("), node, tag!(",")) >>
+        then: terminated!(ws!(node), tag!(",")) >>
+        els: terminated!(ws!(node), tag!(")")) >>
+        ((test, then, els))
     )
 );
 
