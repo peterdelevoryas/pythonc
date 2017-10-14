@@ -5,3 +5,4 @@ authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 
 [dependencies]
 python-ast = { path = "../ast" }
+nom = "3.2"

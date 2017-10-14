@@ -76,7 +76,7 @@ impl Compiler {
     }
 }
 
-pub fn compile(source: &str) -> Result<vm::Program> {
+pub fn compile(source: &[u8]) -> Result<vm::Program> {
     /*
     #[cfg(not(feature = "fallback-parser"))]
     {
@@ -128,7 +128,7 @@ pub fn compile(source: &str) -> Result<vm::Program> {
     Ok(asm)
 }
 
-pub fn parse_source<P>(source: P) -> Result<String>
+pub fn parse_source<P>(source: P) -> Result<Vec<u8>>
 where
     P: AsRef<Path>,
 {
@@ -139,9 +139,7 @@ where
         .arg(source)
         .output()
         .chain_err(|| format!("Error running python parse.py {}", source.display()))?;
-    let python_repr = String::from_utf8(output.stdout)
-        .chain_err(|| format!("Error converting ouput from python parse.py {} to String", source.display()))?;
-    Ok(python_repr)
+    Ok(output.stdout)
 }
 
 pub fn emit_asm<P1, P2>(source: P1, output: P2, create_new: bool) -> Result<()>
