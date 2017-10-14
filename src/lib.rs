@@ -175,6 +175,7 @@ where
         .write(true)
         .create(true)
         .create_new(create_new)
+        .truncate(true)
         .open(path)
         .chain_err(|| format!("creating file {:?}", path.display()))?;
     write!(f, "{}", data).chain_err(|| "writing data")?;
