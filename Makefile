@@ -37,8 +37,8 @@ cog: $(COG_ZIP) src crates
 
 pythonc: $(PYTHONC)
 
-$(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
-	zip -r $(COG_ZIP) $(PYYC) Makefile runtime
+$(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime parse.py
+	zip -r $(COG_ZIP) $(PYYC) Makefile runtime parse.py
 	zip -j $(COG_ZIP) $(PYTHONC)
 
 $(PYTHONC): src crates

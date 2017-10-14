@@ -128,14 +128,32 @@ pub fn compile(source: &str) -> Result<vm::Program> {
     Ok(asm)
 }
 
+pub fn parse_source<P>(source: P) -> Result<String>
+where
+    P: AsRef<Path>,
+{
+    use std::process::Command;
+    let source = source.as_ref();
+    let output = Command::new("python")
+        .arg("parse.py")
+        .arg(source)
+        .output()
+        .chain_err(|| format!("Error running python parse.py {}", source.display()))?;
+    let python_repr = String::from_utf8(output.stdout)
+        .chain_err(|| format!("Error converting ouput from python parse.py {} to String", source.display()))?;
+    Ok(python_repr)
+}
+
 pub fn emit_asm<P1, P2>(source: P1, output: P2, create_new: bool) -> Result<()>
 where
     P1: AsRef<Path>,
     P2: AsRef<Path>,
 {
-    let source = read_file(source).chain_err(|| "reading source file")?;
-    let asm = compile(&source).chain_err(|| {
-        format!("compiling source file {:?}", source)
+    let source = source.as_ref();
+    //let source = read_file(source).chain_err(|| "reading source file")?;
+    let python_repr = parse_source(source).chain_err(|| "parsing source")?;
+    let asm = compile(&python_repr).chain_err(|| {
+        format!("compiling source file {:?}", source.display())
     })?;
 
     write_file(asm, output, create_new)

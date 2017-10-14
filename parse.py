@@ -2,8 +2,11 @@ import compiler
 import sys
 
 if len(sys.argv) < 2:
-    print "Usage: parse.py <source>"
+    parse = compiler.parse
+    source = sys.stdin.read()
 else:
+    parse = compiler.parseFile
     source = sys.argv[1]
-    parsed = compiler.parseFile(source)
-    sys.stdout.write(str(parsed))
+
+parsed = parse(source)
+sys.stdout.write(str(parsed))
