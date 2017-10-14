@@ -97,7 +97,7 @@ impl Program {
                 let sum = self.add(left, right);
                 self.store_tmp(tmp, sum);
             }
-            Def(tmp, Expr::FunCall(ref label)) if label == "input" => {
+            Def(tmp, Expr::FunCall(ref label, ref _args)) if label == "input" => {
                 self.call("input");
                 self.store_tmp(tmp, Value::Register(Register::EAX));
             }

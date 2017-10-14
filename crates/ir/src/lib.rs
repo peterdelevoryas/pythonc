@@ -44,7 +44,7 @@ impl fmt::Display for Stmt {
             Print(ref val) => write!(f, "print {}", val),
             Def(tmp, ref expr) => write!(f, "{} := {}", tmp, expr),
             // type assert
-            TypeAssert(_, _) => unimplemented!()
+            //TypeAssert(_, _) => unimplemented!()
         }
     }
 }
