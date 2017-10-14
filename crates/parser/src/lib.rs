@@ -32,21 +32,24 @@ pub enum Node<'a> {
     Add(BoxNode<'a>, BoxNode<'a>),
     // UnarySub(expr)
     UnarySub(BoxNode<'a>),
-    // CallFUnc(node, args)
+    // CallFunc(node, args)
     CallFunc(BoxNode<'a>, Vec<Node<'a>>),
 }
 
 named!(
     node<Node>,
     alt!(
-        map!(module, |(doc, node)| Node::Module(doc, Box::new(node)))   |
-        map!(stmt, |nodes| Node::Stmt(nodes))                           |
-        map!(constant, |val| Node::Const(val))                          |
-        map!(discard, |node| Node::Discard(Box::new(node)))             |
-        map!(name, |name| Node::Name(name))                             |
-        map!(printnl, |(nodes, dest)| Node::Printnl(nodes, dest))       |
-        map!(assign, |(nodes, expr)| Node::Assign(nodes, Box::new(expr))) |
-        map!(assign_name, |(name, flags)| Node::AssignName(name, flags))
+        map!(module, |(doc, node)| Node::Module(doc, Box::new(node)))           |
+        map!(stmt, |nodes| Node::Stmt(nodes))                                   |
+        map!(constant, |val| Node::Const(val))                                  |
+        map!(discard, |node| Node::Discard(Box::new(node)))                     |
+        map!(name, |name| Node::Name(name))                                     |
+        map!(printnl, |(nodes, dest)| Node::Printnl(nodes, dest))               |
+        map!(assign, |(nodes, expr)| Node::Assign(nodes, Box::new(expr)))       |
+        map!(assign_name, |(name, flags)| Node::AssignName(name, flags))        |
+        map!(add, |(l, r)| Node::Add(Box::new(l), Box::new(r)))                 |
+        map!(unary_sub, |node| Node::UnarySub(Box::new(node)))                  |
+        map!(call_func, |(node, args)| Node::CallFunc(Box::new(node), args))
     )
 );
 
@@ -130,6 +133,37 @@ named!(
 );
 
 named!(
+    add<(Node, Node)>,
+    do_parse!(
+        tag!("Add") >>
+        left: delimited!(tag!("(("), node, tag!(",")) >>
+        right: terminated!(ws!(node), tag!("))")) >>
+        ((left, right))
+    )
+);
+
+named!(
+    unary_sub<Node>,
+    do_parse!(
+        tag!("UnarySub") >>
+        node: delimited!(tag!("("), node, tag!(")")) >>
+        (node)
+    )
+);
+
+named!(
+    call_func<(Node, Vec<Node>)>,
+    do_parse!(
+        tag!("CallFunc") >>
+        n: delimited!(tag!("("), node, tag!(",")) >>
+        args: terminated!(ws!(node_list), tag!(",")) >>
+        terminated!(ws!(tag!("None")), tag!(",")) >>
+        terminated!(ws!(tag!("None")), tag!(")")) >>
+        ((n, args))
+    )
+);
+
+named!(
     string_literal<&str>,
     do_parse!(
         s: delimited!(tag!("'"), is_not!("'"), tag!("'")) >>
@@ -153,7 +187,7 @@ fn to_str(b: &[u8]) -> &str {
 // Takes the repr(python.compiler.parse(source)) as input
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
     println!("received: {}", str::from_utf8(s).unwrap());
-    match node(s) {
+    match call_func(b"CallFunc(Name('input'), []) {
         Done(remaining, parsed) => {
             println!("remaining: {}", str::from_utf8(remaining).unwrap());
             println!("parsed: {:#?}", parsed);
