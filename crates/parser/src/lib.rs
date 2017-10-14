@@ -34,6 +34,22 @@ pub enum Node<'a> {
     UnarySub(BoxNode<'a>),
     // CallFunc(node, args)
     CallFunc(BoxNode<'a>, Vec<Node<'a>>),
+    // Compare(expr, ops)
+    Compare(BoxNode<'a>, Vec<Node<'a>>),
+    // Or(nodes)
+    Or(Vec<Node<'a>>),
+    // And(nodes)
+    And(Vec<Node<'a>>),
+    // Not(expr)
+    Not(BoxNode<'a>),
+    // List(nodes)
+    List(Vec<Node<'a>>),
+    // Dict(items)
+    Dict(Vec<(Node<'a>, Node<'a>)>),
+    // Subscript(expr, flags, subs)
+    Subscript(BoxNode<'a>, &'a str, Vec<Node<'a>>),
+    // IfExp(test, then, else)
+    IfExp(BoxNode<'a>, BoxNode<'a>, BoxNode<'a>),
 }
 
 named!(
