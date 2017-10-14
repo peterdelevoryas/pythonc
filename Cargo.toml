@@ -13,7 +13,6 @@ doc = false
 
 [features]
 default = []
-fallback-parser = ["python-fallback-parser"]
 
 [dependencies]
 python-token = { path = "crates/token" }
@@ -23,13 +22,12 @@ python-trans = { path = "crates/trans" }
 liveness = { path = "crates/liveness" }
 python-vm = { path = "crates/vm" }
 interference = { path = "crates/interference" }
+parser = { path = "crates/parser" }
+# python-fallback-parser = { path = "crates/python-fallback-parser" }
 error-chain = "0.11.0"
 docopt = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
-
-# Optional Dependencies
-python-fallback-parser = { path = "crates/python-fallback-parser", optional = true }
 
 [workspace]
 members = [
@@ -38,6 +36,7 @@ members = [
     "crates/ir",
     "crates/vm",
     "crates/trans",
+    "crates/parser",
     "crates/python-fallback-parser",
     "crates/liveness",
     "crates/interference",

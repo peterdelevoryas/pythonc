@@ -97,15 +97,18 @@ impl Program {
                 let sum = self.add(left, right);
                 self.store_tmp(tmp, sum);
             }
-            Def(tmp, Expr::Input) => {
+            Def(tmp, Expr::FunCall(ref label)) if label == "input" => {
                 self.call("input");
                 self.store_tmp(tmp, Value::Register(Register::EAX));
             }
+            _ => unimplemented!(),
         }
     }
 
     fn val_to_value(&mut self, val: ir::Val, tmp_storage: Register) -> Value {
         use ir::Val::*;
+        unimplemented!()
+            /*
         match val {
             Ref(tmp) => {
                 self.load_tmp(tmp, tmp_storage);
@@ -113,6 +116,7 @@ impl Program {
             }
             Int(int) => Value::Immediate(Immediate(int)),
         }
+        */
     }
 
     // Adds left to right, stores in dst if necessary

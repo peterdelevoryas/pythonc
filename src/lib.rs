@@ -1,14 +1,13 @@
 extern crate python_token as token;
 extern crate python_ast as ast;
-extern crate python_trans as trans;
 extern crate python_ir as ir;
+extern crate python_trans as trans;
 extern crate python_vm as vm;
+extern crate parser;
 extern crate interference;
 extern crate liveness;
 #[macro_use]
 extern crate error_chain;
-#[cfg(feature = "fallback-parser")]
-extern crate python_fallback_parser;
 
 pub mod error;
 pub use error::{Error, ErrorKind, Result, ResultExt};
@@ -78,13 +77,24 @@ impl Compiler {
 }
 
 pub fn compile(source: &str) -> Result<vm::Program> {
-    let tokens = token::Stream::new(source);
-
+    /*
     #[cfg(not(feature = "fallback-parser"))]
-    let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
+    {
+        let tokens = token::Stream::new(source);
+        let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
+    }
+    */
 
-    #[cfg(feature = "fallback-parser")]
-    let ast = python_fallback_parser::parse_program(source).map_err(|e| format!("{:?}", e)).chain_err(|| "parse error")?;
+    let ast = parser::parse_program(source).
+        map_err(Error::from)
+        .chain_err(|| "parse error")?;
+
+    /*
+    let ast = python_fallback_parser::parse_program_fallback(source)
+        .map_err(|e| format!("{:?}", e))
+        .map_err(Error::from)
+        .chain_err(|| "parse error")?;
+    */
 
     let mut tmp_allocator = ir::TmpAllocator::new();
     let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);

@@ -31,8 +31,10 @@ pub enum Instr {
 impl From<ir::Val> for RVal {
     fn from(v: ir::Val) -> Self {
         match v {
-            ir::Val::Int(i) => RVal::Int(i),
-            ir::Val::Ref(t) => RVal::LVal(LVal::Tmp(t)),
+            ir::Val::ConstInt(i) => RVal::Int(i),
+            ir::Val::ConstBool(b) => unimplemented!(),
+            ir::Val::Int(t) => RVal::LVal(LVal::Tmp(t)),
+            _ => unimplemented!()
         }
     }
 }
@@ -243,11 +245,12 @@ impl Program {
                 self.mov(v.into(), LVal::Tmp(tmp));
                 self.neg(LVal::Tmp(tmp));
             }
-            Def(tmp, Input) => {
+            Def(tmp, FunCall(ref label)) if label == "input" => {
                 self.call("input");
                 let eax = RVal::LVal(LVal::Register(trans::Register::EAX));
                 self.mov(eax, LVal::Tmp(tmp));
             }
+            _ => unimplemented!()
         }
     }
 

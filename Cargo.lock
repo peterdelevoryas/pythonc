@@ -298,6 +298,13 @@ version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "python-ast 0.1.0",
+]
+
+[[package]]
 name = "petgraph"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -314,8 +321,8 @@ dependencies = [
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interference 0.1.0",
  "liveness 0.1.0",
+ "parser 0.1.0",
  "python-ast 0.1.0",
- "python-fallback-parser 0.1.0",
  "python-ir 0.1.0",
  "python-token 0.1.0",
  "python-trans 0.1.0",

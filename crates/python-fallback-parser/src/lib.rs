@@ -94,7 +94,7 @@ fn destructure_stmt(stmt: PyObject, py: Python) -> Result<Statement, ParseError>
         },
         "Printnl" => {
             // Very much assuming that the print only refers to a single value TODO
-            Statement::Print(Expression::Input(Input))
+            Statement::Print(destructure_expr(stmt.getattr(py, "expr")?, py)?)
         },
         s => {
             return Err(ParseError(format!("Unhandled type {} in converting stmt", s)));
@@ -131,7 +131,7 @@ fn destructure_assignment(assig : PyObject, py : Python) -> Result<Statement, Pa
     let target_name_string: &str = target_name_cowstring.borrow();
 
     let expr = assig.getattr(py, "expr")?;
-    Ok(Statement::Assign(Name(String::from(target_name_string)), destructure_expr(expr, py)?))
+    Ok(Statement::Assign(Target::Name(String::from(target_name_string)), destructure_expr(expr, py)?))
 }
 
 // This function became heinously complicated
@@ -168,7 +168,7 @@ fn destructure_expr(expr: PyObject, py: Python) -> Result<Expression, ParseError
                 return Err(ParseError(String::from("Functions with multiple arguments are not supported")));
             }
 
-            Expression::Input(Input)
+            Expression::Input
         },
         "Add" => Expression::Add(
                 Box::new(destructure_expr(expr.getattr(py, "left")?, py)?),
@@ -186,7 +186,7 @@ fn destructure_expr(expr: PyObject, py: Python) -> Result<Expression, ParseError
 
             let n: i32 = val.extract::<i32>(py)?;
 
-            Expression::DecimalI32(DecimalI32(n))
+            Expression::DecimalI32(n)
         },
         "Name" => {
             let name = expr.getattr(py, "name")?;
@@ -197,7 +197,7 @@ fn destructure_expr(expr: PyObject, py: Python) -> Result<Expression, ParseError
             let name_cowstr = name_pstr.to_string(py)?;
             let name_str: &str = name_cowstr.borrow();
 
-            Expression::Name(Name(String::from(name_str)))
+            Expression::Target(Target::Name(String::from(name_str)))
         },
         e => { return Err(ParseError(format!("{:?}: Unhandled expression type", e))); },
     };

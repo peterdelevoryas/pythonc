@@ -46,6 +46,8 @@ impl fmt::Display for Stmt {
         match *self {
             Print(ref val) => write!(f, "print {}", val),
             Def(tmp, ref expr) => write!(f, "{} := {}", tmp, expr),
+            // type assert
+            TypeAssert(_, _) => unimplemented!()
         }
     }
 }
@@ -54,8 +56,13 @@ impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Val::*;
         match *self {
-            Int(i) => write!(f, "{}", i),
-            Ref(tmp) => write!(f, "{}", tmp),
+            ConstInt(i) => write!(f, "{}", i),
+            ConstBool(b) => write!(f, "{}", b),
+            Any(tmp) => write!(f, "{}:any", tmp),
+            Int(tmp) => write!(f, "{}:int", tmp),
+            Bool(tmp) => write!(f, "{}:bool", tmp),
+            List(tmp) => write!(f, "{}:list", tmp),
+            Dict(tmp) => write!(f, "{}:dict", tmp),
         }
     }
 }
@@ -66,7 +73,8 @@ impl fmt::Display for Expr {
         match *self {
             UnaryNeg(ref val) => write!(f, "-{}", val),
             Add(ref l, ref r) => write!(f, "{} + {}", l, r),
-            Input => write!(f, "input()"),
+            FunCall(ref label) => write!(f, "{label}()", label=label),
+            _ => unimplemented!(),
         }
     }
 }
@@ -99,10 +107,10 @@ pub enum Type {
 impl Type {
     fn is_big(self) -> bool {
         match self {
-            Int => false,
-            Bool => false,
-            List => true,
-            Dict => true,
+            Type::Int => false,
+            Type::Bool => false,
+            Type::List => true,
+            Type::Dict => true,
         }
     }
 }
@@ -144,7 +152,7 @@ pub enum Stmt {
 #[derive(Debug)]
 pub struct Builder<'alloc> {
     stack: Vec<Stmt>,
-    names: HashMap<ast::Name, Val>,
+    names: HashMap<String, Val>,
     tmp: &'alloc mut TmpAllocator,
 }
 
@@ -205,19 +213,20 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
     /// simply returned)
     pub fn flatten_expression(&mut self, expression: &ast::Expression) -> Val {
         match *expression {
+            ast::Expression::If(_, _, _) => unimplemented!(),
             ast::Expression::Target(ast::Target::Name(ref name)) => {
                 match self.names.get(name) {
                     Some(&val) => val,
                     None => panic!("reference to undefined name {:?}", name),
                 }
             },
-            ast::Expression::Target(ast::Target::Subscript(_)) => {
+            ast::Expression::Target(ast::Target::Subscript(_, _)) => {
                 unimplemented!("Target Subscript!")
             },
             ast::Expression::DecimalI32(i) => Val::ConstInt(i),
             ast::Expression::Boolean(b) => Val::ConstBool(b),
             ast::Expression::Input => {
-                let tmp = self.def(Expr::FunCall(String::from("input"));
+                let tmp = self.def(Expr::FunCall(String::from("input")));
                 Val::Int(tmp)
             },
             ast::Expression::UnaryNeg(ref expr) => {
@@ -225,12 +234,14 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                     v @ Val::Int(_) => {
                         Val::Int(self.def(Expr::UnaryNeg(v)))
                     },
-                    v @ Val:ConstInt(i) => {
+                    Val::ConstInt(i) => {
                         Val::ConstInt(-i)
                     },
                     v @ Val::Any(_) => {
-                        Val::Int(self.def(Expr::UnaryNeg(self.typed(v, Type::Int))))
+                        let int = self.typed(v, Type::Int);
+                        Val::Int(self.def(Expr::UnaryNeg(int)))
                     }
+                    _ => unimplemented!()
                 }
             },
             ast::Expression::Add(ref left, ref right) => {
@@ -268,9 +279,11 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                 let tmp = self.def(Expr::And(left, right));
                 Val::Int(tmp)
             },
-            ast::Expression::List(l) => {
+            ast::Expression::List(ref l) => {
+                unimplemented!()
             },
-            ast::Expression::Dict(kvl) => {
+            ast::Expression::Dict(ref kvl) => {
+                unimplemented!()
             },
             ast::Expression::Is(ref left, ref right) => {
                 let left = self.flatten_expression(left);
@@ -287,7 +300,7 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                 let val = self.flatten_expression(expression);
                 self.print(val);
             }
-            ast::Statement::Assign(ref name, ref expression) => {
+            ast::Statement::Assign(ast::Target::Name(ref name), ref expression) => {
                 let val = self.flatten_expression(expression);
                 self.names.insert(name.clone(), val);
             }
@@ -295,6 +308,7 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                 let _ = self.flatten_expression(expression);
             }
             ast::Statement::Newline => {}
+            ast::Statement::Assign(ast::Target::Subscript(_, _), _) => unimplemented!(),
         }
     }
 
@@ -384,7 +398,7 @@ impl FromStr for Stmt {
                 let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
             } else if let Some(_) = captures.get(4) {
-                Ok(Expr::Input)
+                Ok(Expr::FunCall("input".into()))
             } else if let Some(m) = captures.get(5) {
                 let s = m.as_str();
                 parse_expr(&s[1..s.len() - 1])
