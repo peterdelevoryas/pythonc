@@ -9,4 +9,4 @@ else:
     source = sys.argv[1]
 
 parsed = parse(source)
-sys.stdout.write(str(parsed))
+print parsed

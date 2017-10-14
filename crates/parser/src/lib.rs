@@ -8,35 +8,54 @@ use std::process::Command;
 use std::str;
 use std::fmt;
 
-type BoxNode<'a> = Box<Node<'a>>;
+pub type BoxNode<'a> = Box<Node<'a>>;
 
 #[derive(Debug)]
-enum Node<'a> {
+pub enum Node<'a> {
     // Module(doc, node)
     Module(&'a str, BoxNode<'a>),
+    // Stmt(nodes)
     Stmt(Vec<Node<'a>>),
+    // Const(value)
     Const(&'a str),
+    // Discard(expr)
     Discard(BoxNode<'a>),
+    // Name(name)
+    Name(&'a str),
+    // Printnl(nodes, dest)
+    Printnl(Vec<Node<'a>>, &'a str),
+    // Assign(nodes, expr)
+    Assign(Vec<Node<'a>>, BoxNode<'a>),
+    // AssName(name, flags)
+    AssName(&'a str, &'a str),
+    // Add((left, right))
+    Add(BoxNode<'a>, BoxNode<'a>),
+    // UnarySub(expr)
+    UnarySub(BoxNode<'a>),
+    // CallFUnc(node, args)
+    CallFunc(BoxNode<'a>, Vec<Node<'a>>),
 }
 
 named!(
     node<Node>,
     alt!(
-        map!(module, |(doc, node)| Node::Module(to_str(doc), Box::new(node)))   |
-        map!(stmt, |nodes| Node::Stmt(nodes))                                   |
-        map!(discard, |node| Node::Discard(Box::new(node)))                     |
-        map!(constant, |val| Node::Const(to_str(val)))
+        map!(module, |(doc, node)| Node::Module(doc, Box::new(node)))   |
+        map!(stmt, |nodes| Node::Stmt(nodes))                           |
+        map!(constant, |val| Node::Const(val))                          |
+        map!(discard, |node| Node::Discard(Box::new(node)))             |
+        map!(name, |name| Node::Name(name))                             |
+        map!(printnl, |(nodes, dest)| Node::Printnl(nodes, dest))
     )
 );
 
 named!(
-    module<&[u8], (&[u8], Node)>,
+    module<&[u8], (&str, Node)>,
     do_parse!(
         tag!("Module") >>
         doc: delimited!(tag!("("), is_not!(","), tag!(",")) >>
         node: ws!(node) >>
         tag!(")") >>
-        ((doc, node))
+        ((to_str(doc), node))
     )
 );
 
@@ -61,11 +80,31 @@ named!(
 named!(node_list<Vec<Node>>, delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(node)), tag!("]")));
 
 named!(
-    constant<&[u8]>,
+    constant<&str>,
     do_parse!(
         tag!("Const") >>
         v: delimited!(tag!("("), is_not!(")"), tag!(")")) >>
-        (v)
+        (to_str(v))
+    )
+);
+
+named!(
+    name<&str>,
+    do_parse!(
+        tag!("Name") >>
+        name: delimited!(tag!("("), is_not!(")"), tag!(")")) >>
+        (to_str(name))
+    )
+);
+
+named!(
+    printnl<(Vec<Node>, &str)>,
+    do_parse!(
+        tag!("Printnl") >>
+        nodes: delimited!(tag!("("), node_list, tag!(",")) >>
+        dest: ws!(is_not!(")")) >>
+        tag!(")") >>
+        (nodes, to_str(dest))
     )
 );
 
