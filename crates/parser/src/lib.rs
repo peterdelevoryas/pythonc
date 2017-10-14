@@ -187,7 +187,7 @@ fn to_str(b: &[u8]) -> &str {
 // Takes the repr(python.compiler.parse(source)) as input
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
     println!("received: {}", str::from_utf8(s).unwrap());
-    match call_func(b"CallFunc(Name('input'), []) {
+    match module(s) {
         Done(remaining, parsed) => {
             println!("remaining: {}", str::from_utf8(remaining).unwrap());
             println!("parsed: {:#?}", parsed);
