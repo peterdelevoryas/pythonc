@@ -1,3 +1,4 @@
+#![feature(box_syntax, box_patterns)]
 extern crate python_ast as ast;
 #[macro_use]
 extern crate nom;
@@ -52,6 +53,27 @@ pub enum Node<'a> {
     Subscript(BoxNode<'a>, &'a str, Vec<Node<'a>>),
     // IfExp(test, then, else)
     IfExp(BoxNode<'a>, BoxNode<'a>, BoxNode<'a>),
+}
+
+impl<'a> Node<'a> {
+    pub fn module_into_ast(self) -> ast::Program {
+        use Node::*;
+        let stmts: Vec<Node> = match self {
+            Module(_, box Stmt(nodes)) => nodes,
+            _ => panic!("Expected module with statements at top level!"),
+        };
+        let mut statements: Vec<ast::Statement> = vec![];
+        for stmt in stmts {
+            statements.push(stmt.stmt_into_ast());
+        }
+        ast::Program {
+            module: ast::Module { statements }
+        }
+    }
+
+    pub fn stmt_into_ast(self) -> ast::Statement {
+        unimplemented!()
+    }
 }
 
 named!(
@@ -316,16 +338,20 @@ fn to_str(b: &[u8]) -> &str {
 // Takes the repr(python.compiler.parse(source)) as input
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
     println!("received: {}", str::from_utf8(s).unwrap());
-    match module(s) {
+    let parsed = match module(s) {
         Done(remaining, parsed) => {
-            println!("remaining: {}", str::from_utf8(remaining).unwrap());
-            println!("parsed: {:#?}", parsed);
+            if !remaining.is_empty() {
+                return Err(format!("remaining text after parsing?: {:?}", remaining));
+            }
+            Node::Module(parsed.0, Box::new(parsed.1))
         }
         Error(e) => panic!("Error: {}", e),
         Incomplete(s) => panic!("Incomplete: {:?}", s),
-    }
+    };
 
-    unimplemented!()
+    let ast = parsed.module_into_ast();
+
+    Ok(ast)
 }
 
 #[cfg(test)]
