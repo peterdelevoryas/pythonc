@@ -24,15 +24,12 @@
 //!     }
 //!
 
-#[macro_use]
 extern crate lazy_static;
 extern crate regex;
 extern crate python_ast as ast;
 
-use std::str::FromStr;
 use std::collections::HashMap;
 use std::fmt;
-use regex::Regex;
 
 pub fn debug_print<'ir, I: Iterator<Item = &'ir Stmt>>(stmts: I) {
     for (k, stmt) in stmts.enumerate() {
@@ -54,8 +51,8 @@ impl fmt::Display for Val {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Val::*;
         match *self {
-            Int(i) => write!(f, "{}", i),
-            Ref(tmp) => write!(f, "{}", tmp),
+            Const(i, b) => write!(f, "Const({}, {})", i, b),
+            PyObj(tmp) => write!(f, "{}", tmp),
         }
     }
 }
@@ -66,7 +63,7 @@ impl fmt::Display for Expr {
         match *self {
             UnaryNeg(ref val) => write!(f, "-{}", val),
             Add(ref l, ref r) => write!(f, "{} + {}", l, r),
-            Input => write!(f, "input()"),
+            _ => unimplemented!("Expr Display is bad")
         }
     }
 }
@@ -87,36 +84,11 @@ pub struct Tmp {
     pub index: usize,
 }
 
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Type {
-    Int,
-    Bool,
-    List,
-    Dict
-}
-
-impl Type {
-    fn is_big(self) -> bool {
-        match self {
-            Int => false,
-            Bool => false,
-            List => true,
-            Dict => true,
-        }
-    }
-}
-
-/// Tmp(index) -> index of Tmp in stack
+// Tmp(index) -> index of Tmp in stack
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Val {
-    ConstInt(i32),
-    ConstBool(bool),
-    Any(Tmp),
-    Int(Tmp),
-    Bool(Tmp),
-    List(Tmp),
-    Dict(Tmp),
+    Const(i32, bool),
+    PyObj(Tmp)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -126,25 +98,25 @@ pub enum Expr {
     PolyEqv(Val, Val),
     Not(Val),
     Eq(Val, Val),
-    NotEq(Val, Val),
+    PolyUnEqv(Val, Val),
     And(Val, Val),
     Or(Val,Val),
     If(Val,Val,Val),
-    FunCall(String),
+    FunCall(String, Vec<Val>),
     Subscript(Val, Val),
+    Inject(Val),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Print(Val),
     Def(Tmp, Expr),
-    TypeAssert(Tmp, Type),
 }
 
 #[derive(Debug)]
 pub struct Builder<'alloc> {
     stack: Vec<Stmt>,
-    names: HashMap<ast::Name, Val>,
+    names: HashMap<String, Val>,
     tmp: &'alloc mut TmpAllocator,
 }
 
@@ -211,73 +183,210 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                     None => panic!("reference to undefined name {:?}", name),
                 }
             },
-            ast::Expression::Target(ast::Target::Subscript(_)) => {
-                unimplemented!("Target Subscript!")
+            ast::Expression::Target(ast::Target::Subscript(ref t, ref i)) => {
+                let tgt = self.flatten_expression(t);
+                let index = self.flatten_expression(i);
+
+                if let Val::PyObj(_) = tgt {
+                    let tmp;
+                    if let Val::PyObj(_) = index {
+                        tmp = index;
+                    } else {
+                        tmp = self.inject(index);
+                    }
+                    Val::PyObj(self.def(Expr::FunCall(String::from("get_subscript"), vec![tgt, tmp])))
+                } else {
+                    panic!("Attempted subscript of illegal val {:?}", tgt)
+                }
             },
-            ast::Expression::DecimalI32(i) => Val::ConstInt(i),
-            ast::Expression::Boolean(b) => Val::ConstBool(b),
+            ast::Expression::DecimalI32(i) => Val::Const(i, false),
+            ast::Expression::Boolean(b) => Val::Const(if b { 1 } else { 0 }, true),
             ast::Expression::Input => {
-                let tmp = self.def(Expr::FunCall(String::from("input"));
-                Val::Int(tmp)
+                Val::PyObj(self.def(Expr::FunCall(String::from("input"), vec![])))
             },
             ast::Expression::UnaryNeg(ref expr) => {
                 match self.flatten_expression(expr) {
-                    v @ Val::Int(_) => {
-                        Val::Int(self.def(Expr::UnaryNeg(v)))
+                    Val::Const(i, _) => {
+                        Val::Const(-i, false)
                     },
-                    v @ Val:ConstInt(i) => {
-                        Val::ConstInt(-i)
-                    },
-                    v @ Val::Any(_) => {
-                        Val::Int(self.def(Expr::UnaryNeg(self.typed(v, Type::Int))))
+                    v @ Val::PyObj(_) => {
+                        Val::PyObj(self.def(Expr::UnaryNeg(v)))
                     }
                 }
             },
             ast::Expression::Add(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::Add(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(li + ri, false)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::Add(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::Add(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::Add(l, r)))
+                    }
+                }
             },
             ast::Expression::LogicalNot(ref expr) => {
                 let val = self.flatten_expression(expr);
-                let tmp = self.def(Expr::Not(val));
-                Val::Int(tmp)
+                match val {
+                    Val::Const(i, _) => Val::Const(if i != 0 { 1 } else { 0 }, true),
+                    v @ Val::PyObj(_) => Val::PyObj(self.def(Expr::Not(v)))
+                }
             },
             ast::Expression::LogicalAnd(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::And(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(if (li != 0) && (ri != 0) { 1 } else { 0 }, true)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::And(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::And(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::And(l, r)))
+                    }
+                }
             },
             ast::Expression::LogicalOr(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::Or(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(if (li != 0) || (ri != 0) { 1 } else { 0 }, true)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::Or(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::Or(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::Or(l, r)))
+                    }
+                }
             },
             ast::Expression::LogicalEq(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::PolyEqv(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(if (li != 0) && (ri != 0) { 1 } else { 0 }, true)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::PolyEqv(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::PolyEqv(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::PolyEqv(l, r)))
+                    }
+                }
             },
             ast::Expression::LogicalNotEq(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::And(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(if (li != 0) && (ri != 0) { 1 } else { 0 }, true)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::PolyUnEqv(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::PolyUnEqv(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::PolyUnEqv(l, r)))
+                    }
+                }
             },
-            ast::Expression::List(l) => {
+            ast::Expression::List(ref l) => {
+                let tmp = self.def(Expr::FunCall(String::from("create_list"), vec![Val::Const(l.len() as i32, false)]));
+                let tmp2 = self.def(Expr::FunCall(String::from("inject_big"), vec![Val::PyObj(tmp)]));
+
+                for (i,x) in l.into_iter().enumerate() {
+                    let tmp_v = self.flatten_expression(&x);
+                    self.def(Expr::FunCall(String::from("set_subscript"), vec![Val::PyObj(tmp2), Val::Const(i as i32, false), tmp_v]));
+                }
+
+                Val::PyObj(tmp2)
             },
-            ast::Expression::Dict(kvl) => {
+            ast::Expression::Dict(ref kvl) => {
+                let tmp = self.def(Expr::FunCall(String::from("create_dict"), vec![]));
+                let tmp2 = self.def(Expr::FunCall(String::from("inject_big"), vec![Val::PyObj(tmp)]));
+
+                for (_, x) in kvl.into_iter().enumerate() {
+                    let (ref tk, ref tv) = *x;
+                    let tk_v = self.flatten_expression(&tk);
+                    let tv_v = self.flatten_expression(&tv);
+
+                    self.def(Expr::FunCall(String::from("set_subscript"), vec![Val::PyObj(tmp2), tk_v, tv_v]));
+                }
+
+                Val::PyObj(tmp2)
             },
             ast::Expression::Is(ref left, ref right) => {
                 let left = self.flatten_expression(left);
                 let right = self.flatten_expression(right);
-                let tmp = self.def(Expr::Eq(left, right));
-                Val::Int(tmp)
+
+                match (left,right) {
+                    (Val::Const(li, _), Val::Const(ri, _)) => {
+                        Val::Const(if (li != 0) && (ri != 0) { 1 } else { 0 }, true)
+                    }
+                    (l @ Val::PyObj(_), r @ Val::Const(_, _)) => {
+                        let injected = self.inject(r);
+                        Val::PyObj(self.def(Expr::Eq(l, injected)))
+                    }
+                    (l @ Val::Const(_, _), r @ Val::PyObj(_)) => {
+                        let injected = self.inject(l);
+                        Val::PyObj(self.def(Expr::Eq(injected, r)))
+                    }
+                    (l @ Val::PyObj(_), r @ Val::PyObj(_)) => {
+                        Val::PyObj(self.def(Expr::Eq(l, r)))
+                    }
+                }
             },
+            ast::Expression::If(ref c, ref t, ref e) => {
+                let cv = self.flatten_expression(c);
+
+                if let Val::Const(i, _) = cv {
+                    if i == 0 {
+                        self.flatten_expression(e)
+                    } else {
+                        self.flatten_expression(t)
+                    }
+                } else {
+                    let tv = self.flatten_expression(t);
+                    let ev = self.flatten_expression(e);
+                    Val::PyObj(self.def(Expr::If(cv, tv, ev)))
+                }
+            }
         }
     }
 
@@ -287,9 +396,23 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
                 let val = self.flatten_expression(expression);
                 self.print(val);
             }
-            ast::Statement::Assign(ref name, ref expression) => {
-                let val = self.flatten_expression(expression);
-                self.names.insert(name.clone(), val);
+            ast::Statement::Assign(ref target, ref expression) => {
+                let val = self.flatten_expression(&expression);
+                match *target {
+                    ast::Target::Name(ref s) => {
+                        self.names.insert(s.clone(), val);
+                    },
+                    ast::Target::Subscript(ref t, ref k) => {
+                        if let Val::PyObj(_) = val {
+                            let vt = self.flatten_expression(t);
+                            let vk = self.flatten_expression(k);
+                            self.def(Expr::FunCall(String::from("set_subscript"), vec![val, vk, vt]));
+                        } else {
+                            panic!("Attempted to subscript a Const Integer: {:?}.", val);
+                        }
+                    }
+                }
+                
             }
             ast::Statement::Expression(ref expression) => {
                 let _ = self.flatten_expression(expression);
@@ -298,18 +421,11 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
         }
     }
 
-    pub fn typed(&mut self, v : Val, ty : Type) -> Val {
-        match v {
-            Val::Any(tmp) => {
-                self.push(Stmt::TypeAssert(tmp, ty));
-                match ty {
-                    Type::Int => Val::Int(tmp),
-                    Type::Bool => Val::Bool(tmp),
-                    Type::Dict => Val::Dict(tmp),
-                    Type::List => Val::List(tmp)
-                }
-            },
-            _ => unreachable!("typed() called with non-any, only reachable from any match")
+    pub fn inject(&mut self, v : Val) -> Val {
+        if let Val::Const(_, _) = v {
+            Val::PyObj(self.def(Expr::Inject(v)))
+        } else {
+            unreachable!("Attempted to inject a known PyObj {:?}", v)
         }
     }
 
@@ -337,7 +453,7 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
     }
 }
 
-impl FromStr for Stmt {
+/*impl FromStr for Stmt {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
@@ -370,7 +486,7 @@ impl FromStr for Stmt {
                 })
                 .or(captures.get(2).ok_or(()).and_then(|m| {
                     let s = m.as_str();
-                    s.parse::<i32>().map_err(|_| ()).map(Val::ConstInt)
+                    s.parse::<i32>().map_err(|_| ()).map(|x| Val::Const(x, false))
                 }))
         }
         fn parse_expr(s: &str) -> Result<Expr, ()> {
@@ -384,7 +500,7 @@ impl FromStr for Stmt {
                 let s = m.as_str();
                 parse_val(s).map(Expr::UnaryNeg)
             } else if let Some(_) = captures.get(4) {
-                Ok(Expr::Input)
+                Ok(Expr::FunCall(String::from("input"), vec![]))
             } else if let Some(m) = captures.get(5) {
                 let s = m.as_str();
                 parse_expr(&s[1..s.len() - 1])
@@ -506,4 +622,4 @@ mod test {
     fn print_input() {
         test!("print input()" => "t0 := input()\nprint t0");
     }
-}
+}*/
