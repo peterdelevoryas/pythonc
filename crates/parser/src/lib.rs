@@ -448,9 +448,6 @@ pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
     println!("received: {}", str::from_utf8(s).unwrap());
     let parsed = match module(s) {
         Done(remaining, parsed) => {
-            if !remaining.is_empty() {
-                return Err(format!("remaining text after parsing?: {:?}", remaining));
-            }
             Node::Module(parsed.0, Box::new(parsed.1))
         }
         Error(e) => panic!("Error: {}", e),

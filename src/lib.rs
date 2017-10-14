@@ -88,6 +88,7 @@ pub fn compile(source: &[u8]) -> Result<vm::Program> {
     let ast = parser::parse_program(source).
         map_err(Error::from)
         .chain_err(|| "parse error")?;
+    println!("parsed ast: {:#?}", ast);
 
     /*
     let ast = python_fallback_parser::parse_program_fallback(source)
