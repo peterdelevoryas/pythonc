@@ -114,6 +114,10 @@ impl<'a> Node<'a> {
                 })
             },
             Add(box left, box right) => ast::Expression::Add(box left.lower_to_expr(), box right.lower_to_expr()),
+            UnarySub(box Const(int)) if int != "True" && int != "False" => {
+                let int = format!("-{}", int);
+                Const(&int).lower_to_expr()
+            }
             UnarySub(box node) => ast::Expression::UnaryNeg(box node.lower_to_expr()),
             CallFunc(box node, _args) => match node {
                 Name("input") => ast::Expression::Input,
