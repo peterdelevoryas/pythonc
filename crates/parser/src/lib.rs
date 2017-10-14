@@ -27,7 +27,7 @@ pub enum Node<'a> {
     // Assign(nodes, expr)
     Assign(Vec<Node<'a>>, BoxNode<'a>),
     // AssName(name, flags)
-    AssName(&'a str, &'a str),
+    AssignName(&'a str, &'a str),
     // Add((left, right))
     Add(BoxNode<'a>, BoxNode<'a>),
     // UnarySub(expr)
@@ -44,7 +44,9 @@ named!(
         map!(constant, |val| Node::Const(val))                          |
         map!(discard, |node| Node::Discard(Box::new(node)))             |
         map!(name, |name| Node::Name(name))                             |
-        map!(printnl, |(nodes, dest)| Node::Printnl(nodes, dest))
+        map!(printnl, |(nodes, dest)| Node::Printnl(nodes, dest))       |
+        map!(assign, |(nodes, expr)| Node::Assign(nodes, Box::new(expr))) |
+        map!(assign_name, |(name, flags)| Node::AssignName(name, flags))
     )
 );
 
@@ -102,9 +104,36 @@ named!(
     do_parse!(
         tag!("Printnl") >>
         nodes: delimited!(tag!("("), node_list, tag!(",")) >>
-        dest: ws!(is_not!(")")) >>
-        tag!(")") >>
+        dest: terminated!(ws!(is_not!(")")), tag!(")")) >>
         (nodes, to_str(dest))
+    )
+);
+
+named!(
+    assign<(Vec<Node>, Node)>,
+    do_parse!(
+        tag!("Assign") >>
+        nodes: delimited!(tag!("("), node_list, tag!(",")) >>
+        expr: terminated!(ws!(node), tag!(")")) >>
+        (nodes, expr)
+    )
+);
+
+named!(
+    assign_name<(&str, &str)>,
+    do_parse!(
+        tag!("AssName") >>
+        name: delimited!(tag!("("), string_literal, tag!(",")) >>
+        flags: terminated!(ws!(string_literal), tag!(")")) >>
+        (name, flags)
+    )
+);
+
+named!(
+    string_literal<&str>,
+    do_parse!(
+        s: delimited!(tag!("'"), is_not!("'"), tag!("'")) >>
+        (to_str(s))
     )
 );
 
@@ -123,7 +152,7 @@ fn to_str(b: &[u8]) -> &str {
 
 // Takes the repr(python.compiler.parse(source)) as input
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
-    //println!("received: {}", str::from_utf8(s).unwrap());
+    println!("received: {}", str::from_utf8(s).unwrap());
     match node(s) {
         Done(remaining, parsed) => {
             println!("remaining: {}", str::from_utf8(remaining).unwrap());
