@@ -248,7 +248,11 @@ impl Program {
                 let eax = RVal::LVal(LVal::Register(trans::Register::EAX));
                 self.mov(eax, LVal::Tmp(tmp));
             }
-            _ => unimplemented!()
+            Def(tmp, Inject(int)) => {
+                let rval = int.into();
+                self.mov(rval, LVal::Tmp(tmp));
+            }
+            Def(tmp, ref expr) => unimplemented!("unimplemented def in vm: {:?}", expr),
         }
     }
 

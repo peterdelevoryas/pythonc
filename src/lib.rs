@@ -99,7 +99,7 @@ pub fn compile(source: &[u8]) -> Result<vm::Program> {
 
     let mut tmp_allocator = ir::TmpAllocator::new();
     let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
-    ir::debug_print(ir.stmts.iter());
+    //ir::debug_print(ir.stmts.iter());
 
     let mut vm = vm::Program::build(&ir);
     let asm;
@@ -211,6 +211,7 @@ where
         .write(true)
         .create(true)
         .create_new(create_new)
+        .truncate(true)
         .open(path)
         .chain_err(|| format!("creating file {:?}", path.display()))?;
     write!(f, "{}", data).chain_err(|| "writing data")?;

@@ -64,6 +64,10 @@ impl<'a> Node<'a> {
         };
         let mut statements: Vec<ast::Statement> = vec![];
         for stmt in stmts {
+            match stmt {
+                Discard(box Const("None")) => continue,
+                _ => {}
+            }
             statements.push(stmt.lower_to_stmt());
         }
         ast::Program {
@@ -103,7 +107,11 @@ impl<'a> Node<'a> {
             Const(val) => match val {
                 "True" => ast::Expression::Boolean(true),
                 "False" => ast::Expression::Boolean(false),
-                int => ast::Expression::DecimalI32(int.parse().expect("Invalid integer literal!")),
+                //"None" => ast::Expression::
+                int => ast::Expression::DecimalI32(match int.parse() {
+                    Ok(i) => i,
+                    Err(e) => panic!("Invalid integer literal: {}: source: {:?}", e, int),
+                })
             },
             Add(box left, box right) => ast::Expression::Add(box left.lower_to_expr(), box right.lower_to_expr()),
             UnarySub(box node) => ast::Expression::UnaryNeg(box node.lower_to_expr()),
@@ -270,8 +278,8 @@ named!(
     name<&str>,
     do_parse!(
         tag!("Name") >>
-        name: delimited!(tag!("("), is_not!(")"), tag!(")")) >>
-        (to_str(name))
+        name: delimited!(tag!("("), string_literal, tag!(")")) >>
+        (name)
     )
 );
 
