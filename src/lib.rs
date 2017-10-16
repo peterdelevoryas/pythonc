@@ -40,46 +40,59 @@ pub enum CompilerStage {
 
 impl Compiler {
     pub fn new() -> Compiler {
-        Compiler {
-            runtime: None,
-        }
+        Compiler { runtime: None }
     }
 
     pub fn with_runtime(runtime: PathBuf) -> Compiler {
         Compiler { runtime: Some(runtime) }
     }
 
-    pub fn emit(&self, in_path: &Path, stage: CompilerStage, out_path: Option<&Path>) -> Result<()> {
-        let source = read_file(in_path)
-            .chain_err(|| format!("Could not read input file {:?}", in_path.display()))?;
-        let ast = self.emit_ast(&source).chain_err(|| "Could not create AST from source")?;
+    pub fn emit(
+        &self,
+        in_path: &Path,
+        stage: CompilerStage,
+        out_path: Option<&Path>,
+    ) -> Result<()> {
+        let source = read_file(in_path).chain_err(|| {
+            format!("Could not read input file {:?}", in_path.display())
+        })?;
+        let ast = self.emit_ast(&source).chain_err(
+            || "Could not create AST from source",
+        )?;
         if stage == CompilerStage::Ast {
             // Ast doesn't implement Display, but it does implement debug,
             // so first write in repr format to string
             let ast = format!("{:#?}", ast);
             let ast_path = default_out_path(&in_path, CompilerStage::Ast);
-            return write_out(ast, &ast_path)
+            return write_out(ast, &ast_path);
         }
         let mut tmp_allocator = ir::TmpAllocator::new();
-        let ir = self.emit_ir(ast, &mut tmp_allocator).chain_err(|| "Could not create IR from AST")?;
+        let ir = self.emit_ir(ast, &mut tmp_allocator).chain_err(
+            || "Could not create IR from AST",
+        )?;
         if stage == CompilerStage::Ir {
             let ir_path = default_out_path(&in_path, CompilerStage::Ir);
-            return write_out(ir, &ir_path)
+            return write_out(ir, &ir_path);
         }
-        let vm = self.emit_vm(ir).chain_err(|| "Could not create virtual assembly from IR")?;
+        let vm = self.emit_vm(ir).chain_err(
+            || "Could not create virtual assembly from IR",
+        )?;
         if stage == CompilerStage::Vm {
             let vm_path = default_out_path(&in_path, CompilerStage::Vm);
-            return write_out(vm, &vm_path)
+            return write_out(vm, &vm_path);
         }
-        let asm = self.emit_asm(vm, &mut tmp_allocator).chain_err(|| "Could not create assembly from virtual assembly")?;
+        let asm = self.emit_asm(vm, &mut tmp_allocator).chain_err(
+            || "Could not create assembly from virtual assembly",
+        )?;
         if stage == CompilerStage::Asm {
             let asm_path = default_out_path(&in_path, CompilerStage::Asm);
-            return write_out(asm, &asm_path)
+            return write_out(asm, &asm_path);
         }
 
         let obj_path = default_out_path(&in_path, CompilerStage::Obj);
-        self.emit_obj(asm, &obj_path)
-            .chain_err(|| "Could not create object file from virtual assembly")?;
+        self.emit_obj(asm, &obj_path).chain_err(
+            || "Could not create object file from virtual assembly",
+        )?;
 
         let runtime = match self.runtime {
             Some(ref lib) => lib,
@@ -87,17 +100,23 @@ impl Compiler {
         };
 
         let bin_path = default_out_path(&in_path, CompilerStage::Bin);
-        self.emit_bin(&obj_path, &runtime, &bin_path,)
+        self.emit_bin(&obj_path, &runtime, &bin_path)
     }
 
     pub fn emit_ast(&self, source: &str) -> Result<ast::Program> {
-        let repr = python_repr(source).chain_err(|| "Could not get Python repr of source")?;
+        let repr = python_repr(source).chain_err(
+            || "Could not get Python repr of source",
+        )?;
         parser::parse_program(repr.as_bytes())
             .map_err(Error::from)
             .chain_err(|| "Error parsing program from official Python parser")
     }
 
-    pub fn emit_ir(&self, ast: ast::Program, tmp_allocator: &mut ir::TmpAllocator) -> Result<ir::Program> {
+    pub fn emit_ir(
+        &self,
+        ast: ast::Program,
+        tmp_allocator: &mut ir::TmpAllocator,
+    ) -> Result<ir::Program> {
         Ok(ir::Builder::build(ast, tmp_allocator))
     }
 
@@ -106,7 +125,11 @@ impl Compiler {
     }
 
     // TODO Needs more typing (asm::Program should be returned)
-    pub fn emit_asm(&self, vm: vm::Program, tmp_allocator: &mut ir::TmpAllocator) -> Result<vm::Program> {
+    pub fn emit_asm(
+        &self,
+        vm: vm::Program,
+        tmp_allocator: &mut ir::TmpAllocator,
+    ) -> Result<vm::Program> {
         let mut vm = vm;
         let asm;
         let mut iteration = 0;
@@ -120,7 +143,7 @@ impl Compiler {
                 Success => {
                     asm = ig.assign_homes(vm);
                     //println!("asm:\n{}", asm);
-                    break
+                    break;
                 }
                 Spill(u) => {
                     // replaces u with stack_index
@@ -149,12 +172,11 @@ impl Compiler {
             .chain_err(|| "Could not spawn gcc assembler")?;
         match gcc.stdin {
             Some(ref mut stdin) => {
-                stdin.write_all(asm.as_bytes())
-                    .chain_err(|| "Could not write assembly to gcc through pipe")?;
+                stdin.write_all(asm.as_bytes()).chain_err(
+                    || "Could not write assembly to gcc through pipe",
+                )?;
             }
-            None => {
-                return Err(ErrorKind::Msg("Could not capture gcc stdin".into()).into())
-            }
+            None => return Err(ErrorKind::Msg("Could not capture gcc stdin".into()).into()),
         }
         gcc.wait()
             .chain_err(|| "Error running gcc assembler")
@@ -239,8 +261,9 @@ impl Compiler {
 }
 
 fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
-    write_file(data, out_path, false)
-        .chain_err(|| format!("Could not write output to {:?}", out_path.display()))
+    write_file(data, out_path, false).chain_err(|| {
+        format!("Could not write output to {:?}", out_path.display())
+    })
 }
 
 fn default_out_path(input: &Path, stage: CompilerStage) -> PathBuf {
@@ -361,17 +384,24 @@ pub fn python_repr(source: &str) -> Result<String> {
     match parser.stdin {
         Some(ref mut stdin) => {
             use std::io::Write;
-            stdin.write_all(source.as_bytes())
-                .chain_err(|| "Could not write source bytes to parse.py")?;
+            stdin.write_all(source.as_bytes()).chain_err(
+                || "Could not write source bytes to parse.py",
+            )?;
         }
         None => {
-            return Err(ErrorKind::Msg("parse.py stdin is not being captured, cannot send source to it".into()).into())
+            return Err(
+                ErrorKind::Msg(
+                    "parse.py stdin is not being captured, cannot send source to it".into(),
+                ).into(),
+            )
         }
     }
-    let output = parser.wait_with_output()
-        .chain_err(|| "Could not capture parse.py output")?;
-    let repr = String::from_utf8(output.stdout)
-        .chain_err(|| "parse.py output is not valid utf-8")?;
+    let output = parser.wait_with_output().chain_err(
+        || "Could not capture parse.py output",
+    )?;
+    let repr = String::from_utf8(output.stdout).chain_err(
+        || "parse.py output is not valid utf-8",
+    )?;
 
     Ok(repr)
 }
@@ -386,7 +416,9 @@ where
         .arg("parse.py")
         .arg(source)
         .output()
-        .chain_err(|| format!("Error running python parse.py {}", source.display()))?;
+        .chain_err(|| {
+            format!("Error running python parse.py {}", source.display())
+        })?;
     Ok(output.stdout)
 }
 

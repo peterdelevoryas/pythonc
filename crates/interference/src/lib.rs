@@ -72,7 +72,7 @@ impl Graph {
 
         // add all nodes to the graph, must be done before
         // creating edges (I think? I suppose maybe not,
-        // if it's true that a variable must have been 
+        // if it's true that a variable must have been
         // referenced. Additionally, it might be totally
         // unnecessary if add_edge will add the node if it
         // doesn't already exist)
@@ -101,7 +101,7 @@ impl Graph {
 
     ///
     /// This is the algorithm from the course notes:
-    /// 
+    ///
     /// ```
     /// instr "mov _, v2"
     /// where
@@ -115,7 +115,7 @@ impl Graph {
     ///     v2 != stack location
     /// {
     ///     // v2 should interfere with all values in live set
-    ///     // except for 1. itself and 2. v1 
+    ///     // except for 1. itself and 2. v1
     ///     // COMMENT: why not v1?
     ///     // Because it would be ok to allocate them to the
     ///     // same register in that case? I feel like that's
@@ -162,28 +162,34 @@ impl Graph {
             // and aren't even in the graph, so there's no edges to add
             // here. And I don't think it matters that the source value
             // is, since reads in general don't affect the graph
-            Mov(_, Stack(_)) | Neg(Stack(_)) | Add(_, Stack(_)) | Push(LVal(Stack(_))) | Push(Int(_)) => {}
+            Mov(_, Stack(_)) |
+            Neg(Stack(_)) |
+            Add(_, Stack(_)) |
+            Push(LVal(Stack(_))) |
+            Push(Int(_)) => {}
             // Don't really need to look explicitly at rval, I don't think!
             // If it's live after this, it will be in the live set and we'll
             // add an edge to it, if it's not live or it's a constant,
             // then it won't be in the live set!
-            Mov(_, Tmp(tmp)) | Neg(Tmp(tmp)) | Add(_, Tmp(tmp)) | Push(LVal(Tmp(tmp))) => {
+            Mov(_, Tmp(tmp)) |
+            Neg(Tmp(tmp)) |
+            Add(_, Tmp(tmp)) |
+            Push(LVal(Tmp(tmp))) => {
                 let dst = LiveVal::Virtual(tmp);
                 self.add_edges_to_all(dst, live_set);
             }
             // This is the same thing as above, just with registers
             // I chose to do it like this to try to take advantadge
             // of the exhaustive variant matching check Rust gives
-            Mov(_, Register(r)) | Neg(Register(r)) | Add(_, Register(r)) | Push(LVal(Register(r))) => {
+            Mov(_, Register(r)) |
+            Neg(Register(r)) |
+            Add(_, Register(r)) |
+            Push(LVal(Register(r))) => {
                 let dst = LiveVal::Register(r);
                 self.add_edges_to_all(dst, live_set);
             }
             Call(_) => {
-                let caller_save_registers = &[
-                    Register::EAX,
-                    Register::ECX,
-                    Register::EDX,
-                ];
+                let caller_save_registers = &[Register::EAX, Register::ECX, Register::EDX];
 
                 // How to handle the edge from eax to itself?
                 // Because the live set for a call always
@@ -195,7 +201,7 @@ impl Graph {
                     for &r in caller_save_registers {
                         if LiveVal::Register(r) == v {
                             assert_eq!(r, Register::EAX, "expected eax");
-                            continue
+                            continue;
                         }
                         self.add_edge(LiveVal::Register(r), v);
                     }
@@ -208,7 +214,7 @@ impl Graph {
         for &v in live_set {
             // filter out self
             if v == val {
-                continue
+                continue;
             }
             self.add_edge(val, v);
         }
@@ -265,9 +271,7 @@ impl Graph {
             }
             // I don't think this should be possible?? If it occurs,
             // panic so that we can debug it
-            Mov(LVal(Stack(_)), Stack(_)) => {
-                panic!("mov stack, stack encountered in virtual asm!")
-            }
+            Mov(LVal(Stack(_)), Stack(_)) => panic!("mov stack, stack encountered in virtual asm!"),
             // add_lval and add_rval don't consider context, so they
             // only add tmp's as spillable (forced registers don't
             // change depending on context)
@@ -292,7 +296,7 @@ impl Graph {
     fn add_rval(&mut self, rval: vm::RVal) {
         use vm::RVal::*;
         match rval {
-            Int(_) => {},
+            Int(_) => {}
             LVal(lval) => self.add_lval(lval),
         }
     }
@@ -342,21 +346,23 @@ impl Graph {
         loop {
             let uncolored_nodes: Vec<ir::Tmp> = self.uncolored_nodes().collect();
             //let (u, r) = if let Some(u) = self.uncolored_nodes().max_by_key(|&tmp| self.saturation(tmp)) {
-            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(|&tmp| self.saturation(*tmp)) {
-                let diff: HashSet<Register> = registers.difference(&self.adjacent_colors(u)).map(|&r| r).collect();
+            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(
+                |&tmp| self.saturation(*tmp),
+            )
+            {
+                let diff: HashSet<Register> = registers
+                    .difference(&self.adjacent_colors(u))
+                    .map(|&r| r)
+                    .collect();
                 let r = match diff.iter().next() {
-                //let r = match self.adjacent_colors(u).difference(&registers).next() {
-                    Some(&r) => {
-                        r
-                    }
-                    None => {
-                        return DSaturResult::Spill(u)
-                    }
+                    //let r = match self.adjacent_colors(u).difference(&registers).next() {
+                    Some(&r) => r,
+                    None => return DSaturResult::Spill(u),
                 };
                 (u, r)
             } else {
                 // no more uncolored nodes
-                break
+                break;
             };
             self.write_color(u, r);
         }
@@ -371,20 +377,16 @@ impl Graph {
         self.colors.insert(tmp, color);
     }
 
-    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=ir::Tmp> {
+    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item = ir::Tmp> {
         self.graph
             .nodes()
-            .filter_map(|n| {
-                match n {
-                    Node::Variable(tmp) => Some(tmp),
-                    Node::Forced(_) => None,
-                }
+            .filter_map(|n| match n {
+                Node::Variable(tmp) => Some(tmp),
+                Node::Forced(_) => None,
             })
-            .filter_map(move |tmp| {
-                match self.tmp_color(tmp) {
-                    None => Some(tmp),
-                    Some(_) => None,
-                }
+            .filter_map(move |tmp| match self.tmp_color(tmp) {
+                None => Some(tmp),
+                Some(_) => None,
             })
     }
 
@@ -408,9 +410,7 @@ impl Graph {
         let node = node.into();
         self.graph
             .neighbors(node)
-            .filter_map(|n| {
-                self.node_color(n)
-            })
+            .filter_map(|n| self.node_color(n))
             .collect()
     }
 
@@ -430,7 +430,7 @@ impl Graph {
         let node = node.into();
         match node {
             Node::Variable(tmp) => self.tmp_color(tmp),
-            Node::Forced(r) => Some(r)
+            Node::Forced(r) => Some(r),
         }
     }
 

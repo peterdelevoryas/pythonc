@@ -77,9 +77,9 @@ impl Instr {
                 l.replace_with(tmp, new);
                 r.replace_with(tmp, new);
             }
-            Push(Int(_)) => {},
+            Push(Int(_)) => {}
             Push(LVal(ref mut lval)) => lval.replace_with(tmp, new),
-            Call(_) => {},
+            Call(_) => {}
         }
     }
 
@@ -148,7 +148,10 @@ impl Program {
     }
 
     pub fn build(ir: &ir::Program) -> Program {
-        let mut program = Program { stack: vec![], stack_index: 0, };
+        let mut program = Program {
+            stack: vec![],
+            stack_index: 0,
+        };
         for stmt in &ir.stmts {
             program.trans(stmt);
         }
@@ -176,7 +179,10 @@ impl Program {
         use self::Instr::*;
         use self::LVal::*;
         use self::RVal::*;
-        let mut fixed = Program { stack: vec![], stack_index: self.stack_index, };
+        let mut fixed = Program {
+            stack: vec![],
+            stack_index: self.stack_index,
+        };
         for instr in &self.stack {
             match *instr {
                 Mov(LVal(Stack(left)), Stack(right)) => {
@@ -282,32 +288,37 @@ impl fmt::Display for Program {
         use self::Instr::*;
         use self::LVal::*;
         use self::RVal::*;
-        write!(f,
-"
+        write!(
+            f,
+            "
 .globl main
 main:
     pushl %ebp
     movl %esp, %ebp
     {}
-", {
-    let len = (self.stack_index + 1) * 4;
-    if len != 0 {
-        format!("subl ${}, %esp", len)
-    } else {
-        "".into()
-    }
-})?;
+",
+            {
+                let len = (self.stack_index + 1) * 4;
+                if len != 0 {
+                    format!("subl ${}, %esp", len)
+                } else {
+                    "".into()
+                }
+            }
+        )?;
 
         for instr in &self.stack {
             writeln!(f, "    {}", instr)?;
         }
 
-        write!(f,
-"
+        write!(
+            f,
+            "
     movl $0, %eax
     leave
     ret
-")?;
+"
+        )?;
         Ok(())
     }
 }

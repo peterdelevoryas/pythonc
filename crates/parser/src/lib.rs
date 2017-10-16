@@ -70,9 +70,7 @@ impl<'a> Node<'a> {
             }
             statements.push(stmt.lower_to_stmt());
         }
-        ast::Program {
-            module: ast::Module { statements }
-        }
+        ast::Program { module: ast::Module { statements } }
     }
 
     pub fn lower_to_stmt(self) -> ast::Statement {
@@ -104,28 +102,38 @@ impl<'a> Node<'a> {
     pub fn lower_to_expr(self) -> ast::Expression {
         use Node::*;
         match self {
-            Const(val) => match val {
-                "True" => ast::Expression::Boolean(true),
-                "False" => ast::Expression::Boolean(false),
-                //"None" => ast::Expression::
-                int => ast::Expression::DecimalI32(match int.parse() {
-                    Ok(i) => i,
-                    Err(e) => panic!("Invalid integer literal: {}: source: {:?}", e, int),
-                })
-            },
-            Add(box left, box right) => ast::Expression::Add(box left.lower_to_expr(), box right.lower_to_expr()),
+            Const(val) => {
+                match val {
+                    "True" => ast::Expression::Boolean(true),
+                    "False" => ast::Expression::Boolean(false),
+                    //"None" => ast::Expression::
+                    int => ast::Expression::DecimalI32(match int.parse() {
+                        Ok(i) => i,
+                        Err(e) => panic!("Invalid integer literal: {}: source: {:?}", e, int),
+                    }),
+                }
+            }
+            Add(box left, box right) => {
+                ast::Expression::Add(box left.lower_to_expr(), box right.lower_to_expr())
+            }
             UnarySub(box Const(int)) if int != "True" && int != "False" => {
                 let int = format!("-{}", int);
                 Const(&int).lower_to_expr()
             }
             UnarySub(box node) => ast::Expression::UnaryNeg(box node.lower_to_expr()),
-            CallFunc(box node, _args) => match node {
-                Name("input") => ast::Expression::Input,
-                Name(name) => panic!("Funtion call not to input(): {:?}", name),
-                node => panic!("Unexpected target node in call expr: {:?}", node),
-            },
+            CallFunc(box node, _args) => {
+                match node {
+                    Name("input") => ast::Expression::Input,
+                    Name(name) => panic!("Funtion call not to input(): {:?}", name),
+                    node => panic!("Unexpected target node in call expr: {:?}", node),
+                }
+            }
             Compare(box first, nodes) => {
-                fn cmp(operator: &str, left: ast::Expression, right: ast::Expression) -> ast::Expression {
+                fn cmp(
+                    operator: &str,
+                    left: ast::Expression,
+                    right: ast::Expression,
+                ) -> ast::Expression {
                     match operator {
                         "==" => ast::Expression::LogicalEq(box left, box right),
                         "!=" => ast::Expression::LogicalNotEq(box left, box right),
@@ -171,8 +179,15 @@ impl<'a> Node<'a> {
                 chained_and_expr
             }
             Not(box node) => ast::Expression::LogicalNot(box node.lower_to_expr()),
-            List(nodes) => ast::Expression::List(nodes.into_iter().map(|n| n.lower_to_expr()).collect()),
-            Dict(tuples) => ast::Expression::Dict(tuples.into_iter().map(|(l, r)| (l.lower_to_expr(), r.lower_to_expr())).collect()),
+            List(nodes) => ast::Expression::List(
+                nodes.into_iter().map(|n| n.lower_to_expr()).collect(),
+            ),
+            Dict(tuples) => ast::Expression::Dict(
+                tuples
+                    .into_iter()
+                    .map(|(l, r)| (l.lower_to_expr(), r.lower_to_expr()))
+                    .collect(),
+            ),
             target @ Name(_) |
             target @ Subscript(_, _, _) |
             target @ AssignName(_, _) => ast::Expression::Target(target.lower_to_target()),
@@ -181,7 +196,13 @@ impl<'a> Node<'a> {
             Discard(box node) => node.lower_to_expr(),
             Printnl(_, _) => panic!("lowering println to expr"),
             Assign(_, _) => panic!("lowering assign to expr"),
-            IfExp(test, then, els) => ast::Expression::If(box test.lower_to_expr(), box then.lower_to_expr(), box els.lower_to_expr()),
+            IfExp(test, then, els) => {
+                ast::Expression::If(
+                    box test.lower_to_expr(),
+                    box then.lower_to_expr(),
+                    box els.lower_to_expr(),
+                )
+            }
         }
     }
 
@@ -190,7 +211,12 @@ impl<'a> Node<'a> {
         match self {
             Name(name) => ast::Target::Name(name.into()),
             AssignName(name, _) => ast::Target::Name(name.into()),
-            Subscript(box target, _, subs) => ast::Target::Subscript(box target.lower_to_expr(), box subs[0].clone().lower_to_expr()),
+            Subscript(box target, _, subs) => {
+                ast::Target::Subscript(
+                    box target.lower_to_expr(),
+                    box subs[0].clone().lower_to_expr(),
+                )
+            }
             _ => panic!("lowering to target"),
         }
     }
@@ -459,9 +485,7 @@ fn to_str(b: &[u8]) -> &str {
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
     //println!("received: {}", str::from_utf8(s).unwrap());
     let parsed = match module(s) {
-        Done(remaining, parsed) => {
-            Node::Module(parsed.0, Box::new(parsed.1))
-        }
+        Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
         Error(e) => panic!("Error: {}", e),
         Incomplete(s) => panic!("Incomplete: {:?}", s),
     };

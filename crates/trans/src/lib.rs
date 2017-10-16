@@ -108,7 +108,7 @@ impl Program {
     fn val_to_value(&mut self, val: ir::Val, tmp_storage: Register) -> Value {
         use ir::Val::*;
         unimplemented!()
-            /*
+        /*
         match val {
             Ref(tmp) => {
                 self.load_tmp(tmp, tmp_storage);

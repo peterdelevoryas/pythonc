@@ -58,14 +58,14 @@ pub enum Expression {
     LogicalNotEq(Box<Expression>, Box<Expression>),
     If(Box<Expression>, Box<Expression>, Box<Expression>),
     List(Vec<Expression>),
-    Dict(Vec<(Expression,Expression)>),
+    Dict(Vec<(Expression, Expression)>),
     Is(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Target {
     Name(String),
-    Subscript(Box<Expression>, Box<Expression>)
+    Subscript(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

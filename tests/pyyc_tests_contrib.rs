@@ -55,9 +55,13 @@ fn read_file(path: &Path) -> Result<String> {
     let mut f = File::open(path).chain_err(|| {
         format!("Could not open file {:?}", path.display())
     })?;
-    let size = f.metadata().chain_err(|| "Could not query file size")?.len() as usize;
+    let size = f.metadata()
+        .chain_err(|| "Could not query file size")?
+        .len() as usize;
     let mut s = String::with_capacity(size);
-    f.read_to_string(&mut s).chain_err(|| "Could not read file data")?;
+    f.read_to_string(&mut s).chain_err(
+        || "Could not read file data",
+    )?;
     Ok(s)
 }
 
@@ -78,7 +82,8 @@ where
         }
         let source = &path;
         let compiler = Compiler::with_runtime(PathBuf::from(runtime));
-        compiler.emit(source, python::CompilerStage::Bin, None)
+        compiler
+            .emit(source, python::CompilerStage::Bin, None)
             .chain_err(|| format!("Unable to compile {:?}", source.display()))?;
 
         let compiled = source.with_extension("bin");

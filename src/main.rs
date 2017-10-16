@@ -46,13 +46,11 @@ quick_main!(run);
 // bin = gcc -m32 -g obj_path runtime_path -o bin_path
 //
 fn run() -> python::Result<()> {
-    let args: Args = Args::docopt()
-        .deserialize()
-        .unwrap_or_else(|e| e.exit());
+    let args: Args = Args::docopt().deserialize().unwrap_or_else(|e| e.exit());
 
     if args.flag_version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(())
+        return Ok(());
     }
 
     let compiler = match args.flag_runtime {
@@ -62,8 +60,9 @@ fn run() -> python::Result<()> {
 
     let input = &args.arg_INPUT;
     let out_path = args.flag_o.as_ref().map(|pathbuf| pathbuf.as_ref());
-    compiler.emit(input, args.flag_emit, out_path)
-        .chain_err(|| format!("Could not compile {:?}", input.display()))
+    compiler.emit(input, args.flag_emit, out_path).chain_err(
+        || {
+            format!("Could not compile {:?}", input.display())
+        },
+    )
 }
-
-

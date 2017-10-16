@@ -41,5 +41,4 @@ members = [
     "crates/python-fallback-parser",
     "crates/liveness",
     "crates/interference",
-    "crates/coloring",
 ]
