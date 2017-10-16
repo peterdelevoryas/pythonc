@@ -481,18 +481,13 @@ fn to_str(b: &[u8]) -> &str {
     str::from_utf8(b).unwrap()
 }
 
-// Takes the repr(python.compiler.parse(source)) as input
-pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
-    //println!("received: {}", str::from_utf8(s).unwrap());
-    let parsed = match module(s) {
+pub fn parse_repr<'repr>(repr: &'repr [u8]) -> Result<Node<'repr>, String> {
+    let parsed = match module(repr) {
         Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
         Error(e) => panic!("Error: {}", e),
         Incomplete(s) => panic!("Incomplete: {:?}", s),
     };
-
-    let ast = parsed.module_into_ast();
-
-    Ok(ast)
+    Ok(parsed)
 }
 
 #[cfg(test)]

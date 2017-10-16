@@ -26,10 +26,14 @@ Usage:
 
 Options:
     --emit STAGE    Configure output stage.
-                    Valid values: py_repr, ast, ir, vm, asm, obj.
+                    Valid values: pystr, pyast, ast, ir, vm, asm, obj.
                     [default: asm]
+                    pystr is the str() output of the official Python parser.
+                    pyast is how pythonc parses pystr.
+                    ast is the conversion from pyast to pythonc's ast.
     --runtime LIB   Path to runtime.
     -o PATH         Configures output path.
+    --stdout        Print output to stdout (instead of to file).
     -h --help       Show this message.
     -v --version    Show version.
 ",
@@ -37,6 +41,7 @@ Options:
     flag_emit: python::CompilerStage,
     flag_runtime: Option<PathBuf>,
     flag_o: Option<PathBuf>,
+    flag_stdout: bool,
 );
 
 quick_main!(run);
