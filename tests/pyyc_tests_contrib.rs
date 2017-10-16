@@ -81,9 +81,9 @@ where
             continue;
         }
         let source = &path;
-        let compiler = Compiler::with_runtime(PathBuf::from(runtime));
+        let compiler = Compiler::new();
         compiler
-            .emit(source, python::CompilerStage::Bin, None)
+            .emit(source, python::CompilerStage::Bin, None, Some(runtime.into()))
             .chain_err(|| format!("Unable to compile {:?}", source.display()))?;
 
         let compiled = source.with_extension("bin");

@@ -26,7 +26,7 @@ Usage:
 
 Options:
     --emit STAGE    Configure output stage.
-                    Valid values: pystr, pyast, ast, ir, vm, asm, obj.
+                    [values: pystr, pyast, ast, ir, vm, asm, obj]
                     [default: asm]
                     pystr is the str() output of the official Python parser.
                     pyast is how pythonc parses pystr.
@@ -58,14 +58,15 @@ fn run() -> python::Result<()> {
         return Ok(());
     }
 
-    let compiler = match args.flag_runtime {
-        Some(runtime) => python::Compiler::with_runtime(runtime),
-        None => python::Compiler::new(),
-    };
+    let compiler = python::Compiler::new();
 
     let input = &args.arg_INPUT;
-    let out_path = args.flag_o.as_ref().map(|pathbuf| pathbuf.as_ref());
-    compiler.emit(input, args.flag_emit, out_path).chain_err(
+    let out_path = if args.flag_stdout {
+        Some(PathBuf::from("/dev/stdout"))
+    } else {
+        args.flag_o
+    };
+    compiler.emit(input, args.flag_emit, out_path, args.flag_runtime).chain_err(
         || {
             format!("Could not compile {:?}", input.display())
         },

@@ -11,6 +11,7 @@ extern crate error_chain;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+extern crate tempfile;
 
 pub mod error;
 pub use error::Error;
@@ -24,9 +25,7 @@ use std::process::Command;
 use std::fmt;
 
 #[derive(Debug)]
-pub struct Compiler {
-    runtime: Option<PathBuf>,
-}
+pub struct Compiler {}
 
 #[derive(Deserialize, Debug, Copy, Clone, PartialEq)]
 pub enum CompilerStage {
@@ -45,83 +44,83 @@ pub struct PyStr(String);
 
 impl Compiler {
     pub fn new() -> Compiler {
-        Compiler { runtime: None }
+        Compiler {}
     }
 
-    pub fn with_runtime(runtime: PathBuf) -> Compiler {
-        Compiler { runtime: Some(runtime) }
-    }
+    pub fn emit(&self,
+                in_path: &Path,
+                stop_stage: CompilerStage,
+                out_path: Option<PathBuf>,
+                runtime: Option<PathBuf>) -> Result<()>
+    {
+        let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
+        let out_path = &out_path;
+        let source = read_file(in_path)
+            .chain_err(|| format!("Could not read input file {:?}", in_path.display()))?;
 
-    pub fn emit(
-        &self,
-        in_path: &Path,
-        stage: CompilerStage,
-        out_path: Option<&Path>,
-    ) -> Result<()> {
-        let source = read_file(in_path).chain_err(|| {
-            format!("Could not read input file {:?}", in_path.display())
-        })?;
-        let pystr = self.emit_pystr(&source).chain_err(|| {
-            format!("Could not create Python repr of source")
-        })?;
-        if stage == CompilerStage::PyStr {
-            let pystr_path = default_out_path(&in_path, CompilerStage::PyStr);
+        let pystr = self.emit_pystr(&source)
+            .chain_err(|| "Could not get official Python compiler's repr of source")?;
+        if stop_stage == CompilerStage::PyStr {
             let pystr = format!("{}", pystr.0);
-            return write_out(pystr, &pystr_path)
+            return write_out(pystr, out_path)
         }
-        let pyast = self.emit_pyast(&pystr).chain_err(|| {
-            format!("Could not parse Python repr str")
-        })?;
-        if stage == CompilerStage::PyAst {
-            let pyast_path = default_out_path(&in_path, CompilerStage::PyAst);
+
+        let pyast = self.emit_pyast(&pystr)
+            .chain_err(|| "Could not parse Python compiler's repr")?;
+        if stop_stage == CompilerStage::PyAst {
             let pyast = format!("{:#?}", pyast);
-            return write_out(pyast, &pyast_path)
-        };
-        let ast = self.emit_ast(pyast).chain_err(
-            || "Could not create AST from source",
-        )?;
-        if stage == CompilerStage::Ast {
-            // Ast doesn't implement Display, but it does implement debug,
-            // so first write in repr format to string
+            return write_out(pyast, out_path)
+        }
+
+        let ast = self.emit_ast(pyast)
+            .chain_err(|| "Could not convert pyast to pythonc AST")?;
+        if stop_stage == CompilerStage::Ast {
             let ast = format!("{:#?}", ast);
-            let ast_path = default_out_path(&in_path, CompilerStage::Ast);
-            return write_out(ast, &ast_path);
+            return write_out(ast, out_path)
         }
+
         let mut tmp_allocator = ir::TmpAllocator::new();
-        let ir = self.emit_ir(ast, &mut tmp_allocator).chain_err(
-            || "Could not create IR from AST",
-        )?;
-        if stage == CompilerStage::Ir {
-            let ir_path = default_out_path(&in_path, CompilerStage::Ir);
-            return write_out(ir, &ir_path);
-        }
-        let vm = self.emit_vm(ir).chain_err(
-            || "Could not create virtual assembly from IR",
-        )?;
-        if stage == CompilerStage::Vm {
-            let vm_path = default_out_path(&in_path, CompilerStage::Vm);
-            return write_out(vm, &vm_path);
-        }
-        let asm = self.emit_asm(vm, &mut tmp_allocator).chain_err(
-            || "Could not create assembly from virtual assembly",
-        )?;
-        if stage == CompilerStage::Asm {
-            let asm_path = default_out_path(&in_path, CompilerStage::Asm);
-            return write_out(asm, &asm_path);
+
+        let ir = self.emit_ir(ast, &mut tmp_allocator)
+            .chain_err(|| "Could not construct IR from AST")?;
+        if stop_stage == CompilerStage::Ir {
+            return write_out(ir, out_path)
         }
 
-        let obj_path = default_out_path(&in_path, CompilerStage::Obj);
-        self.emit_obj(asm, &obj_path).chain_err(
-            || "Could not create object file from virtual assembly",
-        )?;
+        let vm = self.emit_vm(ir)
+            .chain_err(|| "Could not construct virtual assembly from IR")?;
+        if stop_stage == CompilerStage::Vm {
+            return write_out(vm, out_path)
+        }
 
-        let runtime = match self.runtime {
-            Some(ref lib) => lib,
-            None => return Err(ErrorKind::MissingRuntime.into()),
+        let asm = self.emit_asm(vm, &mut tmp_allocator)
+            .chain_err(|| "Could not construct assembly from virtual assembly")?;
+        if stop_stage == CompilerStage::Asm {
+            return write_out(asm, out_path)
+        }
+
+        if stop_stage == CompilerStage::Obj {
+            self.emit_obj(asm, out_path)
+                .chain_err(|| "Could not create object file from assembly")?;
+            return Ok(())
+        }
+
+        let obj_file = tempfile::NamedTempFile::new()
+            .chain_err(|| "Could not create temporary file for obj output")?;
+        self.emit_obj(asm, obj_file.path())
+            .chain_err(|| "Could not create temporary object file from assembly")?;
+
+        let runtime = if let Some(runtime) = runtime {
+            runtime
+        } else {
+            return Err(ErrorKind::MissingRuntime.into())
         };
+        self.emit_bin(obj_file.path(), &runtime, out_path)
+            .chain_err(|| "Could not create binary from obj file")?;
+        obj_file.close()
+            .chain_err(|| format!("Could not close (and remove) temporary obj file"))?;
 
-        let bin_path = default_out_path(&in_path, CompilerStage::Bin);
-        self.emit_bin(&obj_path, &runtime, &bin_path)
+        Ok(())
     }
 
     pub fn emit_pystr(&self, source: &str) -> Result<PyStr> {
@@ -293,18 +292,19 @@ fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
     })
 }
 
-fn default_out_path(input: &Path, stage: CompilerStage) -> PathBuf {
-    let extension = match stage {
-        CompilerStage::PyStr => "pystr",
-        CompilerStage::PyAst => "pyast",
-        CompilerStage::Ast => "ast",
-        CompilerStage::Ir => "ir",
-        CompilerStage::Vm => "vm",
-        CompilerStage::Asm => "s",
-        CompilerStage::Obj => "o",
-        CompilerStage::Bin => "bin",
-    };
-    input.with_extension(extension)
+impl CompilerStage {
+    pub fn file_ext(self) -> &'static str {
+        match self {
+            CompilerStage::PyStr => "pystr",
+            CompilerStage::PyAst => "pyast",
+            CompilerStage::Ast => "ast",
+            CompilerStage::Ir => "ir",
+            CompilerStage::Vm => "vm",
+            CompilerStage::Asm => "s",
+            CompilerStage::Obj => "o",
+            CompilerStage::Bin => "bin",
+        }
+    }
 }
 
 fn read_file<P>(path: P) -> Result<String>
