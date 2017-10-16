@@ -32,9 +32,12 @@ extern crate python_ast as ast;
 use std::collections::HashMap;
 use std::fmt;
 
-pub fn debug_print<'ir, I: Iterator<Item = &'ir Stmt>>(stmts: I) {
-    for (k, stmt) in stmts.enumerate() {
-        println!("{:<3} {}", k, stmt);
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (k, stmt) in self.stmts.iter().enumerate() {
+            writeln!(f, "{:<3} {}", k, stmt)?;
+        }
+        Ok(())
     }
 }
 

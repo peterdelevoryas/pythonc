@@ -457,7 +457,7 @@ fn to_str(b: &[u8]) -> &str {
 
 // Takes the repr(python.compiler.parse(source)) as input
 pub fn parse_program(s: &[u8]) -> Result<ast::Program, String> {
-    println!("received: {}", str::from_utf8(s).unwrap());
+    //println!("received: {}", str::from_utf8(s).unwrap());
     let parsed = match module(s) {
         Done(remaining, parsed) => {
             Node::Module(parsed.0, Box::new(parsed.1))

@@ -49,6 +49,18 @@ where
     return Ok(subdirs);
 }
 
+fn read_file(path: &Path) -> Result<String> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut f = File::open(path).chain_err(|| {
+        format!("Could not open file {:?}", path.display())
+    })?;
+    let size = f.metadata().chain_err(|| "Could not query file size")?.len() as usize;
+    let mut s = String::with_capacity(size);
+    f.read_to_string(&mut s).chain_err(|| "Could not read file data")?;
+    Ok(s)
+}
+
 fn test_dir<P1, P2>(dir: P1, runtime: P2) -> Result<()>
 where
     P1: AsRef<Path>,
@@ -65,14 +77,11 @@ where
             continue;
         }
         let source = &path;
-        let mut compiler = Compiler::new(source);
-        compiler.create_new(false);
-        compiler.runtime(runtime);
-        compiler.run().chain_err(
-            || format!("compiling {:?}", source.display()),
-        )?;
+        let compiler = Compiler::with_runtime(PathBuf::from(runtime));
+        compiler.emit(source, python::CompilerStage::Bin, None)
+            .chain_err(|| format!("Unable to compile {:?}", source.display()))?;
 
-        let compiled = source.with_extension("");
+        let compiled = source.with_extension("bin");
         let input = source.with_extension("in");
         let output = source.with_extension("out");
         let expected = source.with_extension("expected");

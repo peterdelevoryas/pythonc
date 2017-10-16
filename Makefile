@@ -57,4 +57,4 @@ pyyruntime: runtime/
 	make -C $(RUNTIME_ROOT)
 
 install:
-	cargo install
+	cargo install --debug --force

@@ -1,56 +1,69 @@
+#![feature(plugin, box_syntax)]
+#![plugin(docopt_macros)]
+
 #[macro_use]
 extern crate serde_derive;
+extern crate serde;
+
 extern crate docopt;
 #[macro_use]
 extern crate error_chain;
 extern crate python;
+extern crate python_ir;
 
-use docopt::Docopt;
-use python::Result;
-use python::Compiler;
+use python::ResultExt;
+use python::ErrorKind;
+use std::path::PathBuf;
+use std::path::Path;
+use std::fmt;
 
-const USAGE: &str = "
+docopt!(Args derive Debug, "
 pythonc.
 
 Usage:
-    pythonc <source> [--runtime=<runtime>] [--out=<out>]
-    pythonc (-h | --help)
-    pythonc --version
+    pythonc [options] INPUT
+    pythonc (-h | -v)
 
 Options:
-    -h --help   Show this message.
-    --version   Show version.
-";
-
-#[derive(Debug, Deserialize)]
-struct Args {
-    flag_runtime: Option<String>,
-    flag_out: Option<String>,
-    flag_version: bool,
-    arg_source: String,
-}
+    --emit STAGE    Configure output stage.
+                    Valid values: ast, ir, vm, asm, obj.
+                    [default: asm]
+    --runtime LIB   Path to runtime.
+    -o PATH         Configures output path.
+    -h --help       Show this message.
+    -v --version    Show version.
+",
+    arg_INPUT: PathBuf,
+    flag_emit: python::CompilerStage,
+    flag_runtime: Option<PathBuf>,
+    flag_o: Option<PathBuf>,
+);
 
 quick_main!(run);
 
-fn run() -> Result<()> {
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize())
+//
+// obj = gcc -m32 -g -c -o obj_path -xassembler -
+// bin = gcc -m32 -g obj_path runtime_path -o bin_path
+//
+fn run() -> python::Result<()> {
+    let args: Args = Args::docopt()
+        .deserialize()
         .unwrap_or_else(|e| e.exit());
 
     if args.flag_version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(());
+        return Ok(())
     }
 
-    let mut compiler = Compiler::new(&args.arg_source);
+    let compiler = match args.flag_runtime {
+        Some(runtime) => python::Compiler::with_runtime(runtime),
+        None => python::Compiler::new(),
+    };
 
-    if let Some(runtime) = args.flag_runtime {
-        compiler.runtime(runtime);
-    }
-
-    if let Some(out) = args.flag_out {
-        compiler.out_path(out);
-    }
-
-    compiler.run()
+    let input = &args.arg_INPUT;
+    let out_path = args.flag_o.as_ref().map(|pathbuf| pathbuf.as_ref());
+    compiler.emit(input, args.flag_emit, out_path)
+        .chain_err(|| format!("Could not compile {:?}", input.display()))
 }
+
+
