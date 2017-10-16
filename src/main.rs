@@ -66,7 +66,16 @@ fn run() -> python::Result<()> {
     } else {
         args.flag_o
     };
-    compiler.emit(input, args.flag_emit, out_path, args.flag_runtime).chain_err(
+    let runtime = args.flag_runtime;
+    let stop_stage = args.flag_emit;
+
+    if stop_stage == python::CompilerStage::Bin {
+        if runtime.is_none() {
+            return Err(ErrorKind::MissingRuntime.into())
+        }
+    }
+
+    compiler.emit(input, stop_stage, out_path, runtime).chain_err(
         || {
             format!("Could not compile {:?}", input.display())
         },
