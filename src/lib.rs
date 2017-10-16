@@ -30,6 +30,7 @@ pub struct Compiler {
 
 #[derive(Deserialize, Debug, Copy, Clone, PartialEq)]
 pub enum CompilerStage {
+    PyRepr,
     Ast,
     Ir,
     Vm,
@@ -37,6 +38,9 @@ pub enum CompilerStage {
     Obj,
     Bin,
 }
+
+#[derive(Debug)]
+pub struct PyRepr(String);
 
 impl Compiler {
     pub fn new() -> Compiler {
@@ -56,7 +60,15 @@ impl Compiler {
         let source = read_file(in_path).chain_err(|| {
             format!("Could not read input file {:?}", in_path.display())
         })?;
-        let ast = self.emit_ast(&source).chain_err(
+        let py_repr = self.emit_py_repr(&source).chain_err(|| {
+            format!("Could not create Python repr of source")
+        })?;
+        if stage == CompilerStage::PyRepr {
+            let py_repr_path = default_out_path(&in_path, CompilerStage::PyRepr);
+            let py_repr = format!("{:#?}", py_repr);
+            return write_out(py_repr, &py_repr_path)
+        }
+        let ast = self.emit_ast(py_repr).chain_err(
             || "Could not create AST from source",
         )?;
         if stage == CompilerStage::Ast {
@@ -103,11 +115,12 @@ impl Compiler {
         self.emit_bin(&obj_path, &runtime, &bin_path)
     }
 
-    pub fn emit_ast(&self, source: &str) -> Result<ast::Program> {
-        let repr = python_repr(source).chain_err(
-            || "Could not get Python repr of source",
-        )?;
-        parser::parse_program(repr.as_bytes())
+    pub fn emit_py_repr(&self, source: &str) -> Result<PyRepr> {
+        python_repr(source).chain_err(|| "Could not get Python repr of source")
+    }
+
+    pub fn emit_ast(&self, py_repr: PyRepr) -> Result<ast::Program> {
+        parser::parse_program(py_repr.0.as_bytes())
             .map_err(Error::from)
             .chain_err(|| "Error parsing program from official Python parser")
     }
@@ -268,6 +281,7 @@ fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
 
 fn default_out_path(input: &Path, stage: CompilerStage) -> PathBuf {
     let extension = match stage {
+        CompilerStage::PyRepr => "py_repr",
         CompilerStage::Ast => "ast",
         CompilerStage::Ir => "ir",
         CompilerStage::Vm => "vm",
@@ -370,7 +384,7 @@ pub fn compile(source: &[u8]) -> Result<vm::Program> {
 }
 */
 
-pub fn python_repr(source: &str) -> Result<String> {
+pub fn python_repr(source: &str) -> Result<PyRepr> {
     use std::process::Command;
     use std::process::Stdio;
 
@@ -403,7 +417,7 @@ pub fn python_repr(source: &str) -> Result<String> {
         || "parse.py output is not valid utf-8",
     )?;
 
-    Ok(repr)
+    Ok(PyRepr(repr))
 }
 
 pub fn parse_source<P>(source: P) -> Result<Vec<u8>>

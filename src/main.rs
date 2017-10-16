@@ -26,7 +26,7 @@ Usage:
 
 Options:
     --emit STAGE    Configure output stage.
-                    Valid values: ast, ir, vm, asm, obj.
+                    Valid values: py_repr, ast, ir, vm, asm, obj.
                     [default: asm]
     --runtime LIB   Path to runtime.
     -o PATH         Configures output path.
