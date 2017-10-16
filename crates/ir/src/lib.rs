@@ -23,6 +23,7 @@
 //!         tmpN = ir(expr)
 //!     }
 //!
+#![feature(slice_concat_ext)]
 
 extern crate lazy_static;
 extern crate regex;
@@ -43,8 +44,6 @@ impl fmt::Display for Stmt {
         match *self {
             Print(ref val) => write!(f, "print {}", val),
             Def(tmp, ref expr) => write!(f, "{} := {}", tmp, expr),
-            // type assert
-            //TypeAssert(_, _) => unimplemented!()
         }
     }
 }
@@ -65,7 +64,22 @@ impl fmt::Display for Expr {
         match *self {
             UnaryNeg(ref val) => write!(f, "-{}", val),
             Add(ref l, ref r) => write!(f, "{} + {}", l, r),
-            _ => unimplemented!("Expr Display is bad")
+            PolyEqv(ref l, ref r) => write!(f, "{} == {}", l, r),
+            Not(ref val) => write!(f, "not {}", val),
+            Eq(ref l, ref r) => write!(f, "{} is {}", l, r),
+            PolyUnEqv(ref l, ref r) => write!(f, "{} != {}", l, r),
+            And(ref l, ref r) => write!(f, "{} and {}", l, r),
+            Or(ref l, ref r) => write!(f, "{} or {}", l, r),
+            If(ref test, ref then, ref els) => write!(f, "{} if {} else {}", then, test, els),
+            FunCall(ref name, ref args) => {
+                let args: Vec<String> = args.iter()
+                    .map(|arg| format!("{}", arg))
+                    .collect();
+                let args: String = args.join(", ");
+                write!(f, "{}({})", name, args)
+            }
+            Subscript(ref target, ref index) => write!(f, "{}[{}]", target, index),
+            Inject(ref val) => write!(f, "__inject({})", val),
         }
     }
 }
