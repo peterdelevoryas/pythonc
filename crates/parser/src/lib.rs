@@ -2,12 +2,19 @@
 extern crate python_ast as ast;
 #[macro_use]
 extern crate nom;
-
-use nom::IResult::*;
+#[macro_use]
+extern crate error_chain;
 
 use std::process::Command;
 use std::str;
 use std::fmt;
+use nom::IResult;
+
+pub mod error;
+pub use error::Error;
+pub use error::ErrorKind;
+pub use error::Result;
+pub use error::ResultExt;
 
 pub type BoxNode<'a> = Box<Node<'a>>;
 
@@ -481,11 +488,15 @@ fn to_str(b: &[u8]) -> &str {
     str::from_utf8(b).unwrap()
 }
 
-pub fn parse_repr<'repr>(repr: &'repr [u8]) -> Result<Node<'repr>, String> {
+pub fn parse_repr<'repr>(repr: &'repr [u8]) -> Result<Node<'repr>> {
     let parsed = match module(repr) {
-        Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
-        Error(e) => panic!("Error: {}", e),
-        Incomplete(s) => panic!("Incomplete: {:?}", s),
+        IResult::Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
+        IResult::Error(e) => {
+            return Err(e).chain_err(|| "Unable to parse module")
+        }
+        IResult::Incomplete(needed) => {
+            return Err(ErrorKind::Msg(format!("Incomplete input, needed: {:?}", needed)).into())
+        }
     };
     Ok(parsed)
 }

@@ -129,7 +129,6 @@ impl Compiler {
 
     pub fn emit_pyast<'repr>(&self, pystr: &'repr PyStr) -> Result<parser::Node<'repr>> {
         let pyast = parser::parse_repr(pystr.0.as_bytes())
-            .map_err(Error::from)
             .chain_err(|| "Error parsing Python repr of source")?;
         Ok(pyast)
     }

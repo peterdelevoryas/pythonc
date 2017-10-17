@@ -6,6 +6,10 @@ error_chain! {
         Error, ErrorKind, ResultExt, Result;
     }
 
+    links {
+        ReprParser(::parser::Error, ::parser::ErrorKind);
+    }
+
     foreign_links {
         Io(::std::io::Error);
         Parse(ParseError);
