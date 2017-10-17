@@ -36,7 +36,7 @@ macro_rules! impl_lang_tests {
         fn $test_name() {
             use std::io::Write;
             if let Err(e) = run($lang) {
-                writeln!(::std::io::stderr(), "{}", e.display_chain());
+                panic!("\n{}", e.display_chain());
             }
         }
     }

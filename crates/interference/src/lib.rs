@@ -439,7 +439,7 @@ impl Graph {
             let tmps = instr.tmps();
             for &tmp in &tmps {
                 let color = self.tmp_color(tmp).expect("tmp is not colored");
-                println!("{} := {}", tmp, trans::Att(&color));
+                //println!("{} := {}", tmp, trans::Att(&color));
                 instr.replace_with(tmp, vm::LVal::Register(color));
             }
         }

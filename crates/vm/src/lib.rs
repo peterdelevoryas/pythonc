@@ -165,7 +165,7 @@ impl Program {
     }
 
     pub fn spill(&mut self, tmp: ir::Tmp) {
-        println!("spilling into stack {}", self.stack_index);
+        //println!("spilling into stack {}", self.stack_index);
         for instr in self.stack.iter_mut() {
             // If the instruction doesn't reference tmp, then
             // this won't modify the instruction
