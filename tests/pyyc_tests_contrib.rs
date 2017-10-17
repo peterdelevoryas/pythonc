@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate error_chain;
 extern crate python;
 
@@ -10,27 +11,49 @@ use std::process::Stdio;
 use std::fs::File;
 use std::fs;
 
-#[test]
-fn pyyc_tests_contrib() {
-    if let Err(e) = run() {
-        panic!("{}", e.display_chain());
+#[derive(Debug, Copy, Clone)]
+enum Lang {
+    P0,
+    P1,
+    P2,
+    P3,
+}
+
+impl Lang {
+    fn test_dir_name(self) -> &'static str {
+        match self {
+            Lang::P0 => "P0_tests",
+            Lang::P1 => "P1_tests",
+            Lang::P2 => "P2_tests",
+            Lang::P3 => "P3_tests",
+        }
     }
 }
 
-fn run() -> Result<()> {
+macro_rules! impl_lang_tests {
+    ($lang:expr, $test_name:ident) => {
+        #[test]
+        fn $test_name() {
+            use std::io::Write;
+            if let Err(e) = run($lang) {
+                writeln!(::std::io::stderr(), "{}", e.display_chain());
+            }
+        }
+    }
+}
+
+impl_lang_tests!(Lang::P0, p0_tests);
+impl_lang_tests!(Lang::P1, p1_tests);
+
+fn run(lang: Lang) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let runtime = manifest_dir.join("runtime/libpyyruntime.a");
     let pyyc_tests_contrib = manifest_dir.join("tests/pyyc-tests-contrib");
-    let subdirs = subdirs(pyyc_tests_contrib).chain_err(
-        || "getting subdirs of pyyc-tests-contrib",
-    )?;
-    for subdir in subdirs {
-        test_dir(&subdir, &runtime).chain_err(|| {
-            format!("test dir {:?}", subdir.display())
-        })?;
-    }
+    let lang_tests = pyyc_tests_contrib.join(lang.test_dir_name());
 
-    Ok(())
+    run_tests(&lang_tests, &runtime).chain_err(|| {
+        format!("Test failure for {:?}", lang)
+    })
 }
 
 fn subdirs<P>(dir: P) -> Result<Vec<PathBuf>>
@@ -65,7 +88,7 @@ fn read_file(path: &Path) -> Result<String> {
     Ok(s)
 }
 
-fn test_dir<P1, P2>(dir: P1, runtime: P2) -> Result<()>
+fn run_tests<P1, P2>(dir: P1, runtime: P2) -> Result<()>
 where
     P1: AsRef<Path>,
     P2: AsRef<Path>,
@@ -82,9 +105,27 @@ where
         }
         let source = &path;
         let compiler = Compiler::new();
-        compiler
-            .emit(source, python::CompilerStage::Bin, None, Some(runtime.into()))
-            .chain_err(|| format!("Unable to compile {:?}", source.display()))?;
+
+        let source_file_name = match source.file_name() {
+            Some(file_name) => match file_name.to_str() {
+                Some(s) => s,
+                None => bail!("Test source file name {:?} is not utf-8", source.display()),
+            },
+            None => bail!("Test source path {:?} doesn't have file name", source.display()),
+        };
+
+        let result = ::std::panic::catch_unwind(|| {
+            compiler
+                .emit(source, python::CompilerStage::Bin, None, Some(runtime.into()))
+                .chain_err(|| format!("Unable to compile {:?}", source_file_name))
+        });
+
+        match result {
+            Ok(result) => result?,
+            Err(e) => {
+                bail!("panicked while compiling {:?}", source_file_name)
+            }
+        }
 
         let compiled = source.with_extension("bin");
         let input = source.with_extension("in");
@@ -126,7 +167,8 @@ where
                 Ok(())
             })?;
 
-        diff(&output, &expected)?;
+        diff(&output, &expected)
+            .chain_err(|| format!("Diff on test {}", source.display()))?;
     }
     Ok(())
 }
