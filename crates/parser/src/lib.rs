@@ -62,8 +62,14 @@ pub enum Node<'a> {
     IfExp(BoxNode<'a>, BoxNode<'a>, BoxNode<'a>),
 }
 
+macro_rules! lowering_err {
+    ($node:expr, $to:ty) => ({
+        ErrorKind::Lowering(format!("{:?}", $node), format!("{}", stringify!($to)))
+    })
+}
+
 impl<'a> Node<'a> {
-    pub fn module_into_ast(self) -> ast::Program {
+    pub fn module_into_ast(self) -> Result<ast::Program> {
         use Node::*;
         let stmts: Vec<Node> = match self {
             Module(_, box Stmt(nodes)) => nodes,
@@ -75,19 +81,27 @@ impl<'a> Node<'a> {
                 Discard(box Const("None")) => continue,
                 _ => {}
             }
-            statements.push(stmt.lower_to_stmt());
+            let statement = stmt.clone().lower_to_stmt().chain_err(|| lowering_err!(stmt, ast::Statement))?;
+            statements.push(statement);
         }
-        ast::Program { module: ast::Module { statements } }
+        let program = ast::Program { module: ast::Module { statements } };
+        return Ok(program)
     }
 
-    pub fn lower_to_stmt(self) -> ast::Statement {
+    pub fn lower_to_stmt(self) -> Result<ast::Statement> {
         use Node::*;
-        match self {
-            Module(_, _) => panic!("module statement?"),
-            Stmt(_) => panic!("stmt of stmts???"),
-            Discard(box node) => node.lower_to_stmt(),
-            Printnl(nodes, dest) => ast::Statement::Print(nodes[0].clone().lower_to_expr()),
-            Assign(nodes, box expr) => ast::Statement::Assign(nodes[0].clone().lower_to_target(), expr.lower_to_expr()),
+        let statement = match self {
+            Module(_, _) | Stmt(_) => return Err(lowering_err!(self, ast::Statement).into()),
+            Discard(box node) => node.lower_to_stmt()?,
+            Printnl(nodes, dest) => {
+                let e = nodes[0].clone().lower_to_expr()?;
+                ast::Statement::Print(e)
+            }
+            Assign(nodes, box expr) => {
+                let target = nodes[0].clone().lower_to_target()?;
+                let expr = expr.lower_to_expr()?;
+                ast::Statement::Assign(target, expr)
+            }
             e @ Const(_) |
             e @ Name(_) |
             // TODO should we be lowering assign names to exprs?
@@ -102,37 +116,51 @@ impl<'a> Node<'a> {
             e @ List(_) |
             e @ Dict(_) |
             e @ Subscript(_, _, _) |
-            e @ IfExp(_, _, _) => ast::Statement::Expression(e.lower_to_expr()),
-        }
+            e @ IfExp(_, _, _) => {
+                let e = e.lower_to_expr()?;
+                ast::Statement::Expression(e)
+            }
+        };
+
+        return Ok(statement)
     }
 
-    pub fn lower_to_expr(self) -> ast::Expression {
+    pub fn lower_to_expr(self) -> Result<ast::Expression> {
         use Node::*;
-        match self {
+        let expression = match self {
             Const(val) => {
                 match val {
                     "True" => ast::Expression::Boolean(true),
                     "False" => ast::Expression::Boolean(false),
                     //"None" => ast::Expression::
-                    int => ast::Expression::DecimalI32(match int.parse() {
-                        Ok(i) => i,
-                        Err(e) => panic!("Invalid integer literal: {}: source: {:?}", e, int),
-                    }),
+                    int => {
+                        let i = int.parse()
+                            .chain_err(|| format!("Unable to parse integer from {:?}", Const(val)))?;
+                        ast::Expression::DecimalI32(i)
+                    }
                 }
             }
             Add(box left, box right) => {
-                ast::Expression::Add(box left.lower_to_expr(), box right.lower_to_expr())
+                let left = left.lower_to_expr()?;
+                let right = right.lower_to_expr()?;
+                ast::Expression::Add(box left, box right)
             }
             UnarySub(box Const(int)) if int != "True" && int != "False" => {
                 let int = format!("-{}", int);
-                Const(&int).lower_to_expr()
+                Const(&int).lower_to_expr()?
             }
-            UnarySub(box node) => ast::Expression::UnaryNeg(box node.lower_to_expr()),
+            UnarySub(box node) => ast::Expression::UnaryNeg(box node.lower_to_expr()?),
             CallFunc(box node, _args) => {
                 match node {
                     Name("input") => ast::Expression::Input,
-                    Name(name) => panic!("Funtion call not to input(): {:?}", name),
-                    node => panic!("Unexpected target node in call expr: {:?}", node),
+                    Name(name) => {
+                        let err = ErrorKind::NonInputCallExpr(name.into());
+                        bail!(err);
+                    }
+                    node => {
+                        let err = ErrorKind::NonNameCallTarget(format!("{:?}", node));
+                        bail!(err);
+                    }
                 }
             }
             Compare(box first, nodes) => {
@@ -144,18 +172,21 @@ impl<'a> Node<'a> {
                     match operator {
                         "==" => ast::Expression::LogicalEq(box left, box right),
                         "!=" => ast::Expression::LogicalNotEq(box left, box right),
-                        operator => panic!("unexpected comparison operator: {}", operator),
+                        operator => {
+                            let err = ErrorKind::UnexpectedCompareOp(operator.to_string());
+                            return ast::Expression::Input
+                        }
                     }
                 }
                 // reverse in order to preserve left to right ordering
                 let mut nodes = nodes.into_iter();
-                let first = first.lower_to_expr();
+                let first = first.lower_to_expr()?;
                 // expect at least one
                 let (op, node) = nodes.next().unwrap();
                 // union of all equals with "and"
-                let mut chained_and_expr = cmp(op, first.clone(), node.lower_to_expr());
+                let mut chained_and_expr = cmp(op, first.clone(), node.lower_to_expr()?);
                 for (op, node) in nodes {
-                    let e = cmp(op, first.clone(), node.lower_to_expr());
+                    let e = cmp(op, first.clone(), node.lower_to_expr()?);
                     chained_and_expr = ast::Expression::LogicalAnd(box chained_and_expr, box e);
                 }
                 chained_and_expr
@@ -163,69 +194,80 @@ impl<'a> Node<'a> {
             Or(nodes) => {
                 let mut nodes = nodes.into_iter().rev();
                 // expected at least 2
-                let mut right = nodes.next().unwrap().lower_to_expr();
-                let mut left = nodes.next().unwrap().lower_to_expr();
+                let mut right = nodes.next().unwrap().lower_to_expr()?;
+                let mut left = nodes.next().unwrap().lower_to_expr()?;
                 let mut chained_or_expr = ast::Expression::LogicalOr(box left, box right);
                 for node in nodes {
                     right = chained_or_expr;
-                    left = node.lower_to_expr();
+                    left = node.lower_to_expr()?;
                     chained_or_expr = ast::Expression::LogicalOr(box left, box right);
                 }
                 chained_or_expr
             }
             And(nodes) => {
                 let mut nodes = nodes.into_iter();
-                let mut right = nodes.next().unwrap().lower_to_expr();
-                let mut left = nodes.next().unwrap().lower_to_expr();
+                let mut right = nodes.next().unwrap().lower_to_expr()?;
+                let mut left = nodes.next().unwrap().lower_to_expr()?;
                 let mut chained_and_expr = ast::Expression::LogicalAnd(box left, box right);
                 for node in nodes {
                     right = chained_and_expr;
-                    left = node.lower_to_expr();
+                    left = node.lower_to_expr()?;
                     chained_and_expr = ast::Expression::LogicalAnd(box left, box right);
                 }
                 chained_and_expr
             }
-            Not(box node) => ast::Expression::LogicalNot(box node.lower_to_expr()),
-            List(nodes) => ast::Expression::List(
-                nodes.into_iter().map(|n| n.lower_to_expr()).collect(),
-            ),
-            Dict(tuples) => ast::Expression::Dict(
-                tuples
-                    .into_iter()
-                    .map(|(l, r)| (l.lower_to_expr(), r.lower_to_expr()))
-                    .collect(),
-            ),
+            Not(box node) => ast::Expression::LogicalNot(box node.lower_to_expr()?),
+            List(nodes) => ast::Expression::List({
+                let nodes: Result<Vec<_>> = nodes.into_iter().map(|n| n.lower_to_expr()).collect();
+                nodes?
+            }),
+            Dict(tuples) => ast::Expression::Dict({
+                let mut dict: Vec<(ast::Expression, ast::Expression)> = vec![];
+                for (l, r) in tuples {
+                    let left = l.lower_to_expr()?;
+                    let right = r.lower_to_expr()?;
+                    dict.push((left, right))
+                }
+                dict
+            }),
             target @ Name(_) |
             target @ Subscript(_, _, _) |
-            target @ AssignName(_, _) => ast::Expression::Target(target.lower_to_target()),
+            target @ AssignName(_, _) => ast::Expression::Target(target.lower_to_target()?),
             Module(_, _) => panic!("lowering module to expr"),
             Stmt(_) => panic!("lowering stmt to expr"),
-            Discard(box node) => node.lower_to_expr(),
+            Discard(box node) => node.lower_to_expr()?,
             Printnl(_, _) => panic!("lowering println to expr"),
             Assign(_, _) => panic!("lowering assign to expr"),
             IfExp(test, then, els) => {
                 ast::Expression::If(
-                    box test.lower_to_expr(),
-                    box then.lower_to_expr(),
-                    box els.lower_to_expr(),
+                    box test.lower_to_expr()?,
+                    box then.lower_to_expr()?,
+                    box els.lower_to_expr()?,
                 )
             }
-        }
+        };
+
+        return Ok(expression);
     }
 
-    pub fn lower_to_target(self) -> ast::Target {
+    pub fn lower_to_target(self) -> Result<ast::Target> {
         use Node::*;
-        match self {
+        let target = match self {
             Name(name) => ast::Target::Name(name.into()),
             AssignName(name, _) => ast::Target::Name(name.into()),
             Subscript(box target, _, subs) => {
                 ast::Target::Subscript(
-                    box target.lower_to_expr(),
-                    box subs[0].clone().lower_to_expr(),
+                    box target.lower_to_expr()?,
+                    box subs[0].clone().lower_to_expr()?,
                 )
             }
-            _ => panic!("lowering to target"),
-        }
+            node => {
+                let err = ErrorKind::Lowering(format!("{:?}", node), "ast::Target".into());
+                bail!(err);
+            }
+        };
+
+        return Ok(target)
     }
 }
 

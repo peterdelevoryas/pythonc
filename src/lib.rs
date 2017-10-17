@@ -134,7 +134,8 @@ impl Compiler {
     }
 
     pub fn emit_ast(&self, pyast: parser::Node) -> Result<ast::Program> {
-        Ok(pyast.module_into_ast())
+        let ast = pyast.module_into_ast().chain_err(|| "Unable to convert python repr to pythonc ast")?;
+        Ok(ast)
     }
 
     pub fn emit_ir(
