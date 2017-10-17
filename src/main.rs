@@ -26,7 +26,7 @@ Usage:
 
 Options:
     --emit STAGE    Configure output stage.
-                    [values: pystr, pyast, ast, ir, vm, asm, obj]
+                    [values: pystr, pyast, ast, ir, vasm, liveness, asm, obj]
                     [default: asm]
                     pystr is the str() output of the official Python parser.
                     pyast is how pythonc parses pystr.

@@ -33,7 +33,8 @@ pub enum CompilerStage {
     PyAst,
     Ast,
     Ir,
-    Vm,
+    VAsm,
+    Liveness,
     Asm,
     Obj,
     Bin,
@@ -89,8 +90,14 @@ impl Compiler {
 
         let vm = self.emit_vm(ir)
             .chain_err(|| "Could not construct virtual assembly from IR")?;
-        if stop_stage == CompilerStage::Vm {
+        if stop_stage == CompilerStage::VAsm {
             return write_out(vm, out_path)
+        }
+
+        if stop_stage == CompilerStage::Liveness {
+            let liveness = self.emit_liveness(&vm);
+            let s = liveness::debug_string(&vm, &liveness);
+            return write_out(s, out_path)
         }
 
         let asm = self.emit_asm(vm, &mut tmp_allocator)
@@ -231,6 +238,10 @@ impl Compiler {
             })
     }
 
+    pub fn emit_liveness(&self, asm: &vm::Program) -> Vec<liveness::Liveness> {
+        liveness::compute(asm)
+    }
+
     /*
     pub fn new<P>(source: P) -> Compiler
     where
@@ -299,7 +310,8 @@ impl CompilerStage {
             CompilerStage::PyAst => "pyast",
             CompilerStage::Ast => "ast",
             CompilerStage::Ir => "ir",
-            CompilerStage::Vm => "vm",
+            CompilerStage::VAsm => "vasm",
+            CompilerStage::Liveness => "liveness",
             CompilerStage::Asm => "s",
             CompilerStage::Obj => "o",
             CompilerStage::Bin => "bin",

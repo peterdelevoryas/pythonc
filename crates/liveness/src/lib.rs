@@ -125,6 +125,17 @@ pub fn debug_print(vm: &vm::Program) {
     }
 }
 
+pub fn debug_string(vm: &vm::Program, liveness_sets: &[Liveness]) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for (l, s) in liveness_sets.iter().zip(vm.stack.iter()) {
+        let s = format!("{}", s);
+        writeln!(buf, "{: <3} {}", l.k, s);
+        writeln!(buf, "{: <3} {:24} {}", "", "", l);
+    }
+    buf
+}
+
 fn lval_to_val(lval: vm::LVal) -> Option<Val> {
     match lval {
         vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
