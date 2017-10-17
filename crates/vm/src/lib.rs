@@ -249,14 +249,22 @@ impl Program {
                 self.mov(v.into(), LVal::Tmp(tmp));
                 self.neg(LVal::Tmp(tmp));
             }
-            Def(tmp, FunCall(ref label, _)) if label == "input" => {
-                self.call("input");
-                let eax = RVal::LVal(LVal::Register(trans::Register::EAX));
-                self.mov(eax, LVal::Tmp(tmp));
-            }
             Def(tmp, Inject(int)) => {
                 let rval = int.into();
                 self.mov(rval, LVal::Tmp(tmp));
+            }
+            Def(tmp, FunCall(ref name, ref args)) => {
+                // push args in reverse order
+                for &arg in args.iter().rev() {
+                    self.push(arg.into());
+                }
+
+                // call function
+                self.call(name);
+
+                // move eax into destination tmp value
+                let eax = RVal::LVal(LVal::Register(trans::Register::EAX));
+                self.mov(eax, LVal::Tmp(tmp));
             }
             Def(tmp, ref expr) => unimplemented!("unimplemented def in vm: {:?}", expr),
         }
@@ -295,6 +303,7 @@ impl fmt::Display for Program {
 main:
     pushl %ebp
     movl %esp, %ebp
+
     {}
 ",
             {
