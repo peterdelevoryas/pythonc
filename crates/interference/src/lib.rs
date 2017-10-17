@@ -147,13 +147,13 @@ impl Graph {
     /// }
     /// ```
     ///
-    fn add_edges(&mut self, instr: &vm::Instr, live_set: &HashSet<liveness::Val>) {
-        use vm::Instr::*;
-        use vm::RVal::*;
-        use vm::LVal::*;
+    fn add_edges(&mut self, instr: &vm::Instruction, live_set: &HashSet<liveness::Val>) {
+        use vm::Instruction::*;
+        use vm::RValue::*;
+        use vm::LValue::*;
         use liveness::Val as LiveVal;
         // it's really interesting that this import works,
-        // cause we're also importing Register from LVal::*
+        // cause we're also importing Register from LValue::*
         // and using it in pattern matching
         use trans::Register;
 
@@ -165,7 +165,7 @@ impl Graph {
             Mov(_, Stack(_)) |
             Neg(Stack(_)) |
             Add(_, Stack(_)) |
-            Push(LVal(Stack(_))) |
+            Push(LValue(Stack(_))) |
             Push(Int(_)) => {}
             // Don't really need to look explicitly at rval, I don't think!
             // If it's live after this, it will be in the live set and we'll
@@ -174,7 +174,7 @@ impl Graph {
             Mov(_, Tmp(tmp)) |
             Neg(Tmp(tmp)) |
             Add(_, Tmp(tmp)) |
-            Push(LVal(Tmp(tmp))) => {
+            Push(LValue(Tmp(tmp))) => {
                 let dst = LiveVal::Virtual(tmp);
                 self.add_edges_to_all(dst, live_set);
             }
@@ -184,7 +184,7 @@ impl Graph {
             Mov(_, Register(r)) |
             Neg(Register(r)) |
             Add(_, Register(r)) |
-            Push(LVal(Register(r))) => {
+            Push(LValue(Register(r))) => {
                 let dst = LiveVal::Register(r);
                 self.add_edges_to_all(dst, live_set);
             }
@@ -233,7 +233,7 @@ impl Graph {
     /// Adds all variables referenced in the
     /// instruction to the internal graph.
     /// If the variable already exists in the graph,
-    /// it is not modified. If an LVal
+    /// it is not modified. If an LValue
     /// is a stack location, it is not added
     /// to the graph.
     ///
@@ -254,10 +254,10 @@ impl Graph {
     /// not remove it from the unspillable set, so everything
     /// is ok.
     ///
-    fn add_referenced_variables(&mut self, instr: &vm::Instr) {
-        use vm::Instr::*;
-        use vm::RVal::*;
-        use vm::LVal::*;
+    fn add_referenced_variables(&mut self, instr: &vm::Instruction) {
+        use vm::Instruction::*;
+        use vm::RValue::*;
+        use vm::LValue::*;
         match *instr {
             // If moving from a stack location to any destination,
             // add the destination as an unspillable variable
@@ -266,12 +266,12 @@ impl Graph {
             // handled: as long as 1 of the 2 is handled, it's ok?
             // Not entirely sure!! If this is not correct, Add
             // probably also needs to be changed
-            Mov(LVal(Stack(_)), Tmp(tmp)) => {
+            Mov(LValue(Stack(_)), Tmp(tmp)) => {
                 self.add_unspillable(tmp);
             }
             // I don't think this should be possible?? If it occurs,
             // panic so that we can debug it
-            Mov(LVal(Stack(_)), Stack(_)) => panic!("mov stack, stack encountered in virtual asm!"),
+            Mov(LValue(Stack(_)), Stack(_)) => panic!("mov stack, stack encountered in virtual asm!"),
             // add_lval and add_rval don't consider context, so they
             // only add tmp's as spillable (forced registers don't
             // change depending on context)
@@ -290,21 +290,21 @@ impl Graph {
     }
 
     /// This just exists so that we don't have to write
-    /// RVal::Int(i) => {} everywhere there's an rval.
+    /// RValue::Int(i) => {} everywhere there's an rval.
     /// This uses add_lval internally to handle lval's,
     /// see that function's documentation.
-    fn add_rval(&mut self, rval: vm::RVal) {
-        use vm::RVal::*;
+    fn add_rval(&mut self, rval: vm::RValue) {
+        use vm::RValue::*;
         match rval {
             Int(_) => {}
-            LVal(lval) => self.add_lval(lval),
+            LValue(lval) => self.add_lval(lval),
         }
     }
 
     /// This does not consider context at all,
     /// so it always adds tmp's as spillable.
-    fn add_lval(&mut self, lval: vm::LVal) {
-        use vm::LVal::*;
+    fn add_lval(&mut self, lval: vm::LValue) {
+        use vm::LValue::*;
         match lval {
             Tmp(tmp) => self.add_spillable(tmp),
             Register(r) => self.add_forced(r),
@@ -440,7 +440,7 @@ impl Graph {
             for &tmp in &tmps {
                 let color = self.tmp_color(tmp).expect("tmp is not colored");
                 //println!("{} := {}", tmp, trans::Att(&color));
-                instr.replace_with(tmp, vm::LVal::Register(color));
+                instr.replace_with(tmp, vm::LValue::Register(color));
             }
         }
         vm

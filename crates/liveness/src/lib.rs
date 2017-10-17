@@ -26,20 +26,20 @@ pub enum Val {
 impl Val {
     /// TODO: Really just need this for convenience, should replace
     /// lval_to_val and rval_to_val uses in this crate
-    pub fn from_lval(lval: vm::LVal) -> Option<Self> {
+    pub fn from_lval(lval: vm::LValue) -> Option<Self> {
         match lval {
-            vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
-            vm::LVal::Register(r) => Some(Val::Register(r)),
-            vm::LVal::Stack(_) => None,
+            vm::LValue::Tmp(tmp) => Some(Val::Virtual(tmp)),
+            vm::LValue::Register(r) => Some(Val::Register(r)),
+            vm::LValue::Stack(_) => None,
         }
     }
 
     /// TODO: Really just need this for convenience, should replace
     /// lval_to_val and rval_to_val uses in this crate
-    pub fn from_rval(rval: vm::RVal) -> Option<Self> {
+    pub fn from_rval(rval: vm::RValue) -> Option<Self> {
         match rval {
-            vm::RVal::LVal(lval) => Self::from_lval(lval),
-            vm::RVal::Int(i) => None,
+            vm::RValue::LValue(lval) => Self::from_lval(lval),
+            vm::RValue::Int(i) => None,
         }
     }
 }
@@ -136,18 +136,18 @@ pub fn debug_string(vm: &vm::Program, liveness_sets: &[Liveness]) -> String {
     buf
 }
 
-fn lval_to_val(lval: vm::LVal) -> Option<Val> {
+fn lval_to_val(lval: vm::LValue) -> Option<Val> {
     match lval {
-        vm::LVal::Tmp(tmp) => Some(Val::Virtual(tmp)),
-        vm::LVal::Register(r) => Some(Val::Register(r)),
-        vm::LVal::Stack(_) => None,
+        vm::LValue::Tmp(tmp) => Some(Val::Virtual(tmp)),
+        vm::LValue::Register(r) => Some(Val::Register(r)),
+        vm::LValue::Stack(_) => None,
     }
 }
 
-fn rval_to_val(rval: vm::RVal) -> Option<Val> {
+fn rval_to_val(rval: vm::RValue) -> Option<Val> {
     match rval {
-        vm::RVal::LVal(lval) => lval_to_val(lval),
-        vm::RVal::Int(i) => None,
+        vm::RValue::LValue(lval) => lval_to_val(lval),
+        vm::RValue::Int(i) => None,
     }
 }
 
@@ -162,15 +162,15 @@ fn union(lhs: HashSet<Val>, rhs: HashSet<Val>) -> HashSet<Val> {
     lhs.union(&rhs).map(|&v| v).collect()
 }
 
-fn rval_(rval: vm::RVal) -> HashSet<Val> {
+fn rval_(rval: vm::RValue) -> HashSet<Val> {
     option_to_set(rval_to_val(rval))
 }
-fn lval_(lval: vm::LVal) -> HashSet<Val> {
+fn lval_(lval: vm::LValue) -> HashSet<Val> {
     option_to_set(lval_to_val(lval))
 }
 
-fn write_set(instr: &vm::Instr) -> HashSet<Val> {
-    use vm::Instr::*;
+fn write_set(instr: &vm::Instruction) -> HashSet<Val> {
+    use vm::Instruction::*;
     match *instr {
         // writes the destination
         Mov(_, lval) => lval_(lval),
@@ -192,8 +192,8 @@ fn write_set(instr: &vm::Instr) -> HashSet<Val> {
     }
 }
 
-fn read_set(instr: &vm::Instr) -> HashSet<Val> {
-    use vm::Instr::*;
+fn read_set(instr: &vm::Instruction) -> HashSet<Val> {
+    use vm::Instruction::*;
     match *instr {
         // only read from the source of mov's
         Mov(rval, _) => rval_(rval),
