@@ -271,7 +271,9 @@ impl Graph {
             }
             // I don't think this should be possible?? If it occurs,
             // panic so that we can debug it
-            Mov(LValue(Stack(_)), Stack(_)) => panic!("mov stack, stack encountered in virtual asm!"),
+            Mov(LValue(Stack(_)), Stack(_)) => {
+                panic!("mov stack, stack encountered in virtual asm!")
+            }
             // add_lval and add_rval don't consider context, so they
             // only add tmp's as spillable (forced registers don't
             // change depending on context)

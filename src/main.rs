@@ -71,13 +71,11 @@ fn run() -> python::Result<()> {
 
     if stop_stage == python::CompilerStage::Bin {
         if runtime.is_none() {
-            return Err(ErrorKind::MissingRuntime.into())
+            return Err(ErrorKind::MissingRuntime.into());
         }
     }
 
-    compiler.emit(input, stop_stage, out_path, runtime).chain_err(
-        || {
-            format!("Could not compile {:?}", input.display())
-        },
-    )
+    compiler
+        .emit(input, stop_stage, out_path, runtime)
+        .chain_err(|| format!("Could not compile {:?}", input.display()))
 }

@@ -81,11 +81,13 @@ impl<'a> Node<'a> {
                 Discard(box Const("None")) => continue,
                 _ => {}
             }
-            let statement = stmt.clone().lower_to_stmt().chain_err(|| lowering_err!(stmt, ast::Statement))?;
+            let statement = stmt.clone().lower_to_stmt().chain_err(|| {
+                lowering_err!(stmt, ast::Statement)
+            })?;
             statements.push(statement);
         }
         let program = ast::Program { module: ast::Module { statements } };
-        return Ok(program)
+        return Ok(program);
     }
 
     pub fn lower_to_stmt(self) -> Result<ast::Statement> {
@@ -122,7 +124,7 @@ impl<'a> Node<'a> {
             }
         };
 
-        return Ok(statement)
+        return Ok(statement);
     }
 
     pub fn lower_to_expr(self) -> Result<ast::Expression> {
@@ -134,8 +136,9 @@ impl<'a> Node<'a> {
                     "False" => ast::Expression::Boolean(false),
                     //"None" => ast::Expression::
                     int => {
-                        let i = int.parse()
-                            .chain_err(|| format!("Unable to parse integer from {:?}", Const(val)))?;
+                        let i = int.parse().chain_err(|| {
+                            format!("Unable to parse integer from {:?}", Const(val))
+                        })?;
                         ast::Expression::DecimalI32(i)
                     }
                 }
@@ -174,7 +177,7 @@ impl<'a> Node<'a> {
                         "!=" => ast::Expression::LogicalNotEq(box left, box right),
                         operator => {
                             let err = ErrorKind::UnexpectedCompareOp(operator.to_string());
-                            return ast::Expression::Input
+                            return ast::Expression::Input;
                         }
                     }
                 }
@@ -267,7 +270,7 @@ impl<'a> Node<'a> {
             }
         };
 
-        return Ok(target)
+        return Ok(target);
     }
 }
 
@@ -533,11 +536,11 @@ fn to_str(b: &[u8]) -> &str {
 pub fn parse_repr<'repr>(repr: &'repr [u8]) -> Result<Node<'repr>> {
     let parsed = match module(repr) {
         IResult::Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
-        IResult::Error(e) => {
-            return Err(e).chain_err(|| "Unable to parse module")
-        }
+        IResult::Error(e) => return Err(e).chain_err(|| "Unable to parse module"),
         IResult::Incomplete(needed) => {
-            return Err(ErrorKind::Msg(format!("Incomplete input, needed: {:?}", needed)).into())
+            return Err(
+                ErrorKind::Msg(format!("Incomplete input, needed: {:?}", needed)).into(),
+            )
         }
     };
     Ok(parsed)

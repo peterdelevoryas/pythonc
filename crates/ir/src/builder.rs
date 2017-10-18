@@ -326,5 +326,3 @@ impl<'tmp_allocator> Builder<'tmp_allocator> {
         &self.stack
     }
 }
-
-

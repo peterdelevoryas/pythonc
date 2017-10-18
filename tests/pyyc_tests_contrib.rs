@@ -51,9 +51,7 @@ fn run(lang: Lang) -> Result<()> {
     let pyyc_tests_contrib = manifest_dir.join("tests/pyyc-tests-contrib");
     let lang_tests = pyyc_tests_contrib.join(lang.test_dir_name());
 
-    run_tests(&lang_tests, &runtime).chain_err(|| {
-        format!("Test failure for {:?}", lang)
-    })
+    run_tests(&lang_tests, &runtime).chain_err(|| format!("Test failure for {:?}", lang))
 }
 
 fn subdirs<P>(dir: P) -> Result<Vec<PathBuf>>
@@ -107,24 +105,34 @@ where
         let compiler = Compiler::new();
 
         let source_file_name = match source.file_name() {
-            Some(file_name) => match file_name.to_str() {
-                Some(s) => s,
-                None => bail!("Test source file name {:?} is not utf-8", source.display()),
-            },
-            None => bail!("Test source path {:?} doesn't have file name", source.display()),
+            Some(file_name) => {
+                match file_name.to_str() {
+                    Some(s) => s,
+                    None => bail!("Test source file name {:?} is not utf-8", source.display()),
+                }
+            }
+            None => {
+                bail!(
+                    "Test source path {:?} doesn't have file name",
+                    source.display()
+                )
+            }
         };
 
         let result = ::std::panic::catch_unwind(|| {
             compiler
-                .emit(source, python::CompilerStage::Bin, None, Some(runtime.into()))
+                .emit(
+                    source,
+                    python::CompilerStage::Bin,
+                    None,
+                    Some(runtime.into()),
+                )
                 .chain_err(|| format!("Unable to compile {:?}", source_file_name))
         });
 
         match result {
             Ok(result) => result?,
-            Err(e) => {
-                bail!("panicked while compiling {:?}", source_file_name)
-            }
+            Err(e) => bail!("panicked while compiling {:?}", source_file_name),
         }
 
         let compiled = source.with_extension("bin");
@@ -167,8 +175,9 @@ where
                 Ok(())
             })?;
 
-        diff(&output, &expected)
-            .chain_err(|| format!("Diff on test {}", source.display()))?;
+        diff(&output, &expected).chain_err(|| {
+            format!("Diff on test {}", source.display())
+        })?;
     }
     Ok(())
 }

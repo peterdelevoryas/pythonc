@@ -48,84 +48,96 @@ impl Compiler {
         Compiler {}
     }
 
-    pub fn emit(&self,
-                in_path: &Path,
-                stop_stage: CompilerStage,
-                out_path: Option<PathBuf>,
-                runtime: Option<PathBuf>) -> Result<()>
-    {
+    pub fn emit(
+        &self,
+        in_path: &Path,
+        stop_stage: CompilerStage,
+        out_path: Option<PathBuf>,
+        runtime: Option<PathBuf>,
+    ) -> Result<()> {
         let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
         let out_path = &out_path;
-        let source = read_file(in_path)
-            .chain_err(|| format!("Could not read input file {:?}", in_path.display()))?;
+        let source = read_file(in_path).chain_err(|| {
+            format!("Could not read input file {:?}", in_path.display())
+        })?;
 
-        let pystr = self.emit_pystr(&source)
-            .chain_err(|| "Could not get official Python compiler's repr of source")?;
+        let pystr = self.emit_pystr(&source).chain_err(
+            || "Could not get official Python compiler's repr of source",
+        )?;
         if stop_stage == CompilerStage::PyStr {
             let pystr = format!("{}", pystr.0);
-            return write_out(pystr, out_path)
+            return write_out(pystr, out_path);
         }
 
-        let pyast = self.emit_pyast(&pystr)
-            .chain_err(|| "Could not parse Python compiler's repr")?;
+        let pyast = self.emit_pyast(&pystr).chain_err(
+            || "Could not parse Python compiler's repr",
+        )?;
         if stop_stage == CompilerStage::PyAst {
             let pyast = format!("{:#?}", pyast);
-            return write_out(pyast, out_path)
+            return write_out(pyast, out_path);
         }
 
-        let ast = self.emit_ast(pyast)
-            .chain_err(|| "Could not convert pyast to pythonc AST")?;
+        let ast = self.emit_ast(pyast).chain_err(
+            || "Could not convert pyast to pythonc AST",
+        )?;
         if stop_stage == CompilerStage::Ast {
             let ast = format!("{:#?}", ast);
-            return write_out(ast, out_path)
+            return write_out(ast, out_path);
         }
 
         let mut tmp_allocator = ir::TmpAllocator::new();
 
-        let ir = self.emit_ir(ast, &mut tmp_allocator)
-            .chain_err(|| "Could not construct IR from AST")?;
+        let ir = self.emit_ir(ast, &mut tmp_allocator).chain_err(
+            || "Could not construct IR from AST",
+        )?;
         if stop_stage == CompilerStage::Ir {
-            return write_out(ir, out_path)
+            return write_out(ir, out_path);
         }
 
-        let vm = self.emit_vm(ir)
-            .chain_err(|| "Could not construct virtual assembly from IR")?;
+        let vm = self.emit_vm(ir).chain_err(
+            || "Could not construct virtual assembly from IR",
+        )?;
         if stop_stage == CompilerStage::VAsm {
-            return write_out(vm, out_path)
+            return write_out(vm, out_path);
         }
 
         if stop_stage == CompilerStage::Liveness {
             let liveness = self.emit_liveness(&vm);
             let s = liveness::debug_string(&vm, &liveness);
-            return write_out(s, out_path)
+            return write_out(s, out_path);
         }
 
-        let asm = self.emit_asm(vm, &mut tmp_allocator)
-            .chain_err(|| "Could not construct assembly from virtual assembly")?;
+        let asm = self.emit_asm(vm, &mut tmp_allocator).chain_err(
+            || "Could not construct assembly from virtual assembly",
+        )?;
         if stop_stage == CompilerStage::Asm {
-            return write_out(asm, out_path)
+            return write_out(asm, out_path);
         }
 
         if stop_stage == CompilerStage::Obj {
-            self.emit_obj(asm, out_path)
-                .chain_err(|| "Could not create object file from assembly")?;
-            return Ok(())
+            self.emit_obj(asm, out_path).chain_err(
+                || "Could not create object file from assembly",
+            )?;
+            return Ok(());
         }
 
-        let obj_file = tempfile::NamedTempFile::new()
-            .chain_err(|| "Could not create temporary file for obj output")?;
-        self.emit_obj(asm, obj_file.path())
-            .chain_err(|| "Could not create temporary object file from assembly")?;
+        let obj_file = tempfile::NamedTempFile::new().chain_err(
+            || "Could not create temporary file for obj output",
+        )?;
+        self.emit_obj(asm, obj_file.path()).chain_err(
+            || "Could not create temporary object file from assembly",
+        )?;
 
         let runtime = if let Some(runtime) = runtime {
             runtime
         } else {
-            return Err(ErrorKind::MissingRuntime.into())
+            return Err(ErrorKind::MissingRuntime.into());
         };
         self.emit_bin(obj_file.path(), &runtime, out_path)
             .chain_err(|| "Could not create binary from obj file")?;
-        obj_file.close()
-            .chain_err(|| format!("Could not close (and remove) temporary obj file"))?;
+        obj_file.close().chain_err(|| {
+            format!("Could not close (and remove) temporary obj file")
+        })?;
 
         Ok(())
     }
@@ -135,13 +147,16 @@ impl Compiler {
     }
 
     pub fn emit_pyast<'repr>(&self, pystr: &'repr PyStr) -> Result<parser::Node<'repr>> {
-        let pyast = parser::parse_repr(pystr.0.as_bytes())
-            .chain_err(|| "Error parsing Python repr of source")?;
+        let pyast = parser::parse_repr(pystr.0.as_bytes()).chain_err(
+            || "Error parsing Python repr of source",
+        )?;
         Ok(pyast)
     }
 
     pub fn emit_ast(&self, pyast: parser::Node) -> Result<ast::Program> {
-        let ast = pyast.module_into_ast().chain_err(|| "Unable to convert python repr to pythonc ast")?;
+        let ast = pyast.module_into_ast().chain_err(
+            || "Unable to convert python repr to pythonc ast",
+        )?;
         Ok(ast)
     }
 
