@@ -2,10 +2,9 @@ use val::Val;
 use inst::Inst;
 use term::Term;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Label(usize);
+impl_index_type!(BasicBlock);
 
-pub struct BB {
+pub struct Data {
     defs: Vec<(Val, Inst)>,
     term: Term,
 }

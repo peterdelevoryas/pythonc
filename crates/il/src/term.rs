@@ -2,10 +2,10 @@ use bb;
 use val::Val;
 
 pub enum Term {
-    Goto(bb::Label),
+    Goto(bb::BasicBlock),
     SwitchInt {
         cond: Val,
-        goto: Vec<(i32, bb::Label)>
+        goto: Vec<(i32, bb::BasicBlock)>
     },
     Return,
 }

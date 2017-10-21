@@ -74,11 +74,14 @@
 //!     }
 //!
 //!
+#![feature(conservative_impl_trait)]
 extern crate lalrpop_util;
 extern crate regex;
-extern crate slab_crate;
+extern crate slab as slab_crate;
 extern crate python_ast as ast;
 
+#[macro_use]
+pub mod slab;
 pub mod syntax;
 pub mod func;
 pub mod term;
@@ -86,4 +89,3 @@ pub mod bb;
 pub mod inst;
 pub mod val;
 pub mod ty;
-pub mod slab;

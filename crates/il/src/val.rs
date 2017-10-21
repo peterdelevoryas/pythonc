@@ -1,7 +1,6 @@
 use ty::Ty;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Val(usize);
+impl_index_type!(Val);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Data {
