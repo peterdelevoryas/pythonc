@@ -3,7 +3,7 @@ extern crate error_chain;
 extern crate python;
 
 use error_chain::ChainedError;
-use python::{Compiler, Result, ResultExt};
+use python::{Compiler, CompilerStage, Result, ResultExt};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -31,27 +31,28 @@ impl Lang {
 }
 
 macro_rules! impl_lang_tests {
-    ($lang:expr, $test_name:ident) => {
+    ($lang:expr, $stage:expr, $test_name:ident) => {
         #[test]
         fn $test_name() {
             use std::io::Write;
-            if let Err(e) = run($lang) {
+            if let Err(e) = run($lang, $stage) {
                 panic!("\n{}", e.display_chain());
             }
         }
     }
 }
 
-impl_lang_tests!(Lang::P0, p0_tests);
-impl_lang_tests!(Lang::P1, p1_tests);
+impl_lang_tests!(Lang::P0, CompilerStage::Bin, p0_bin_tests);
+impl_lang_tests!(Lang::P0, CompilerStage::Ir, p0_ir_tests);
+impl_lang_tests!(Lang::P1, CompilerStage::Ir, p1_ir_tests);
 
-fn run(lang: Lang) -> Result<()> {
+fn run(lang: Lang, stage: CompilerStage) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let runtime = manifest_dir.join("runtime/libpyyruntime.a");
     let pyyc_tests_contrib = manifest_dir.join("tests/pyyc-tests-contrib");
     let lang_tests = pyyc_tests_contrib.join(lang.test_dir_name());
 
-    run_tests(&lang_tests, &runtime).chain_err(|| format!("Test failure for {:?}", lang))
+    run_tests(&lang_tests, &runtime, stage).chain_err(|| format!("Test failure for {:?}", lang))
 }
 
 fn subdirs<P>(dir: P) -> Result<Vec<PathBuf>>
@@ -86,7 +87,7 @@ fn read_file(path: &Path) -> Result<String> {
     Ok(s)
 }
 
-fn run_tests<P1, P2>(dir: P1, runtime: P2) -> Result<()>
+fn run_tests<P1, P2>(dir: P1, runtime: P2, stage: CompilerStage) -> Result<()>
 where
     P1: AsRef<Path>,
     P2: AsRef<Path>,
@@ -123,7 +124,7 @@ where
             compiler
                 .emit(
                     source,
-                    python::CompilerStage::Bin,
+                    stage,
                     None,
                     Some(runtime.into()),
                 )
@@ -135,49 +136,51 @@ where
             Err(e) => bail!("panicked while compiling {:?}", source_file_name),
         }
 
-        let compiled = source.with_extension("bin");
-        let input = source.with_extension("in");
-        let output = source.with_extension("out");
-        let expected = source.with_extension("expected");
+        if stage == CompilerStage::Bin {
+            let compiled = source.with_extension("bin");
+            let input = source.with_extension("in");
+            let output = source.with_extension("out");
+            let expected = source.with_extension("expected");
 
-        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
-        let compiled = Command::new(&compiled)
-            .stdin(input_file)
-            .stdout(File::create(&output).chain_err(|| "creating output file")?)
-            .spawn()
-            .chain_err(|| "spawning child process")?;
+            let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
+            let compiled = Command::new(&compiled)
+                .stdin(input_file)
+                .stdout(File::create(&output).chain_err(|| "creating output file")?)
+                .spawn()
+                .chain_err(|| "spawning child process")?;
 
-        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
-        let reference = Command::new("python")
-            .arg(&source)
-            .stdin(input_file)
-            .stdout(File::create(&expected).chain_err(
-                || "creating expected file",
-            )?)
-            .spawn()
-            .chain_err(|| "spawning child process")?;
+            let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
+            let reference = Command::new("python")
+                .arg(&source)
+                .stdin(input_file)
+                .stdout(File::create(&expected).chain_err(
+                    || "creating expected file",
+                )?)
+                .spawn()
+                .chain_err(|| "spawning child process")?;
 
-        compiled
-            .wait_with_output()
-            .chain_err(|| "waiting on compiled")
-            .and_then(|output| if output.stderr.len() > 0 {
-                Err(String::from_utf8(output.stderr).unwrap().into())
-            } else {
-                Ok(())
+            compiled
+                .wait_with_output()
+                .chain_err(|| "waiting on compiled")
+                .and_then(|output| if output.stderr.len() > 0 {
+                    Err(String::from_utf8(output.stderr).unwrap().into())
+                } else {
+                    Ok(())
+                })?;
+
+            reference
+                .wait_with_output()
+                .chain_err(|| "waiting on reference")
+                .and_then(|output| if output.stderr.len() > 0 {
+                    Err(String::from_utf8(output.stderr).unwrap().into())
+                } else {
+                    Ok(())
+                })?;
+
+            diff(&output, &expected).chain_err(|| {
+                format!("Diff on test {}", source.display())
             })?;
-
-        reference
-            .wait_with_output()
-            .chain_err(|| "waiting on reference")
-            .and_then(|output| if output.stderr.len() > 0 {
-                Err(String::from_utf8(output.stderr).unwrap().into())
-            } else {
-                Ok(())
-            })?;
-
-        diff(&output, &expected).chain_err(|| {
-            format!("Diff on test {}", source.display())
-        })?;
+        }
     }
     Ok(())
 }
