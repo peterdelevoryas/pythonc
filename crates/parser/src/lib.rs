@@ -328,7 +328,7 @@ named!(
     )
 );
 
-named!(node_list<Vec<Node>>, delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(node)), tag!("]")));
+named!(node_list<Vec<Node>>, delimited!(alt!(tag!("[") | tag!("(")), separated_list_complete!(tag!(","), ws!(node)), alt!(tag!("]") | tag!(")"))));
 
 named!(
     node_tuple<(Node, Node)>,
@@ -342,7 +342,7 @@ named!(
 named!(
     tuple_list<Vec<(Node, Node)>>,
     do_parse!(
-        tuples: delimited!(tag!("["), separated_list_complete!(tag!(","), ws!(node_tuple)), tag!("]")) >>
+        tuples: delimited!(alt!(tag!("[") | tag!("(")), separated_list_complete!(tag!(","), ws!(node_tuple)), alt!(tag!("]") | tag!(")"))) >>
         (tuples)
     )
 );
@@ -536,7 +536,10 @@ fn to_str(b: &[u8]) -> &str {
 pub fn parse_repr<'repr>(repr: &'repr [u8]) -> Result<Node<'repr>> {
     let parsed = match module(repr) {
         IResult::Done(remaining, parsed) => Node::Module(parsed.0, Box::new(parsed.1)),
-        IResult::Error(e) => return Err(e).chain_err(|| "Unable to parse module"),
+        IResult::Error(e) => return Err(e.clone()).chain_err(|| {
+            let source = to_str(repr);
+            format!("Unable to parse module from source:\n{}", source)
+        }),
         IResult::Incomplete(needed) => {
             return Err(
                 ErrorKind::Msg(format!("Incomplete input, needed: {:?}", needed)).into(),
