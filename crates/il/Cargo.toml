@@ -2,5 +2,13 @@
 name = "il"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+build = "build.rs"
 
-[dependencies]
+[dependencies.regex]
+version = "0.2.0"
+
+[dependencies.lalrpop-util]
+version = "0.13.1"
+
+[build-dependencies.lalrpop]
+version = "0.13.1"
