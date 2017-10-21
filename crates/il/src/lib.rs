@@ -76,5 +76,14 @@
 //!
 extern crate lalrpop_util;
 extern crate regex;
+extern crate slab_crate;
+extern crate python_ast as ast;
 
 pub mod syntax;
+pub mod func;
+pub mod term;
+pub mod bb;
+pub mod inst;
+pub mod val;
+pub mod ty;
+pub mod slab;

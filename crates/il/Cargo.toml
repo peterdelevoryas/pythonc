@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 build = "build.rs"
 
+[dependencies.python-ast]
+path = "../ast"
+
+[dependencies.slab]
+version = "0.4.0"
+
 [dependencies.regex]
 version = "0.2.0"
 
