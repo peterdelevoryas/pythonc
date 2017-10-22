@@ -4,8 +4,6 @@ use std::fmt;
 pub enum Ty {
     Int,
     Bool,
-    List,
-    Dict,
     PointerPyObj,
     PyObj,
     Unit,
@@ -16,8 +14,6 @@ impl fmt::Display for Ty {
         let ty = match *self {
             Ty::Int => "int",
             Ty::Bool => "bool",
-            Ty::List => "list",
-            Ty::Dict => "dict",
             Ty::PointerPyObj => "*big_pyobj",
             Ty::PyObj => "pyobj",
             Ty::Unit => "()",

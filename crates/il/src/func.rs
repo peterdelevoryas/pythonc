@@ -1,5 +1,5 @@
 use bb::{self, BasicBlock};
-use val::{self, Val, Const};
+use val::{self, Val};
 use inst::{self, Inst};
 use ty::Ty;
 use slab::Slab;

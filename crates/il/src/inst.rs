@@ -7,47 +7,25 @@ use slab::Slab;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Inst {
-    Binop(Binop, Arg, Arg),
-    Unop(Unop, Arg),
-    Call {
-        func: Arg,
-        args: Vec<Arg>,
-    },
-}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Binop {
-    Add,
-    And,
-    Or,
-    Eq,
-    NotEq,
-    Is,
-}
+    /// mov l, dst
+    /// add r, dst
+    Add(Val, Val),
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Unop {
-    Neg,
-    Not,
-    Copy,
-}
+    /// mov val, dst
+    /// neg dst
+    Neg(Val),
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Arg {
-    Loc(Val),
-    Const(Const),
-}
+    /// mov val, dst
+    Copy(Val),
 
-impl From<Val> for Arg {
-    fn from(v: Val) -> Arg {
-        Arg::Loc(v)
-    }
-}
+    /// mov imm, dst
+    CopyI32(i32),
 
-impl From<Const> for Arg {
-    fn from(c: Const) -> Arg {
-        Arg::Const(c)
-    }
+    /// $(push val)*
+    /// call val
+    /// add len(args) * 4
+    Call(Val, Vec<Val>),
 }
 
 impl Binop {
@@ -84,14 +62,6 @@ impl Unop {
     }
 }
 
-impl Arg {
-    pub fn ty(&self, vals: &ValSlab) -> Ty {
-        match *self {
-            Arg::Const(ref c) => c.ty(),
-            Arg::Loc(v) => vals[v].ty(),
-        }
-    }
-} 
 impl Inst {
     pub fn ret_ty(&self, vals: &ValSlab) -> Ty {
         use self::Inst::*;
@@ -166,15 +136,6 @@ impl fmt::Display for Unop {
             Not => write!(f, "not"),
             Neg => write!(f, "neg"),
             Copy => write!(f, "copy"),
-        }
-    }
-}
-
-impl fmt::Display for Arg {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Arg::Const(ref c) => write!(f, "{}", c),
-            Arg::Loc(v) => write!(f, "{}", v),
         }
     }
 }
