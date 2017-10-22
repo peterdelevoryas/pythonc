@@ -105,10 +105,7 @@ impl Builder {
     }
 
     fn print(&mut self, arg: inst::Arg) {
-        let _val = self.def(inst::Inst::Call {
-            func: Const::from(PRINT).into(),
-            args: vec![arg],
-        });
+        let _val = self.call_direct(PRINT, vec![arg]);
     }
 
     fn assign(&mut self, name: &str, arg: inst::Arg) {
@@ -127,8 +124,11 @@ impl Builder {
         }
     }
 
-    fn call(&mut self, func: Val, args: Vec<Val>) -> Val {
-        unimplemented!()
+    fn call_direct(&mut self, func: &'static ConstFunc, args: Vec<inst::Arg>) -> Val {
+        self.def(inst::Inst::Call {
+            func: Const::from(func).into(),
+            args,
+        })
     }
 
     fn def(&mut self, inst: inst::Inst) -> Val {
