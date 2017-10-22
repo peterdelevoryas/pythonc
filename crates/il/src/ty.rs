@@ -6,6 +6,7 @@ pub enum Ty {
     Bool,
     List,
     Dict,
+    PointerPyObj,
     Any,
     Unit,
 }
@@ -17,6 +18,7 @@ impl fmt::Display for Ty {
             Ty::Bool => "bool",
             Ty::List => "list",
             Ty::Dict => "dict",
+            Ty::PointerPyObj => "*big_pyobj",
             Ty::Any => "any",
             Ty::Unit => "()",
         };
