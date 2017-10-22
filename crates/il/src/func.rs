@@ -101,6 +101,8 @@ impl Builder {
                     .clone()
             }
             Subscript(ref base, ref index) => {
+                let base = self.flatten_expression(base);
+                let index = self.flatten_expression(index);
                 unimplemented!()
             }
             _ => unimplemented!()
@@ -108,8 +110,7 @@ impl Builder {
     }
 
     fn print(&mut self, arg: inst::Arg) {
-        let injected = self.inject(arg);
-        let _val = self.call_direct(PRINT_ANY, vec![inst::Arg::Loc(injected)]);
+        let _val = self.call_direct(PRINT_ANY, vec![arg]);
     }
 
     fn inject(&mut self, arg: inst::Arg) -> Val {
@@ -150,10 +151,52 @@ impl Builder {
     }
 
     fn call_direct(&mut self, func: &'static ConstFunc, args: Vec<inst::Arg>) -> Val {
+        assert_eq!(func.args.len(), args.len(), "call_direct args len does not match function signature");
+
+        let args = args.into_iter()
+            .zip(func.args.iter())
+            .map(|(arg, &ty)| {
+                self.cast(arg, ty)
+            })
+            .collect();
+
         self.def(inst::Inst::Call {
             func: Const::from(func).into(),
             args,
         })
+    }
+
+    fn cast(&mut self, arg: inst::Arg, ty: Ty) -> inst::Arg {
+        use inst::Arg::*;
+        use self::Ty::*;
+        let arg_ty = arg.ty(&self.vals);
+        match (arg_ty, ty) {
+            (a, b) if a == b => return arg,
+            (_, PyObj) => {
+                let v = self.inject(arg);
+                inst::Arg::Loc(v)
+            }
+            (PyObj, ty) => {
+                if let inst::Arg::Loc(v) = arg {
+                    let v = self.project(v, ty);
+                    inst::Arg::Loc(v)
+                } else {
+                    panic!("Const with type PyObj? {}", arg)
+                }
+            }
+            (a, b) => panic!("Cannot cast {} to {}", arg, ty),
+        }
+    }
+
+    fn project(&mut self, val: Val, ty: Ty) -> Val {
+        assert!(self.vals[val].ty() == Ty::PyObj);
+        let project_fn = match ty {
+            Ty::Int => PROJECT_INT,
+            Ty::Bool => PROJECT_BOOL,
+            Ty::PointerPyObj => PROJECT_BIG,
+            _ => panic!("Cannot project {} to {}", val, ty),
+        };
+        self.call_direct(project_fn, vec![inst::Arg::Loc(val)])
     }
 
     fn def(&mut self, inst: inst::Inst) -> Val {
