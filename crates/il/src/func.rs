@@ -81,10 +81,48 @@ impl Builder {
             Target(ref t) => self.flatten_rvalue_target(t),
             DecimalI32(i) => Const::Int(i).into(),
             Boolean(b) => Const::Bool(b).into(),
-            Input => Const::Func(INPUT).into(),
+            Input => {
+                let v = self.call_direct(INPUT, vec![]);
+                inst::Arg::Loc(v)
+            }
             UnaryNeg(ref e) => {
                 let e = self.flatten_expression(e);
                 self.unop(inst::Unop::Neg, e)
+            }
+            Add(ref l, ref r) => {
+                let l = self.flatten_expression(l);
+                let r = self.flatten_expression(r);
+                self.binop(inst::Binop::Add, l, r)
+            }
+            LogicalNot(ref e) => {
+                let e = self.flatten_expression(e);
+                self.unop(inst::Unop::Not, e)
+            }
+            LogicalAnd(ref l, ref r) => {
+                let l = self.flatten_expression(l);
+                let r = self.flatten_expression(r);
+                self.binop(inst::Binop::And, l, r)
+            }
+            LogicalOr(ref l, ref r) => {
+                let l = self.flatten_expression(l);
+                let r = self.flatten_expression(r);
+                self.binop(inst::Binop::Or, l, r)
+            }
+            LogicalEq(ref l, ref r) => {
+                let l = self.flatten_expression(l);
+                let r = self.flatten_expression(r);
+                self.binop(inst::Binop::Eq, l, r)
+            }
+            LogicalNotEq(ref l, ref r) => {
+                let l = self.flatten_expression(l);
+                let r = self.flatten_expression(r);
+                self.binop(inst::Binop::NotEq, l, r)
+            }
+            If(_, _, _) => {
+                panic!("Cannot handle IfExp in flatten_expression, must be handled in flatten_statement")
+            }
+            List(ref elems) => {
+                unimplemented!()
             }
             _ => unimplemented!()
         }
