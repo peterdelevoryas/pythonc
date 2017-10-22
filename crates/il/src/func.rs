@@ -103,10 +103,25 @@ impl Builder {
             Subscript(ref base, ref index) => {
                 let base = self.flatten_expression(base);
                 let index = self.flatten_expression(index);
-                unimplemented!()
+                self.get_subscript(base, index)
             }
             _ => unimplemented!()
         }
+    }
+
+    fn get_subscript(&mut self, base: inst::Arg, index: inst::Arg) -> inst::Arg {
+        if let inst::Arg::Const(Const::List(ref list)) = base {
+            if let inst::Arg::Const(Const::Int(index)) = index {
+                return list[index as usize].clone().into()
+            }
+        } else if let inst::Arg::Const(Const::Dict(ref dict)) = base {
+            if let Some(i) = dict.iter().position(|p| inst::Arg::Const(p.0.clone()) == index) {
+                return dict[i].1.clone().into()
+            }
+        }
+
+        let v = self.call_direct(GET_SUBSCRIPT, vec![base, index]);
+        inst::Arg::Loc(v)
     }
 
     fn print(&mut self, arg: inst::Arg) {
