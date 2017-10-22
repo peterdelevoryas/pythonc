@@ -74,7 +74,7 @@
 //!     }
 //!
 //!
-#![feature(conservative_impl_trait)]
+#![feature(conservative_impl_trait, slice_concat_ext)]
 extern crate lalrpop_util;
 extern crate regex;
 extern crate slab as slab_crate;

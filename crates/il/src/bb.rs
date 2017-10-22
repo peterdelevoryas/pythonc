@@ -1,6 +1,7 @@
 use val::Val;
 use inst::Inst;
 use term::Term;
+use std::fmt;
 
 impl_index_type!(BasicBlock);
 
@@ -30,5 +31,21 @@ impl Partial {
             defs: self.defs,
             term: Term::Return,
         }
+    }
+}
+
+impl Data {
+    pub fn defs(&self) -> &[(Val, Inst)] {
+        &self.defs
+    }
+
+    pub fn term(&self) -> &Term {
+        &self.term
+    }
+}
+
+impl fmt::Display for BasicBlock {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "bb{}", self.0)
     }
 }

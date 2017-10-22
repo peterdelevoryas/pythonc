@@ -5,11 +5,14 @@ use ty::Ty;
 use slab::Slab;
 use std::collections::HashMap;
 use ast;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Func {
+    name: String,
     bbs: Slab<BasicBlock, bb::Data>,
     vals: Slab<Val, val::Data>,
+    ret: Ty,
 }
 
 impl Func {
@@ -42,10 +45,13 @@ impl Builder {
         }
         let ret_bb = self.curr.ret();
         let _bb = self.bbs.insert(ret_bb);
+        let name = "__main__".into();
 
         Func {
+            name,
             bbs: self.bbs,
             vals: self.vals,
+            ret: Ty::Int,
         }
     }
 
@@ -99,7 +105,10 @@ impl Builder {
     }
 
     fn print(&mut self, arg: inst::Arg) {
-        unimplemented!()
+        let _val = self.def(inst::Inst::Call {
+            func: Const::from(PRINT).into(),
+            args: vec![arg],
+        });
     }
 
     fn assign(&mut self, name: &str, arg: inst::Arg) {
@@ -123,7 +132,8 @@ impl Builder {
     }
 
     fn def(&mut self, inst: inst::Inst) -> Val {
-        let data = val::Data::unnamed(inst.ret_ty());
+        let ret_ty = inst.ret_ty(&self.vals);
+        let data = val::Data::unnamed(ret_ty);
         let val = self.vals.insert(data);
         self.curr.push(val, inst);
         val
@@ -132,9 +142,9 @@ impl Builder {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstFunc {
-    name: &'static str,
-    args: &'static [Ty],
-    ret: Ty,
+    pub name: &'static str,
+    pub args: &'static [Ty],
+    pub ret: Ty,
 }
 
 const INPUT: &'static ConstFunc = &ConstFunc {
@@ -142,6 +152,32 @@ const INPUT: &'static ConstFunc = &ConstFunc {
     args: &[],
     ret: Ty::Int,
 };
+
+const PRINT: &'static ConstFunc = &ConstFunc {
+    name: "print_int_nl",
+    args: &[Ty::Int],
+    ret: Ty::Unit,
+};
+
+impl fmt::Display for Func {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "func {}() -> {} {{", self.name, self.ret)?;
+
+        for (val, data) in self.vals.iter() {
+            writeln!(f, "    val {}: {};", val, data.ty())?;
+        }
+
+        for (bb, data) in self.bbs.iter() {
+            writeln!(f, "{}:", bb)?;
+            for def in data.defs() {
+                writeln!(f, "    {} = {};", def.0, def.1)?;
+            }
+            writeln!(f, "    {}", data.term())?;
+        }
+
+        writeln!(f, "}}")
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -171,9 +207,10 @@ mod tests {
         let module = Module {
             statements: vec![
                 Assign(Name("x".into()), DecimalI32(64)),
+                Print(Target(Name("x".into()))),
             ]
         };
         let f = func::Func::build(&module);
-        println!("{:#?}", f);
+        println!("{}", f);
     }
 }
