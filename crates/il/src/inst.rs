@@ -29,6 +29,7 @@ pub enum Binop {
 pub enum Unop {
     Neg,
     Not,
+    Copy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -65,7 +66,7 @@ impl Binop {
                 (Dict, Dict) => Dict,
                 (Int, Int) => Int,
                 (Bool, Bool) => Bool,
-                _ => Any,
+                _ => PyObj,
             },
             Eq | NotEq | Is => Bool,
         }
@@ -73,11 +74,12 @@ impl Binop {
 }
 
 impl Unop {
-    pub fn ret_ty(&self, _arg: Ty) -> Ty {
+    pub fn ret_ty(&self, arg: Ty) -> Ty {
         use self::Unop::*;
         match *self {
             Neg => Ty::Int,
             Not => Ty::Bool,
+            Copy => arg,
         }
     }
 }
@@ -163,6 +165,7 @@ impl fmt::Display for Unop {
         match *self {
             Not => write!(f, "not"),
             Neg => write!(f, "neg"),
+            Copy => write!(f, "copy"),
         }
     }
 }

@@ -7,7 +7,7 @@ pub enum Ty {
     List,
     Dict,
     PointerPyObj,
-    Any,
+    PyObj,
     Unit,
 }
 
@@ -19,7 +19,7 @@ impl fmt::Display for Ty {
             Ty::List => "list",
             Ty::Dict => "dict",
             Ty::PointerPyObj => "*big_pyobj",
-            Ty::Any => "any",
+            Ty::PyObj => "pyobj",
             Ty::Unit => "()",
         };
         write!(f, "{}", ty)

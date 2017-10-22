@@ -100,12 +100,37 @@ impl Builder {
                     .unwrap()
                     .clone()
             }
+            Subscript(ref base, ref index) => {
+                unimplemented!()
+            }
             _ => unimplemented!()
         }
     }
 
     fn print(&mut self, arg: inst::Arg) {
-        let _val = self.call_direct(PRINT, vec![arg]);
+        let injected = self.inject(arg);
+        let _val = self.call_direct(PRINT_ANY, vec![inst::Arg::Loc(injected)]);
+    }
+
+    fn inject(&mut self, arg: inst::Arg) -> Val {
+        use inst::Arg::*;
+        let val = match arg {
+            c @ Const(_) => self.copy(c),
+            Loc(val) => val,
+        };
+        let inject_fn = match self.vals[val].ty() {
+            Ty::Int => INJECT_INT,
+            Ty::Bool => INJECT_BOOL,
+            Ty::PointerPyObj => INJECT_BIG,
+            // early return, inject is unnecessary!
+            Ty::PyObj => return val,
+            ty => panic!("Cannot inject val of type \"{}\"", ty),
+        };
+        self.call_direct(inject_fn, vec![inst::Arg::Loc(val)])
+    }
+
+    fn copy(&mut self, arg: inst::Arg) -> Val {
+        self.def(inst::Inst::Unop(inst::Unop::Copy, arg))
     }
 
     fn assign(&mut self, name: &str, arg: inst::Arg) {
@@ -147,17 +172,58 @@ pub struct ConstFunc {
     pub ret: Ty,
 }
 
-const INPUT: &'static ConstFunc = &ConstFunc {
-    name: "input",
-    args: &[],
-    ret: Ty::Int,
-};
+macro_rules! runtime_functions {
+    (
+        $(
+            const $name:ident = func $func_name:ident($($tt:tt),*) -> $ret:tt;
+        )*
+    ) => {
+        $(
+            const $name: &'static ConstFunc = &ConstFunc {
+                name: stringify!($func_name),
+                args: &[
+                    $(
+                        ty_ident_to_expr!($tt)
+                    ),*
+                ],
+                ret: ty_ident_to_expr!($ret),
+            };
+        )*
+    }
+}
 
-const PRINT: &'static ConstFunc = &ConstFunc {
-    name: "print_int_nl",
-    args: &[Ty::Int],
-    ret: Ty::Unit,
-};
+macro_rules! ty_ident_to_expr {
+    (int) => (Ty::Int);
+    (bool) => (Ty::Bool);
+    (pyobj) => (Ty::PyObj);
+    (big_pyobj) => (Ty::PointerPyObj);
+    (()) => (Ty::Unit)
+}
+
+runtime_functions! {
+    const INPUT         = func input() -> int;
+    const PRINT_INT_NL  = func print_int_nl(int) -> ();
+    const TAG           = func tag(pyobj) -> int;
+    const IS_INT        = func is_int(pyobj) -> int;
+    const IS_BOOL       = func is_bool(pyobj) -> int;
+    const IS_BIG        = func is_big(pyobj) -> int;
+    const INJECT_INT    = func inject_int(int) -> pyobj;
+    const INJECT_BOOL   = func inject_bool(int) -> pyobj;
+    const INJECT_BIG    = func inject_big(big_pyobj) -> pyobj;
+    const PROJECT_INT   = func project_int(pyobj) -> int;
+    const PROJECT_BOOL  = func project_bool(pyobj) -> int;
+    const PROJECT_BIG   = func project_big(pyobj) -> big_pyobj;
+    const IS_TRUE       = func is_true(pyobj) -> int;
+    const PRINT_ANY     = func print_any(pyobj) -> ();
+    const INPUT_INT     = func input_int() -> pyobj;
+    const CREATE_LIST   = func create_list(pyobj) -> big_pyobj;
+    const CREATE_DICT   = func create_dict() -> big_pyobj;
+    const SET_SUBSCRIPT = func set_subscript(pyobj, pyobj, pyobj) -> pyobj;
+    const GET_SUBSCRIPT = func get_subscript(pyobj, pyobj) -> pyobj;
+    const ADD           = func add(big_pyobj, big_pyobj) -> big_pyobj;
+    const EQUAL         = func equal(big_pyobj, big_pyobj) -> int;
+    const NOT_EQUAL     = func not_equal(big_pyobj, big_pyobj) -> int;
+}
 
 impl fmt::Display for Func {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
