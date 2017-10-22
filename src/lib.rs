@@ -3,6 +3,7 @@ extern crate python_ast as ast;
 extern crate python_ir as ir;
 extern crate python_trans as trans;
 extern crate python_vm as vm;
+extern crate il;
 extern crate parser;
 extern crate interference;
 extern crate liveness;
@@ -32,6 +33,7 @@ pub enum CompilerStage {
     PyStr,
     PyAst,
     Ast,
+    Il,
     Ir,
     VAsm,
     Liveness,
@@ -83,6 +85,11 @@ impl Compiler {
         if stop_stage == CompilerStage::Ast {
             let ast = format!("{:#?}", ast);
             return write_out(ast, out_path);
+        }
+
+        if stop_stage == CompilerStage::Il {
+            let il = il::func::Func::build(&ast.module);
+            return write_out(il, out_path);
         }
 
         let mut tmp_allocator = ir::TmpAllocator::new();
@@ -325,6 +332,7 @@ impl CompilerStage {
             CompilerStage::PyAst => "pyast",
             CompilerStage::Ast => "ast",
             CompilerStage::Ir => "ir",
+            CompilerStage::Il => "il",
             CompilerStage::VAsm => "vasm",
             CompilerStage::Liveness => "liveness",
             CompilerStage::Asm => "s",
