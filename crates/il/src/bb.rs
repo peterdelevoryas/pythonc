@@ -4,6 +4,7 @@ use term::Term;
 
 impl_index_type!(BasicBlock);
 
+#[derive(Debug)]
 pub struct Data {
     defs: Vec<(Val, Inst)>,
     term: Term,
@@ -18,5 +19,16 @@ pub struct Partial {
 impl Partial {
     pub fn new() -> Partial {
         Partial { defs: vec![] }
+    }
+
+    pub fn push(&mut self, val: Val, inst: Inst) {
+        self.defs.push((val, inst));
+    }
+
+    pub fn ret(self) -> Data {
+        Data {
+            defs: self.defs,
+            term: Term::Return,
+        }
     }
 }

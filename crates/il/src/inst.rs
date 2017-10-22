@@ -1,19 +1,20 @@
 use val::Val;
+use val::Const;
+use ty::Ty;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Inst {
-    Binop(Binop, Val, Val),
-    Unop(Unop, Val),
+    Binop(Binop, Arg, Arg),
+    Unop(Unop, Arg),
     Call {
-        func: Val,
-        args: Vec<Val>,
+        func: Arg,
+        args: Vec<Arg>,
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Binop {
     Add,
-    Not,
     And,
     Or,
     Eq,
@@ -21,7 +22,32 @@ pub enum Binop {
     Is,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Unop {
     Neg,
+    Not,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Arg {
+    Loc(Val),
+    Const(Const),
+}
+
+impl From<Val> for Arg {
+    fn from(v: Val) -> Arg {
+        Arg::Loc(v)
+    }
+}
+
+impl From<Const> for Arg {
+    fn from(c: Const) -> Arg {
+        Arg::Const(c)
+    }
+}
+
+impl Inst {
+    pub fn ret_ty(&self) -> Ty {
+        unimplemented!()
+    }
 }
