@@ -194,11 +194,43 @@ impl Explicate for Expression {
                 };
                 Let(decls, 
                     box If(
-                        box Is(box GetTag(box Tmp(l_tmp)), box DecimalI32(BIG_TAG)),
+                        box InjectFrom(Bool, box Is(box GetTag(box Tmp(l_tmp)), box DecimalI32(BIG_TAG))),
                         box InjectFrom(Big, box Call("add".into(), vec![ProjectTo(Big, box Tmp(l_tmp)),
                                                                         ProjectTo(Big, box Tmp(r_tmp))])),
                         box InjectFrom(Int, box Add(box ProjectTo(Int, box Tmp(l_tmp)),
                                                     box ProjectTo(Int, box Tmp(r_tmp))))
+                    )
+                )
+            }
+            LogicalAnd(box l, box r) => {
+                let l = l.explicate(tmp_gen);
+                let l_tmp = tmp_gen.next().unwrap();
+                let decls = Decls {
+                    decls: vec![
+                        (l_tmp, l),
+                    ],
+                };
+                Let(decls,
+                    box If(
+                        box Tmp(l_tmp),
+                        box r,
+                        box Tmp(l_tmp),
+                    )
+                )
+            }
+            LogicalOr(box l, box r) => {
+                let l = l.explicate(tmp_gen);
+                let l_tmp = tmp_gen.next().unwrap();
+                let decls = Decls {
+                    decls: vec![
+                        (l_tmp, l),
+                    ],
+                };
+                Let(decls,
+                    box If(
+                        box Tmp(l_tmp),
+                        box Tmp(l_tmp),
+                        box r,
                     )
                 )
             }
