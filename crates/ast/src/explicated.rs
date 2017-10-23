@@ -29,8 +29,9 @@ pub struct Block {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
+    // If not zero, then, else.
     If {
-        cond: Val,
+        cond: Cond,
         then: Block,
         els: Block,
     },
@@ -52,9 +53,10 @@ pub use self::Expr::*;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Binop {
     Add,
-    // Bitwise! not logical
+    And,
     Or,
-    Cmp,
+    Sub,
+    Shr,
 }
 pub use self::Binop::*;
 
@@ -73,6 +75,15 @@ pub enum Val {
 }
 pub use self::Val::*;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Cond {
+    Eq(Val, Val),
+    Zero(Val),
+    Nonzero(Val),
+    IsTrue(Val),
+}
+pub use self::Cond::*;
+
 macro_rules! call {
     (
         $func_name:ident($($arg:expr),*)
@@ -83,21 +94,31 @@ macro_rules! call {
     })
 }
 
-pub struct BlockBuilder<G>
-where
-    G: Iterator<Item=Val>,
-{
-    tmp_generator: G,
+pub struct TmpAllocator {
+    next: usize,
+}
+
+impl TmpAllocator {
+    pub fn new(next: usize) -> TmpAllocator {
+        TmpAllocator { next }
+    }
+
+    pub fn next(&mut self) -> usize {
+        let next = self.next;
+        self.next += 1;
+        next
+    }
+}
+
+pub struct BlockBuilder<'tmp> {
+    tmp_allocator: &'tmp mut TmpAllocator,
     block: Vec<Stmt>,
 }
 
-impl<G> BlockBuilder<G>
-where
-    G: Iterator<Item=Val>,
-{
-    fn new() -> BlockBuilder<impl Iterator<Item=Val>> {
+impl<'tmp> BlockBuilder<'tmp> {
+    fn new(tmp_allocator: &'tmp mut TmpAllocator) -> BlockBuilder<'tmp> {
         BlockBuilder {
-            tmp_generator: (0..).map(|i| Val::Tmp(i)),
+            tmp_allocator,
             block: Vec::new(),
         }
     }
@@ -108,9 +129,9 @@ where
         }
     }
 
-    fn nested_builder<'b>(&'b mut self) -> BlockBuilder<impl 'b + Iterator<Item=Val>> {
+    fn nested_builder(&mut self) -> BlockBuilder {
         BlockBuilder {
-            tmp_generator: &mut self.tmp_generator,
+            tmp_allocator: self.tmp_allocator,
             block: Vec::new(),
         }
     }
@@ -164,25 +185,7 @@ where
                 self.tmp(Unop(Neg, tmp))
             }
             If(box cond, box then, box els) => {
-                let cond = self.expression(cond);
-                let (then, then_block) = {
-                    let mut nested = self.nested_builder();
-                    let val = nested.expression(then);
-                    let block = nested.complete();
-                    (val, block)
-                };
-                let (els, els_block) = {
-                    let mut nested = self.nested_builder();
-                    let val = nested.expression(els);
-                    let block = nested.complete();
-                    (val, block)
-                };
-                self.push_stmt(Stmt::If {
-                    cond,
-                    then: then_block,
-                    els: els_block,
-                });
-                self.tmp(Phi(then, els))
+                self.if_expr(cond, then, els)
             }
             List(elems) => {
                 let int = self.tmp(Int(elems.len() as i32));
@@ -207,8 +210,66 @@ where
                 }
                 dict
             }
+            Add(box l, box r) => {
+                let l = self.expression(l);
+                let r = self.expression(r);
+                let l_tag = self.tmp(call!(tag(l.clone())));
+                let big_tag = self.tmp(Int(BIG_TAG));
+                let if_big = Eq(l_tag, big_tag);
+
+                let (small_res, small) = {
+                    let mut b = self.nested_builder();
+                    let shift = b.tmp(Int(2));
+                    let l = b.tmp(Binop(Shr, shift.clone(), l.clone()));
+                    let r = b.tmp(Binop(Shr, shift.clone(), r.clone()));
+                    let tmp = b.tmp(Binop(Binop::Add, l, r));
+                    let res = b.tmp(call!(inject_int(tmp)));
+                    let block = b.complete();
+                    (res, block)
+                };
+
+                let (big_res, big) = {
+                    let mut b = self.nested_builder();
+                    let l = b.tmp(call!(project_big(l)));
+                    let r = b.tmp(call!(project_big(r)));
+                    let big = b.tmp(call!(add(l, r)));
+                    let res = b.tmp(call!(inject_big(big)));
+                    let block = b.complete();
+                    (res, block)
+                };
+
+                self.if_stmt(if_big, big, small);
+                self.tmp(Phi(small_res, big_res))
+            }
             _ => unimplemented!()
         }
+    }
+
+    fn block_expr(&mut self, e: Expression) -> (Val, Block) {
+        let mut nested = self.nested_builder();
+        let val = nested.expression(e);
+        let block = nested.complete();
+        (val, block)
+    }
+
+    fn if_stmt(&mut self, cond: Cond, then: Block, els: Block) {
+        self.push_stmt(If {
+            cond,
+            then,
+            els,
+        });
+    }
+
+    fn if_expr(&mut self, cond: Expression, then: Expression, els: Expression) -> Val {
+        let cond = self.expression(cond);
+        let (then_val, then) = self.block_expr(then);
+        let (els_val, els) = self.block_expr(els);
+        self.push_stmt(If {
+            cond: IsTrue(cond),
+            then,
+            els,
+        });
+        self.tmp(Phi(then_val, els_val))
     }
 
     fn tmp(&mut self, e: Expr) -> Val {
@@ -224,7 +285,7 @@ where
     }
 
     fn new_tmp_val(&mut self) -> Val {
-        self.tmp_generator.next().unwrap()
+        Tmp(self.tmp_allocator.next())
     }
 
     fn push_stmt(&mut self, st: Stmt) {
