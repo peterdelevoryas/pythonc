@@ -238,3 +238,46 @@ impl Explicate for Expression {
         }
     }
 }
+
+pub struct Flattener<G>
+where
+    G: Iterator<Item=Tmp>,
+{
+    tmp_gen: &mut G,
+    flat: Vec<Statement>,
+}
+
+impl<G> Flattener<G>
+where
+    G: Iterator<Item=Tmp>,
+{
+    pub fn new(tmp_gen: &mut G) -> Self {
+        Flattener {
+            tmp_gen,
+            flat: vec![]
+        }
+    }
+
+    pub fn block(&mut self, block: Block) {
+        for st in block.statements {
+            self.statement(st);
+        }
+    }
+
+    pub fn statement(&mut self, st: Statement) {
+        use self::Statement::*;
+        unimplemented!()
+    }
+
+    // Should only return Expression::Target(Target::Name)
+    // or Expression::Tmp
+    pub fn expression(&mut self, e: Expression) -> Expression {
+        unimplemented!()
+    }
+
+    pub fn complete(&mut self) -> Block {
+        Block {
+            statements: ::std::mem::replace(&mut self.flat, vec![]),
+        }
+    }
+}
