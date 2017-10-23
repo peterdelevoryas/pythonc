@@ -197,6 +197,16 @@ where
                 }
                 list
             }
+            Dict(pairs) => {
+                let big = self.tmp(call!(create_dict()));
+                let dict = self.tmp(call!(inject_big(big)));
+                for (k, v) in pairs {
+                    let k = self.expression(k);
+                    let v = self.expression(v);
+                    let _ = self.tmp(call!(set_subscript(dict.clone(), k, v)));
+                }
+                dict
+            }
             _ => unimplemented!()
         }
     }
