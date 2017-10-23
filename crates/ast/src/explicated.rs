@@ -241,6 +241,13 @@ impl<'tmp> BlockBuilder<'tmp> {
                 self.if_stmt(if_big, big, small);
                 self.tmp(Phi(small_res, big_res))
             }
+            LogicalOr(box l, box r) => {
+                let l = self.expression(l);
+                let l_is_true = self.tmp(call!(is_true(l)));
+                let then = {
+                };
+                self.tmp(Phi(l, r))
+            }
             _ => unimplemented!()
         }
     }
