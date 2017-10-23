@@ -75,7 +75,7 @@ pub use self::Val::*;
 
 macro_rules! call {
     (
-        $func_name:ident($($arg:ident),*)
+        $func_name:ident($($arg:expr),*)
     ) => ({
         let func_name = stringify!($func_name).into();
         let args = vec![$($arg),*];
@@ -183,6 +183,19 @@ where
                     els: els_block,
                 });
                 self.tmp(Phi(then, els))
+            }
+            List(elems) => {
+                let int = self.tmp(Int(elems.len() as i32));
+                let len = self.tmp(call!(inject_int(int)));
+                let big = self.tmp(call!(create_list(len)));
+                let list = self.tmp(call!(inject_big(big)));
+                for (i, elem) in elems.into_iter().enumerate() {
+                    let int = self.tmp(Int(i as i32));
+                    let index = self.tmp(call!(inject_int(int)));
+                    let tmp = self.expression(elem);
+                    let _ = self.tmp(call!(set_subscript(list.clone(), index, tmp)));
+                }
+                list
             }
             _ => unimplemented!()
         }
