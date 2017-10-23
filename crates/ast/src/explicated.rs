@@ -45,6 +45,7 @@ pub enum Expr {
     Unop(Unop, Val),
     Int(i32),
     Bool(bool),
+    Phi(Val, Val),
 }
 pub use self::Expr::*;
 
@@ -101,22 +102,17 @@ where
         }
     }
 
-    fn block(&mut self, statements: Vec<Statement>) -> Block {
-        for st in statements {
-            self.statement(st);
-        }
-
+    fn complete(&mut self) -> Block {
         Block {
             stmts: ::std::mem::replace(&mut self.block, Vec::new()),
         }
     }
 
-    fn nested_block(&mut self, statements: Vec<Statement>) -> Block {
-        let mut nested_builder = BlockBuilder {
+    fn nested_builder<'b>(&'b mut self) -> BlockBuilder<impl 'b + Iterator<Item=Val>> {
+        BlockBuilder {
             tmp_generator: &mut self.tmp_generator,
             block: Vec::new(),
-        };
-        nested_builder.block(statements)
+        }
     }
 
     fn statement(&mut self, st: Statement) {
@@ -169,8 +165,24 @@ where
             }
             If(box cond, box then, box els) => {
                 let cond = self.expression(cond);
-                //let then = self.nested_block
-                unimplemented!()
+                let (then, then_block) = {
+                    let mut nested = self.nested_builder();
+                    let val = nested.expression(then);
+                    let block = nested.complete();
+                    (val, block)
+                };
+                let (els, els_block) = {
+                    let mut nested = self.nested_builder();
+                    let val = nested.expression(els);
+                    let block = nested.complete();
+                    (val, block)
+                };
+                self.push_stmt(Stmt::If {
+                    cond,
+                    then: then_block,
+                    els: els_block,
+                });
+                self.tmp(Phi(then, els))
             }
             _ => unimplemented!()
         }
