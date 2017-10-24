@@ -98,6 +98,10 @@ where
                 self.boolean(b)
             }
 
+            Input => {
+                self.input()
+            }
+
             _ => unimplemented!()
         }
     }
@@ -114,9 +118,18 @@ where
         self.tmp(Expr::Const(c))
     }
 
+    pub fn input(&mut self) -> Name {
+        self.call_static("input", vec![])
+    }
+
     pub fn get_subscript(&mut self, base: Name, elem: Name) -> Name {
-        let func = self.name_map().insert_name("get_subscript");
-        self.call(func, vec![base, elem])
+        self.call_static("get_subscript", vec![base, elem])
+    }
+
+    // Call a function with a known name
+    pub fn call_static(&mut self, func: &str, args: Vec<Name>) -> Name {
+        let func = self.name_map().insert_name(func);
+        self.call(func, args)
     }
 
     pub fn call(&mut self, func: Name, args: Vec<Name>) -> Name {
