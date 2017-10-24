@@ -23,21 +23,21 @@ pub enum Stmt {
 
 pub enum Expr {
     Const(Const),
-    Name(Name),
+    Copy(Name),
 
     /// For now, all functions are primitive, so
     /// we can statically assert only intrinsics
     /// are being used!
-    Call(Box<Expr>, Vec<Expr>),
+    Call(Name, Vec<Name>),
 
     /// PRIMITIVE ADD!!!! NOT POLYMORPHIC
-    Add(Box<Expr>, Box<Expr>),
+    Add(Name, Name),
 
     /// PRIMITIVE BITWISE CMP!!! NOT POLYMORPHIC
-    Is(Box<Expr>, Box<Expr>),
+    Is(Name, Name),
 
     /// PRIMITIVE NEGATE!!! Does not project arg
-    Neg(Box<Expr>),
+    Neg(Name),
 }
 
 pub enum Const {
@@ -61,7 +61,7 @@ where
 {
     pub fn new(name_map: M) -> Self {
         Self {
-            name_map,
+            name_map: name_map,
             block: Block {
                 stmts: vec![]
             },
@@ -72,5 +72,43 @@ where
         self.name_map.borrow_mut()
     }
 
+    pub fn expr(&mut self, e: Expression) -> Name {
+        use self::Statement::*;
+        use self::Expression::*;
+        use self::Target::*;
+        match e {
+            Target(Name(name)) => {
+                self.name_map().insert_name(name)
+            }
 
+            Target(Tmp(_)) => panic!("dead code"),
+
+            // basically just assume that base and elem are pyobj's
+            Target(Subscript(box base, box elem)) => {
+                let base = self.expr(base);
+                let elem = self.expr(elem);
+                unimplemented!()
+            }
+
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn call(&mut self, func: Name, args: Vec<Name>) -> Name {
+        self.tmp(Expr::Call(func, args))
+    }
+
+    pub fn tmp(&mut self, e: Expr) -> Name {
+        let tmp = self.name_map().create_tmp();
+        self.def(tmp, e);
+        tmp
+    }
+
+    pub fn def(&mut self, name: Name, e: Expr) {
+        self.push(Stmt::Def(name, e));
+    }
+
+    pub fn push(&mut self, s: Stmt) {
+        self.block.stmts.push(s);
+    }
 }
