@@ -1,5 +1,8 @@
 use name::Name;
 use name::Map as NameMap;
+use ::Expression;
+use ::Statement;
+use ::Target;
 
 pub struct Block {
     pub stmts: Vec<Stmt>,
@@ -65,5 +68,16 @@ where
         }
     }
 
+    pub fn explicate<N>(&mut self, node: N)
+    where
+        N: Explicate
+    {
+        node.explicate(self);
+    }
+}
 
+pub trait Explicate {
+    fn explicate<M>(&self, b: &mut Builder<M>)
+    where
+        M: BorrowMut<NameMap>;
 }
