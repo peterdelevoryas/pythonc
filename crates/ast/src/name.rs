@@ -34,9 +34,9 @@ impl Map {
         name
     }
 
-    pub fn insert_name(&mut self, name: String) -> Name {
+    pub fn insert_name(&mut self, name: &str) -> Name {
         // if name already in map, just return Name
-        if let Some(&name) = self.src_names.get(&name) {
+        if let Some(&name) = self.src_names.get(name) {
             assert!(self.names.contains_key(&name));
             return name
         }
@@ -45,9 +45,9 @@ impl Map {
         let handle = self.gen_name();
         // insert src_name
         // note that we're inducing a copy here! blerg!
-        self.src_names.insert(name.clone(), handle);
+        self.src_names.insert(name.into(), handle);
         // insert name data
-        let data = Data::User { name };
+        let data = Data::User { name: name.into() };
         self.names.insert(handle, data);
 
         handle

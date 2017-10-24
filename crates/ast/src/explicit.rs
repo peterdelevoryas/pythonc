@@ -77,7 +77,7 @@ where
         use self::Expression::*;
         use self::Target::*;
         match e {
-            Target(Name(name)) => {
+            Target(Name(ref name)) => {
                 self.name_map().insert_name(name)
             }
 
