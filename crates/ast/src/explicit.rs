@@ -68,16 +68,9 @@ where
         }
     }
 
-    pub fn explicate<N>(&mut self, node: N)
-    where
-        N: Explicate
-    {
-        node.explicate(self);
+    pub fn name_map(&mut self) -> &mut NameMap {
+        self.name_map.borrow_mut()
     }
-}
 
-pub trait Explicate {
-    fn explicate<M>(&self, b: &mut Builder<M>)
-    where
-        M: BorrowMut<NameMap>;
+
 }
