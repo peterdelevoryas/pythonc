@@ -113,10 +113,7 @@ where
 
             UnaryNeg(box e) => {
                 let e = self.expr(e);
-                let if_int = self.is_int(e);
-
-
-                unimplemented!()
+                self.neg(e)
             }
 
             LogicalOr(box first, box second) => {
@@ -174,6 +171,10 @@ where
     pub fn mask(&mut self, val: Name, mask: i32) -> Name {
         let mask = self.int(mask);
         self.and(val, mask)
+    }
+
+    pub fn neg(&mut self, val: Name) -> Name {
+        self.tmp(Expr::Neg(val))
     }
 
     pub fn logical_not(&mut self, e: Expression) -> Name {
