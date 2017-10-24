@@ -47,11 +47,25 @@ pub enum Expr {
 
     /// PRIMITIVE NOT, FLIPS ALL BITS
     Not(Name),
+
+    Project {
+        name: Name, // pyobj
+        to: Ty,     // output value type
+    },
+
+    Inject {
+        name: Name, // non-pyobj
+        from: Ty,   // type of "name"
+    },
 }
 
 pub enum Const {
     Int(i32),
     Bool(bool),
+}
+
+pub enum Ty {
+    
 }
 
 use std::borrow::BorrowMut;
@@ -113,10 +127,11 @@ where
 
             UnaryNeg(box e) => {
                 let e = self.expr(e);
-                let if_int = self.is_int(e);
+                let int = self.project_small_to_int(e);
+                let neg = self.neg(int);
+                let pyobj = self.inject_int(neg);
 
-
-                unimplemented!()
+                pyobj
             }
 
             LogicalOr(box first, box second) => {
@@ -133,6 +148,44 @@ where
 
             _ => unimplemented!()
         }
+    }
+
+    pub fn project_small_to_int(&mut self, pyobj: Name) -> Name {
+        let is_big = self.is_big(pyobj);
+        self.if_expr(
+            is_big,
+            |then| then.abort("invalid operand to neg: big_pyobj"),
+            // If not big, then call project_int or project_bool
+            |els| {
+                let is_int = els.is_int(pyobj);
+                els.if_expr(
+                    is_int,
+                    |then| then.project_int(pyobj),
+                    |els| els.project_bool(pyobj),
+                )
+            },
+        )
+    }
+
+    pub fn inject_int(&mut self, int: Name) -> Name {
+        self.call_static("inject_int", vec![int])
+    }
+
+    pub fn project_big(&mut self, pyobj: Name) -> Name {
+        self.call_static("project_big", vec![pyobj])
+    }
+
+    pub fn project_bool(&mut self, pyobj: Name) -> Name {
+        self.call_static("project_bool", vec![pyobj])
+    }
+
+    pub fn project_int(&mut self, pyobj: Name) -> Name {
+        self.call_static("project_int", vec![pyobj])
+    }
+
+    pub fn abort(&mut self, msg: &'static str) -> Name {
+        // Can't really do anything with a static str yet, so just throwing away.
+        self.call_static("abort", vec![])
     }
 
     // Takes current stmts and returns them,
@@ -174,6 +227,10 @@ where
     pub fn mask(&mut self, val: Name, mask: i32) -> Name {
         let mask = self.int(mask);
         self.and(val, mask)
+    }
+
+    pub fn neg(&mut self, val: Name) -> Name {
+        self.tmp(Expr::Neg(val))
     }
 
     pub fn logical_not(&mut self, e: Expression) -> Name {
@@ -239,6 +296,16 @@ where
         let tag = self.tag(val);
         let int_tag = self.int_tag();
         self.is(tag, int_tag)
+    }
+
+    pub fn is_big(&mut self, pyobj: Name) -> Name {
+        let tag = self.tag(pyobj);
+        let big_tag = self.big_tag();
+        self.is(tag, big_tag)
+    }
+
+    pub fn big_tag(&mut self) -> Name {
+        self.int(3)
     }
 
     pub fn int_tag(&mut self) -> Name {
