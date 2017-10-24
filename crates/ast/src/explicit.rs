@@ -90,8 +90,20 @@ where
                 self.get_subscript(base, elem)
             }
 
+            DecimalI32(int) => {
+                self.int(int)
+            }
+
             _ => unimplemented!()
         }
+    }
+
+    pub fn int(&mut self, int: i32) -> Name {
+        self.constant(Const::Int(int))
+    }
+
+    pub fn constant(&mut self, c: Const) -> Name {
+        self.tmp(Expr::Const(c))
     }
 
     pub fn get_subscript(&mut self, base: Name, elem: Name) -> Name {
