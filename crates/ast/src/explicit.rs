@@ -107,6 +107,9 @@ where
 
             UnaryNeg(box e) => {
                 let e = self.expr(e);
+                let if_int = self.is_int(e);
+
+
                 unimplemented!()
             }
 
@@ -124,7 +127,7 @@ where
         self.block
     }
 
-    pub fn block<F>(&mut self, mut build: F) -> Block
+    pub fn block<F>(&mut self, build: F) -> Block
     where
         F: FnOnce(&mut Builder<&mut NameMap>)
     {
@@ -160,6 +163,35 @@ where
         out
     }
 
+    pub fn if_stmt<F1, F2>(&mut self, cond: Name, then: F1, els: F2)
+    where
+        F1: FnOnce(&mut Builder<&mut NameMap>),
+        F2: FnOnce(&mut Builder<&mut NameMap>),
+    {
+        let then = self.block(then);
+        let els = self.block(els);
+        self.push(Stmt::If {
+            cond: cond,
+            then: then,
+            els: els,
+        });
+    }
+
+    pub fn is(&mut self, left: Name, right: Name) -> Name {
+        self.tmp(Expr::Is(left, right))
+    }
+
+    pub fn is_int(&mut self, val: Name) -> Name {
+        let tag = self.tag(val);
+        let int_tag = self.int_tag();
+        self.is(tag, int_tag)
+    }
+
+    pub fn int_tag(&mut self) -> Name {
+        // INT_TAG is 0
+        self.int(0)
+    }
+
     pub fn copy(&mut self, dst: Name, src: Name) {
         self.def(dst, Expr::Copy(src));
     }
@@ -178,6 +210,10 @@ where
 
     pub fn input(&mut self) -> Name {
         self.call_static("input", vec![])
+    }
+
+    pub fn tag(&mut self, val: Name) -> Name {
+        self.call_static("tag", vec![val])
     }
 
     pub fn is_true(&mut self, val: Name) -> Name {
