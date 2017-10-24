@@ -41,6 +41,9 @@ extern crate lalrpop_util;
 //pub mod parse;
 //pub use parse::parse_program;
 
+pub mod explicit;
+pub mod name;
+
 pub type ParseError = lalrpop_util::ParseError<usize, token::Token, token::Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -117,6 +120,7 @@ pub enum Type {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tmp(usize);
 
+/*
 pub trait Explicate {
     fn explicate<G>(self, tmp_gen: &mut G) -> Self
     where
@@ -419,3 +423,4 @@ where
         }
     }
 }
+*/
