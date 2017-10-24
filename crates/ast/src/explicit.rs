@@ -118,18 +118,22 @@ where
         }
     }
 
-    // Takes current stmts and returns them.
-    // Sets current stmts to empty.
-    // Leaves NameMap untouched.
-    pub fn finish_block(&mut self) -> Block {
-        let empty = Block {
-            stmts: vec![]
-        };
-        ::std::mem::replace(&mut self.block, empty)
+    // Takes current stmts and returns them,
+    // allowing NameMap to drop
+    pub fn finish(self) -> Block {
+        self.block
     }
 
-    // Creates a new builder for use in creating a new block
-    pub fn block(&mut self) -> Builder<&mut NameMap> {
+    pub fn block<F>(&mut self, mut build: F) -> Block
+    where
+        F: FnOnce(&mut Builder<&mut NameMap>)
+    {
+        let mut block = self.builder();
+        build(&mut block);
+        block.finish()
+    }
+
+    pub fn builder(&mut self) -> Builder<&mut NameMap> {
         Builder::new(self.name_map())
     }
 
@@ -138,19 +142,15 @@ where
         let cond = self.is_true(first);
         // output name for or (gets assigned two once in each branch)
         let out = self.name_map().create_tmp();
-        let then = {
-            let mut b = self.block();
+        let then = self.block(|b| {
             b.copy(out, first);
-            b.finish_block()
-        };
-        let els = {
-            let mut b = self.block();
+        });
+        let els = self.block(move |b| {
             // only compute second within branch block
             let second = b.expr(second);
             // note order is dst, src
             b.copy(out, second);
-            b.finish_block()
-        };
+        });
         let stmt = Stmt::If {
             cond: cond,
             then: then,
