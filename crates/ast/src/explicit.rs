@@ -117,6 +117,10 @@ where
                 self.or(first, second)
             }
 
+            LogicalAnd(box first, box second) => {
+                self.and(first, second)
+            }
+
             _ => unimplemented!()
         }
     }
@@ -147,6 +151,12 @@ where
 
     pub fn builder(&mut self) -> Builder<&mut NameMap> {
         Builder::new(self.name_map())
+    }
+
+    pub fn and(&mut self, first: Expression, second: Expression) -> Name {
+        let first = self.expr(first);
+        let cond = self.is_true(first);
+        self.if_expr(cond, move |b| b.expr(second), |b| first)
     }
 
     pub fn or(&mut self, first: Expression, second: Expression) -> Name {
