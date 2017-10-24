@@ -41,6 +41,12 @@ pub enum Expr {
 
     /// PRIMITIVE NEGATE!!! Does not project arg
     Neg(Name),
+
+    /// PRIMITIVE AND INSTRUCTION
+    And(Name, Name),
+
+    /// PRIMITIVE NOT, FLIPS ALL BITS
+    Not(Name),
 }
 
 pub enum Const {
@@ -114,11 +120,15 @@ where
             }
 
             LogicalOr(box first, box second) => {
-                self.or(first, second)
+                self.logical_or(first, second)
             }
 
             LogicalAnd(box first, box second) => {
-                self.and(first, second)
+                self.logical_and(first, second)
+            }
+
+            LogicalNot(box e) => {
+                self.logical_not(e)
             }
 
             _ => unimplemented!()
@@ -153,13 +163,34 @@ where
         Builder::new(self.name_map())
     }
 
-    pub fn and(&mut self, first: Expression, second: Expression) -> Name {
+    pub fn not(&mut self, val: Name) -> Name {
+        self.tmp(Expr::Not(val))
+    }
+
+    pub fn and(&mut self, l: Name, r: Name) -> Name {
+        self.tmp(Expr::And(l, r))
+    }
+
+    pub fn mask(&mut self, val: Name, mask: i32) -> Name {
+        let mask = self.int(mask);
+        self.and(val, mask)
+    }
+
+    pub fn logical_not(&mut self, e: Expression) -> Name {
+        let e = self.expr(e);
+        let is_true = self.is_true(e);
+        let flipped = self.not(is_true);
+        let first_bit = self.mask(flipped, 1);
+        first_bit
+    }
+
+    pub fn logical_and(&mut self, first: Expression, second: Expression) -> Name {
         let first = self.expr(first);
         let cond = self.is_true(first);
         self.if_expr(cond, move |b| b.expr(second), |b| first)
     }
 
-    pub fn or(&mut self, first: Expression, second: Expression) -> Name {
+    pub fn logical_or(&mut self, first: Expression, second: Expression) -> Name {
         let first = self.expr(first);
         let cond = self.is_true(first);
         self.if_expr(cond, |b| first, move |b| b.expr(second))
