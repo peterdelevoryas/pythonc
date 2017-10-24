@@ -94,12 +94,20 @@ where
                 self.int(int)
             }
 
+            Boolean(b) => {
+                self.boolean(b)
+            }
+
             _ => unimplemented!()
         }
     }
 
     pub fn int(&mut self, int: i32) -> Name {
         self.constant(Const::Int(int))
+    }
+
+    pub fn boolean(&mut self, b: bool) -> Name {
+        self.constant(Const::Bool(b))
     }
 
     pub fn constant(&mut self, c: Const) -> Name {
