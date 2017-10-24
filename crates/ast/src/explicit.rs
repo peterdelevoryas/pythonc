@@ -136,6 +136,15 @@ where
         block.finish()
     }
 
+    pub fn block_expr<F>(&mut self, build: F) -> (Name, Block)
+    where
+        F: FnOnce(&mut Builder<&mut NameMap>) -> Name
+    {
+        let mut block = self.builder();
+        let name = builder(&mut block);
+        (name, block.finish())
+    }
+
     pub fn builder(&mut self) -> Builder<&mut NameMap> {
         Builder::new(self.name_map())
     }
