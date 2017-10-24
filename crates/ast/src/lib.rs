@@ -66,7 +66,6 @@ pub enum Expression {
     InjectFrom(Type, Box<Expression>),
     ProjectTo(Type, Box<Expression>),
     Let(Decls, Box<Expression>),
-    Tmp(Tmp),
     Call(String, Vec<Expression>),
 }
 
@@ -74,6 +73,9 @@ pub enum Expression {
 pub enum Target {
     Name(String),
     Subscript(Box<Expression>, Box<Expression>),
+
+    // just for explication and flattening
+    Tmp(Tmp),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -157,6 +159,7 @@ impl Explicate for Statement {
                 let e = e.explicate(tmp_gen);
                 Statement::Expression(Expression::Call("set_subscript".into(), vec![base, elem, e]))
             }
+            Assign(Tmp(_), _) => panic!("There shouldn't be any Tmp's before explication!"),
             Expression(e) => Expression(e.explicate(tmp_gen)),
             If(box e, then, els) => {
                 let e = e.explicate(tmp_gen);
@@ -194,11 +197,11 @@ impl Explicate for Expression {
                 };
                 Let(decls, 
                     box If(
-                        box InjectFrom(Bool, box Is(box GetTag(box Tmp(l_tmp)), box DecimalI32(BIG_TAG))),
-                        box InjectFrom(Big, box Call("add".into(), vec![ProjectTo(Big, box Tmp(l_tmp)),
-                                                                        ProjectTo(Big, box Tmp(r_tmp))])),
-                        box InjectFrom(Int, box Add(box ProjectTo(Int, box Tmp(l_tmp)),
-                                                    box ProjectTo(Int, box Tmp(r_tmp))))
+                        box InjectFrom(Bool, box Is(box GetTag(box Target(Tmp(l_tmp))), box DecimalI32(BIG_TAG))),
+                        box InjectFrom(Big, box Call("add".into(), vec![ProjectTo(Big, box Target(Tmp(l_tmp))),
+                                                                        ProjectTo(Big, box Target(Tmp(r_tmp)))])),
+                        box InjectFrom(Int, box Add(box ProjectTo(Int, box Target(Tmp(l_tmp))),
+                                                    box ProjectTo(Int, box Target(Tmp(r_tmp)))))
                     )
                 )
             }
@@ -212,9 +215,9 @@ impl Explicate for Expression {
                 };
                 Let(decls,
                     box If(
-                        box Tmp(l_tmp),
+                        box Target(Tmp(l_tmp)),
                         box r,
-                        box Tmp(l_tmp),
+                        box Target(Tmp(l_tmp)),
                     )
                 )
             }
@@ -228,30 +231,35 @@ impl Explicate for Expression {
                 };
                 Let(decls,
                     box If(
-                        box Tmp(l_tmp),
-                        box Tmp(l_tmp),
+                        box Target(Tmp(l_tmp)),
+                        box Target(Tmp(l_tmp)),
                         box r,
                     )
                 )
+            }
+            Target(Subscript(box base, box elem)) => {
+                let base = base.explicate(tmp_gen);
+                let elem = elem.explicate(tmp_gen);
+                Call("get_subscript".into(), vec![base, elem])
             }
             other => other,
         }
     }
 }
 
-pub struct Flattener<G>
+pub struct Flattener<'g, G>
 where
-    G: Iterator<Item=Tmp>,
+    G: 'g + Iterator<Item=Tmp>,
 {
-    tmp_gen: &mut G,
+    tmp_gen: &'g mut G,
     flat: Vec<Statement>,
 }
 
-impl<G> Flattener<G>
+impl<'g, G> Flattener<'g, G>
 where
-    G: Iterator<Item=Tmp>,
+    G: 'g + Iterator<Item=Tmp>,
 {
-    pub fn new(tmp_gen: &mut G) -> Self {
+    pub fn new(tmp_gen: &'g mut G) -> Self {
         Flattener {
             tmp_gen,
             flat: vec![]
@@ -266,13 +274,143 @@ where
 
     pub fn statement(&mut self, st: Statement) {
         use self::Statement::*;
-        unimplemented!()
+        use self::Target::*;
+        match st {
+            Print(e) => {
+                let print = Print(self.expression(e));
+                self.flat.push(print);
+            }
+            Assign(Subscript(_, _), _) => panic!("Encountered un-explicated assign subscript"),
+            Assign(target @ Name(_), e) | Assign(target @ Tmp(_), e) => {
+                let v = self.expression(e);
+                self.flat.push(Assign(target, v));
+            }
+            Expression(e) => {
+                let v = self.expression(e);
+                self.flat.push(Expression(v));
+            }
+            If(box e, then, els) => {
+                let v = self.expression(e);
+                let then = {
+                    let mut b = Self::new(self.tmp_gen);
+                    b.block(then);
+                    b.complete()
+                };
+                let els = {
+                    let mut b = Self::new(self.tmp_gen);
+                    b.block(els);
+                    b.complete()
+                };
+                self.flat.push(If(box v, then, els));
+            }
+            Newline => {}
+        }
     }
 
     // Should only return Expression::Target(Target::Name)
     // or Expression::Tmp
     pub fn expression(&mut self, e: Expression) -> Expression {
-        unimplemented!()
+        use self::Statement::*;
+        use self::Expression::*;
+        use self::Target::*;
+        match e {
+            target @ Target(Name(_)) | target @ Target(Tmp(_)) => target,
+            c @ DecimalI32(_) | c @ Boolean(_) => self.tmp(c),
+            UnaryNeg(box e) => {
+                let tmp = self.expression(e);
+                self.tmp(UnaryNeg(box tmp))
+            }
+            Add(box l, box r) => {
+                let l = self.expression(l);
+                let r = self.expression(r);
+                self.tmp(Add(box l, box r))
+            }
+            LogicalNot(box e) => {
+                let e = self.expression(e);
+                self.tmp(LogicalNot(box e))
+            }
+            LogicalEq(box l, box r) => {
+                let l = self.expression(l);
+                let r = self.expression(r);
+                self.tmp(LogicalEq(box l, box r))
+            }
+            LogicalNotEq(box l, box r) => {
+                let l = self.expression(l);
+                let r = self.expression(r);
+                self.tmp(LogicalNotEq(box l, box r))
+            }
+            Is(box l, box r) => {
+                let l = self.expression(l);
+                let r = self.expression(r);
+                self.tmp(Is(box l, box r))
+            }
+            // Should really move list and dict into
+            // explicate, but unfortunately it's not setup
+            // correctly right now for that (need to be able
+            // to explicate Expression into Vec<Statement>)
+            List(elems) => {
+                let len = self.tmp(DecimalI32(elems.len() as i32));
+                let len_pyobj = self.tmp(InjectFrom(Type::Int, box len));
+                let list = self.tmp(Call("create_list".into(), vec![len_pyobj]));
+                let list_pyobj = self.tmp(InjectFrom(Type
+                unimplemented!()
+            }
+            Dict(pairs) => unimplemented!(),
+            ::Expression::If(box cond, box then, box els) => {
+                let cond = self.expression(cond);
+                let res = self.tmp_gen.next().unwrap();
+                let then = {
+                    let mut builder = Self::new(self.tmp_gen);
+                    let then = builder.expression(then);
+                    builder.flat.push(Assign(Tmp(res), then));
+                    builder.complete()
+                };
+                let els = {
+                    let mut builder = Self::new(self.tmp_gen);
+                    let els = builder.expression(els);
+                    builder.flat.push(Assign(Tmp(res), els));
+                    builder.complete()
+                };
+                Target(Tmp(res))
+            }
+            GetTag(box e) => {
+                let e = self.expression(e);
+                self.tmp(GetTag(box e))
+            }
+            InjectFrom(ty, box e) => {
+                let e = self.expression(e);
+                self.tmp(InjectFrom(ty, box e))
+            }
+            ProjectTo(ty, box e) => {
+                let e = self.expression(e);
+                self.tmp(ProjectTo(ty, box e))
+            }
+            Let(decls, box e) => {
+                for (tmp, e) in decls.decls {
+                    self.flat.push(Assign(Tmp(tmp), e));
+                }
+                self.tmp(e)
+            }
+            Call(name, args) => {
+                let args: Vec<_> = args.into_iter()
+                    .map(|arg| self.expression(arg))
+                    .collect();
+                Call(name, args)
+            }
+            e @ Input
+                | e @ Target(Subscript(_, _))
+                | e @ LogicalAnd(_, _)
+                | e @ LogicalOr(_, _) => panic!("{:?} should have been explicated", e),
+        }
+    }
+
+    pub fn tmp(&mut self, e: Expression) -> Expression {
+        use self::Statement::*;
+        use self::Expression::*;
+        use self::Target::*;
+        let tmp = self.tmp_gen.next().unwrap();
+        self.flat.push(Assign(Tmp(tmp), e));
+        Target(Tmp(tmp))
     }
 
     pub fn complete(&mut self) -> Block {
