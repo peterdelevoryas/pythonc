@@ -15,7 +15,10 @@ pub enum Stmt {
     Expr(Expr),
 
     If {
-        cond: Expr,
+        // The condition is just going to be tested for zero
+        // or nonzero, all is_true calls should be created
+        // in explicate builder.
+        cond: Name,
         then: Block,
         els: Block,
     }
@@ -102,8 +105,63 @@ where
                 self.input()
             }
 
+            UnaryNeg(box e) => {
+                let e = self.expr(e);
+                unimplemented!()
+            }
+
+            LogicalOr(box first, box second) => {
+                self.or(first, second)
+            }
+
             _ => unimplemented!()
         }
+    }
+
+    // Takes current stmts and returns them.
+    // Sets current stmts to empty.
+    // Leaves NameMap untouched.
+    pub fn finish_block(&mut self) -> Block {
+        let empty = Block {
+            stmts: vec![]
+        };
+        ::std::mem::replace(&mut self.block, empty)
+    }
+
+    // Creates a new builder for use in creating a new block
+    pub fn block(&mut self) -> Builder<&mut NameMap> {
+        Builder::new(self.name_map())
+    }
+
+    pub fn or(&mut self, first: Expression, second: Expression) -> Name {
+        let first = self.expr(first);
+        let cond = self.is_true(first);
+        // output name for or (gets assigned two once in each branch)
+        let out = self.name_map().create_tmp();
+        let then = {
+            let mut b = self.block();
+            b.copy(out, first);
+            b.finish_block()
+        };
+        let els = {
+            let mut b = self.block();
+            // only compute second within branch block
+            let second = b.expr(second);
+            // note order is dst, src
+            b.copy(out, second);
+            b.finish_block()
+        };
+        let stmt = Stmt::If {
+            cond: cond,
+            then: then,
+            els: els,
+        };
+        self.push(stmt);
+        out
+    }
+
+    pub fn copy(&mut self, dst: Name, src: Name) {
+        self.def(dst, Expr::Copy(src));
     }
 
     pub fn int(&mut self, int: i32) -> Name {
@@ -120,6 +178,10 @@ where
 
     pub fn input(&mut self) -> Name {
         self.call_static("input", vec![])
+    }
+
+    pub fn is_true(&mut self, val: Name) -> Name {
+        self.call_static("is_true", vec![val])
     }
 
     pub fn get_subscript(&mut self, base: Name, elem: Name) -> Name {
