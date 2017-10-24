@@ -87,11 +87,16 @@ where
             Target(Subscript(box base, box elem)) => {
                 let base = self.expr(base);
                 let elem = self.expr(elem);
-                unimplemented!()
+                self.get_subscript(base, elem)
             }
 
             _ => unimplemented!()
         }
+    }
+
+    pub fn get_subscript(&mut self, base: Name, elem: Name) -> Name {
+        let func = self.name_map().insert_name("get_subscript");
+        self.call(func, vec![base, elem])
     }
 
     pub fn call(&mut self, func: Name, args: Vec<Name>) -> Name {
