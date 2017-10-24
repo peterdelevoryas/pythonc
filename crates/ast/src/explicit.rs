@@ -141,7 +141,7 @@ where
         F: FnOnce(&mut Builder<&mut NameMap>) -> Name
     {
         let mut block = self.builder();
-        let name = builder(&mut block);
+        let name = build(&mut block);
         (name, block.finish())
     }
 
@@ -167,6 +167,27 @@ where
                 b.copy(out, second);
             },
         );
+
+        out
+    }
+
+    pub fn if_expr<F1, F2>(&mut self, cond: Name, then: F1, els: F2) -> Name
+    where
+        F1: FnOnce(&mut Builder<&mut NameMap>) -> Name,
+        F2: FnOnce(&mut Builder<&mut NameMap>) -> Name,
+    {
+        let (then_expr, mut then) = self.block_expr(then);
+        let (els_expr, mut els) = self.block_expr(els);
+        // This is pretty hacky!!!
+        // Modify each block by appending an assignment to "out".
+        let out = self.name_map().create_tmp();
+        then.stmts.push(Stmt::Def(out, Expr::Copy(then_expr)));
+        els.stmts.push(Stmt::Def(out, Expr::Copy(els_expr)));
+        self.push(Stmt::If {
+            cond: cond,
+            then: then,
+            els: els,
+        });
 
         out
     }
