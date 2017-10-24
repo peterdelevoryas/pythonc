@@ -145,21 +145,20 @@ where
         let cond = self.is_true(first);
         // output name for or (gets assigned two once in each branch)
         let out = self.name_map().create_tmp();
-        let then = self.block(|b| {
-            b.copy(out, first);
-        });
-        let els = self.block(move |b| {
-            // only compute second within branch block
-            let second = b.expr(second);
-            // note order is dst, src
-            b.copy(out, second);
-        });
-        let stmt = Stmt::If {
-            cond: cond,
-            then: then,
-            els: els,
-        };
-        self.push(stmt);
+
+        self.if_stmt(
+            cond,
+            |b| {
+                b.copy(out, first);
+            },
+            move |b| {
+                // only compute second within branch block
+                let second = b.expr(second);
+                // note order is dst, src
+                b.copy(out, second);
+            },
+        );
+
         out
     }
 
