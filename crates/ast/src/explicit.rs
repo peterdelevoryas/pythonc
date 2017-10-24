@@ -152,23 +152,7 @@ where
     pub fn or(&mut self, first: Expression, second: Expression) -> Name {
         let first = self.expr(first);
         let cond = self.is_true(first);
-        // output name for or (gets assigned two once in each branch)
-        let out = self.name_map().create_tmp();
-
-        self.if_stmt(
-            cond,
-            |b| {
-                b.copy(out, first);
-            },
-            move |b| {
-                // only compute second within branch block
-                let second = b.expr(second);
-                // note order is dst, src
-                b.copy(out, second);
-            },
-        );
-
-        out
+        self.if_expr(cond, |b| first, move |b| b.expr(second))
     }
 
     pub fn if_expr<F1, F2>(&mut self, cond: Name, then: F1, els: F2) -> Name
