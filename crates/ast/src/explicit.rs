@@ -48,11 +48,16 @@ pub enum Expr {
     /// PRIMITIVE NOT, FLIPS ALL BITS
     Not(Name),
 
+    /// This should be equivalent to the
+    /// bit shifting in the runtime fns,
+    /// but without the type checking.
     Project {
         name: Name, // pyobj
         to: Ty,     // output value type
     },
 
+    /// This should be the reverse of the
+    /// Project node
     Inject {
         name: Name, // non-pyobj
         from: Ty,   // type of "name"
@@ -64,8 +69,11 @@ pub enum Const {
     Bool(bool),
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Ty {
-    
+    Int,
+    Bool,
+    Big,
 }
 
 use std::borrow::BorrowMut;
