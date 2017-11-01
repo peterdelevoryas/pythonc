@@ -1,0 +1,16 @@
+[package]
+name = "ast"
+version = "0.1.0"
+authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
+build = "build.rs"
+
+[build-dependencies.lalrpop]
+version = "0.13.1"
+
+[dependencies]
+regex = "0.2.1"
+error-chain = "0.11.0"
+util = { path = "../util" }
+
+[dependencies.lalrpop-util]
+version = "0.13.1"
