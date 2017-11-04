@@ -40,11 +40,12 @@ pub return: Return = {
 
 pub lambda: Lambda = {
     "Lambda" "("
-        "[" <args:comma<str_literal>> "]" ","
-        "[" "]" ","
-        "0" ","
+        <args:comma_list<str_literal>> ","
+        <_unused:comma_list<str_literal>> ","
+        <zero:int_literal> ","
         <expr:expr>
     ")" => {
+        assert_eq!(zero, 0);
         Lambda { args, expr }
     }
 };
@@ -53,12 +54,13 @@ pub function: Function = {
     "Function" "("
         "None" ","
         <name:str_literal> ","
-        "[" <args:comma<str_literal>> "]" ","
-        "[" "]" ","
-        "0" ","
+        <args:comma_list<str_literal>> ","
+        <_unused:comma_list<str_literal>> ","
+        <zero:int_literal> ","
         "None" ","
         <code:stmts>
     ")" => {
+        assert_eq!(zero, 0);
         Function {
             name,
             args,
@@ -205,7 +207,9 @@ pub add: Add = {
 };
 
 pub const: Const = {
-    "Const" "(" <int_literal> ")" => Const(<>),
+    "Const" "(" <int_literal> ")" => {
+        Const(<>)
+    }
 };
 
 pub name: Name = {
@@ -250,6 +254,11 @@ int_literal: i32 = {
             })?;
         Ok(i)
     }
+};
+
+comma_list<T>: Vec<T> = {
+    "[" <comma<T>> "]" => (<>),
+    "(" <comma<T>> ")" => (<>),
 };
 
 comma<T>: Vec<T> = {

@@ -58,7 +58,7 @@ macro_rules! impl_ref {
                 $ident(i)
             }
 
-            fn inner(&self) -> usize {
+            pub fn inner(&self) -> usize {
                 self.0
             }
         }

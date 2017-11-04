@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns)]
+#![feature(box_syntax, box_patterns, conservative_impl_trait)]
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -11,6 +11,7 @@ extern crate ast;
 
 pub mod error;
 pub mod explicate;
+pub mod heapify;
 
 pub use error::*;
 
@@ -25,6 +26,7 @@ pub struct Pythonc {}
 pub enum Stage {
     Ast,
     Explicated,
+    Heapified,
     Flattened,
     VAsm,
     Liveness,
@@ -58,10 +60,29 @@ impl Pythonc {
             return write_out(ast, out_path);
         }
 
-        let explicated = explicate::explicate(ast);
+        let mut explicate = explicate::Explicate::new();
+        let explicated = explicate.module(ast);
+        {
+            use explicate::TypeCheck;
+            // type check!
+            let result = {
+                let mut type_env = explicate::TypeEnv::new(&explicate);
+                explicated.type_check(&mut type_env)
+            };
+            result.chain_err(|| {
+                let fmt = explicate::Formatter::new(&explicate, &explicated);
+                format!("{}", fmt)
+            }).chain_err(|| "Error type checking explicated ast")?;
+        }
         if stop_stage == Stage::Explicated {
-            let s = format!("{:#?}", explicated);
-            return write_out(s, out_path);
+            let fmt = explicate::Formatter::new(&explicate, &explicated);
+            return write_out(fmt, out_path);
+        }
+
+        let heapified = heapify::heapify(explicated);
+        if stop_stage == Stage::Heapified {
+            let fmt = explicate::Formatter::new(&explicate, &heapified);
+            return write_out(fmt, out_path)
         }
 
         Ok(())
@@ -74,6 +95,7 @@ impl Stage {
         match *self {
             Ast => "ast",
             Explicated => "explicated",
+            Heapified => "heapified",
             Flattened => "flattened",
             VAsm => "vasm",
             Liveness => "liveness",

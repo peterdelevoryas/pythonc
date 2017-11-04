@@ -21,11 +21,8 @@ Usage:
 
 Options:
     --emit STAGE    Configure output stage.
-                    [values: pystr, pyast, ast, ir, vasm, liveness, asm, obj]
+                    [values: ast, explicated, flattened, vasm, liveness, asm, obj, bin]
                     [default: asm]
-                    pystr is the str() output of the official Python parser.
-                    pyast is how pythonc parses pystr.
-                    ast is the conversion from pyast to pythonc's ast.
     --runtime LIB   Path to runtime.
     -o PATH         Configures output path.
     --stdout        Print output to stdout (instead of to file).
