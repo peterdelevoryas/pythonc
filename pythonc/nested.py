@@ -1,8 +1,6 @@
-a = 3
-def f():
-    a = 1
+def f(a):
     def g():
         return a
     return g
 a = 3
-print f()()
+print f(1)()

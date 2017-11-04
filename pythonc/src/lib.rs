@@ -12,6 +12,7 @@ extern crate ast;
 pub mod error;
 pub mod explicate;
 pub mod heapify;
+pub mod closure_conversion;
 
 pub use error::*;
 
