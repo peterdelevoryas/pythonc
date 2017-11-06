@@ -12,7 +12,9 @@ extern crate ast;
 pub mod error;
 pub mod explicate;
 pub mod heapify;
-pub mod closure_conversion;
+pub mod flatten;
+
+use flatten::Flatten;
 
 pub use error::*;
 
@@ -84,6 +86,13 @@ impl Pythonc {
         if stop_stage == Stage::Heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified);
             return write_out(fmt, out_path)
+        }
+
+        let mut flattener = flatten::Flattener::from(explicate);
+        let flattened = heapified.flatten(&mut flattener);
+        if stop_stage == Stage::Flattened {
+            println!("{:#?}", flattener.units);
+            return Ok(());
         }
 
         Ok(())

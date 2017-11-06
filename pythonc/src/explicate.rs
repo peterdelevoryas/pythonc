@@ -1,5 +1,4 @@
 use ast;
-use util;
 use std::collections::HashMap;
 
 const MASK: i32 = 3;
@@ -350,7 +349,7 @@ impl Unop {
 
 #[derive(Debug)]
 pub struct Explicate {
-    var_data: var::Slab<var::Data>,
+    pub var_data: var::Slab<var::Data>,
     names: HashMap<ast::Name, Var>,
 }
 
