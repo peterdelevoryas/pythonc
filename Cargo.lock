@@ -1,11 +1,3 @@
-[root]
-name = "python-vm"
-version = "0.1.0"
-dependencies = [
- "python-ir 0.1.0",
- "python-trans 0.1.0",
-]
-
 [[package]]
 name = "aho-corasick"
 version = "0.5.3"
@@ -408,6 +400,14 @@ name = "python-trans"
 version = "0.1.0"
 dependencies = [
  "python-ir 0.1.0",
+]
+
+[[package]]
+name = "python-vm"
+version = "0.1.0"
+dependencies = [
+ "python-ir 0.1.0",
+ "python-trans 0.1.0",
 ]
 
 [[package]]

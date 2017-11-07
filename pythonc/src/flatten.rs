@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert;
 
+use fmt;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinOp {
     ADD,
@@ -47,6 +49,7 @@ pub enum Loc {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Tmp(i32);
 
+#[derive(Debug)]
 pub struct Flattener {
     var_data: ex::var::Slab<ex::var::Data>,
     pub names: HashMap<ex::Var, Loc>,
@@ -54,6 +57,13 @@ pub struct Flattener {
     fn_index: i32,
     pub units: HashMap<String, Vec<Stmt>>,
     context: String,
+}
+
+#[derive(Debug)]
+pub struct Formatter<'a, N: 'a + ?Sized> {
+    flattener : &'a Flattener,
+    node : &'a N,
+    indent : usize,
 }
 
 impl Flattener {
@@ -111,6 +121,36 @@ impl Flattener {
             Some(t) => t,
             None => panic!(format!("Required name {:?} is not defined", v))
         })
+    }
+}
+
+impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
+    pub fn new(flattener: &'a Flattener, node: &'a N) -> Formatter<'a, N> {
+        Formatter {
+            flattener,
+            node,
+            indent: 0,
+        }
+    }
+    pub fn fmt<M: 'a + ?Sized>(&self, node: &'a M) -> Formatter<'a, M> {
+        Formatter {
+            flattener: self.flattener,
+            node,
+            indent: self.indent
+        }
+    }
+    pub fn indented<M: 'a + ?Sized + fmt::Debug>(&self, node: &'a M) -> Formatter<'a, M> {
+        Formatter {
+            flattener: self.flattener,
+            node,
+            indent: self.indent + 1,
+        }
+    }
+    pub fn width(&self) -> usize {
+        self.indent * 4
+    }
+    pub fn indent(&self) -> String {
+        " ".repeat(self.width())
     }
 }
 
@@ -174,7 +214,7 @@ impl Flatten for ex::Assign {
                 let key = subs.elem.flatten(builder);
 
                 // If the assign target is a subscript, we don't need the return,
-                //  so discard it.
+                //  so discard it. -- who cares
                 builder.push(Stmt::Discard(Expr::RuntimeFunc(
                     "set_subscript".into(),
                     vec![base, key, val],
@@ -254,8 +294,22 @@ impl Flatten for ex::CallFunc {
     type Output = Loc;
     fn flatten(self, builder: &mut Flattener) -> Loc {
         let base = self.expr.flatten(builder);
-        let args = self.args.into_iter().map(|expr| expr.flatten(builder)).collect();
-        builder.def(Expr::CallFunc(base, args))
+        let base_ptr = builder.def(Expr::RuntimeFunc(
+            "get_fun_ptr".into(),
+            vec![base]
+        ));
+        let freelist = builder.def(Expr::RuntimeFunc(
+            "get_free_vars".into(),
+            vec![base]
+        ));
+
+        let mut args = vec![freelist];
+
+        for a in self.args {
+          args.push(a.flatten(builder));
+        }
+
+        builder.def(Expr::CallFunc(base_ptr, args))
     }
 }
 
@@ -309,36 +363,36 @@ impl Flatten for ex::List {
     type Output = Loc;
     fn flatten(self, builder: &mut Flattener) -> Loc {
         // TODO: Verify API
-        let newLSize = builder.def(Expr::Const(self.exprs.len() as i32));
-        let newLSize_injected = builder.def(Expr::InjectFrom(newLSize, ex::Ty::Int));
-        let newL = builder.def(Expr::RuntimeFunc(
+        let new_l_size = builder.def(Expr::Const(self.exprs.len() as i32));
+        let new_l_size_injected = builder.def(Expr::InjectFrom(new_l_size, ex::Ty::Int));
+        let new_l = builder.def(Expr::RuntimeFunc(
             "create_list".into(),
-            vec![newLSize_injected]
+            vec![new_l_size_injected]
         ));
 
         for (i, expr) in self.exprs.iter().enumerate() {
             // Ugh, have to inject and store twice each index, but constant prop should remove this.
             // Really, who cares at this point.
-            let iLoc = builder.def(Expr::Const(i as i32));
-            let iLoc_injected = builder.def(Expr::InjectFrom(iLoc, ex::Ty::Int));
+            let i_loc = builder.def(Expr::Const(i as i32));
+            let i_loc_injected = builder.def(Expr::InjectFrom(i_loc, ex::Ty::Int));
 
             let flat = expr.clone().flatten(builder);
 
             builder.push(Stmt::Discard(
                 Expr::RuntimeFunc(
                     "set_subscript".into(),
-                    vec![newL, iLoc_injected, flat]
+                    vec![new_l, i_loc_injected, flat]
                 )
             ));
         }
-        newL
+        new_l
     }
 }
 
 impl Flatten for ex::Dict {
     type Output = Loc;
     fn flatten(self, builder: &mut Flattener) -> Loc {
-        let newD = builder.def(Expr::RuntimeFunc(
+        let new_d = builder.def(Expr::RuntimeFunc(
             "create_dict".into(),
             vec![]
         ));
@@ -350,12 +404,12 @@ impl Flatten for ex::Dict {
             builder.push(Stmt::Discard(
                 Expr::RuntimeFunc(
                     "set_subscript".into(),
-                    vec![newD, k_l, v_l]
+                    vec![new_d, k_l, v_l]
                 )
             ));
         }
 
-        newD
+        new_d
     }
 }
 
@@ -393,7 +447,8 @@ impl Flatten for ex::Closure {
         let fn_label = builder.enter_next_fn();
 
         for (i, p) in self.args.iter().enumerate() {
-            builder.name(*p, Loc::Param(i as i32));
+            // Add one as offest for Param(0), which is always the free list
+            builder.name(*p, Loc::Param((i+1) as i32));
         }
 
         self.code.flatten(builder);
@@ -449,5 +504,16 @@ impl Flatten for ex::Var {
     type Output = Loc;
     fn flatten(self, builder: &mut Flattener) -> Loc {
         builder.require(self)
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, ()> {
+    fn fmt(&self, f : &mut fmt::Formatter) -> fmt::Result {
+        for i in 0..(self.flattener.fn_index) {
+            let k = format!("fn_{}", i);
+            writeln!(f, k)?;
+            self.fmt(self.flattener.units())?;
+        }
+        writeln!(f, "main:")?
     }
 }
