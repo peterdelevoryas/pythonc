@@ -91,8 +91,8 @@ impl Pythonc {
         let mut flattener = flatten::Flattener::from(explicate);
         let flattened = heapified.flatten(&mut flattener);
         if stop_stage == Stage::Flattened {
-            println!("{:#?}", flattener.units);
-            return Ok(());
+            let fmt = flatten::Formatter::new(&flattener, &flattened);
+            return write_out(fmt, out_path)
         }
 
         Ok(())
