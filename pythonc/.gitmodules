@@ -1,3 +1,0 @@
-[submodule "tests/pyyc-tests-contrib"]
-	path = tests/pyyc-tests-contrib
-	url = https://github.com/csci4555-f17/pyyc-tests-contrib.git
