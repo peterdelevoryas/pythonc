@@ -1,0 +1,275 @@
+use ::Const;
+use ::Name;
+use ::Add;
+use ::UnarySub;
+use ::CallFunc;
+use ::Printnl;
+use ::Target;
+use ::Assign;
+use ::CompareOp;
+use ::Compare;
+use ::Or;
+use ::And;
+use ::Not;
+use ::List;
+use ::Dict;
+use ::Subscript;
+use ::IfExp;
+use ::Function;
+use ::Lambda;
+use ::Return;
+use ::Expr;
+use ::Stmt;
+use ::Module;
+use lalrpop_util::ParseError;
+use error::Error;
+use error::ErrorKind;
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = Error;
+}
+
+pub return: Return = {
+    "Return" "(" <expr:expr> ")" => {
+        Return { expr }
+    },
+};
+
+pub lambda: Lambda = {
+    "Lambda" "("
+        <args:comma_list<str_literal>> ","
+        <_unused:comma_list<str_literal>> ","
+        <zero:int_literal> ","
+        <expr:expr>
+    ")" => {
+        assert_eq!(zero, 0);
+        Lambda { args, expr }
+    }
+};
+
+pub function: Function = {
+    "Function" "("
+        "None" ","
+        <name:str_literal> ","
+        <args:comma_list<str_literal>> ","
+        <_unused:comma_list<str_literal>> ","
+        <zero:int_literal> ","
+        "None" ","
+        <code:stmts>
+    ")" => {
+        assert_eq!(zero, 0);
+        Function {
+            name,
+            args,
+            code,
+        }
+    },
+};
+
+pub if_exp: IfExp = {
+    "IfExp" "(" <cond:expr> "," <then:expr> "," <else_:expr> ")" => {
+        IfExp { cond, then, else_ }
+    }
+};
+
+pub subscript: Subscript = {
+    "Subscript" "(" <base:expr> "," str_literal "," "[" <elem:expr> "]" ")" => {
+        Subscript { base, elem }
+    },
+};
+
+pub dict: Dict = {
+    "Dict" "(" "[" <tuples:comma<dict_tuple>> "]" ")" => {
+        Dict { tuples }
+    },
+};
+
+dict_tuple: (Expr, Expr) = {
+    "(" <key:expr> "," <val:expr> ")" => (key, val),
+};
+
+pub list: List = {
+    "List" "(" "[" <exprs:comma<expr>> "]" ")" => {
+        List { exprs }
+    },
+};
+
+pub not: Not = {
+    "Not" "(" <expr:expr> ")" => Not { expr },
+};
+
+pub and: And = {
+    "And" "(" "[" <left:expr> "," <right:expr> "]" ")" => {
+        And { left, right }
+    },
+};
+
+pub or: Or = {
+    "Or" "(" "[" <left:expr> "," <right:expr> "]" ")" => {
+        Or { left, right }
+    },
+};
+
+pub compare: Compare = {
+    "Compare" "(" <left:expr> "," "[" <rhs:compare_rhs> "]" ")" => {
+        let (op, right) = rhs;
+        Compare {
+            op,
+            left,
+            right,
+        }
+    },
+};
+
+compare_rhs: (CompareOp, Expr) = {
+    "(" <op:compare_op> "," <expr:expr> ")" => {
+        (op, expr)
+    },
+};
+
+pub compare_op: CompareOp = {
+    "'=='" => CompareOp::Eq,
+    "'!='" => CompareOp::NotEq,
+};
+
+pub module: Module = {
+    "Module" "(" "None" "," <stmts:stmts> ")" => {
+        Module {
+            stmts
+        }
+    },
+};
+
+pub stmts: Vec<Stmt> = {
+    "Stmt" "(" "[" <stmts:comma<stmt>> "]" ")" => stmts,
+};
+
+pub assign: Assign = {
+    "Assign" "(" "[" <target:target> "]" "," <expr:expr> ")" => {
+        Assign {
+            target,
+            expr,
+        }
+    },
+};
+
+pub discard: Expr = {
+    "Discard" "(" <expr> ")" => (<>),
+};
+
+pub ass_name: Name = {
+    "AssName" "(" <name:str_literal> "," "'OP_ASSIGN'" ")" => Name(name),
+};
+
+pub target: Target = {
+    <ass_name> => (<>).into(),
+    <name> => (<>).into(),
+    <subscript> => (<>).into(),
+};
+
+pub printnl: Printnl = {
+    "Printnl" "(" "[" <expr:expr> "]" "," "None" ")" => {
+        Printnl {
+            expr
+        }
+    },
+};
+
+pub stmt: Stmt = {
+    <return> => (<>).into(),
+    <function> => (<>).into(),
+    <printnl> => (<>).into(),
+    <assign> => (<>).into(),
+    <expr> => (<>).into(),
+};
+
+pub call_func: CallFunc = {
+    "CallFunc" "(" <expr:expr> "," "[" <args:comma<expr>> "]" "," "None" "," "None" ")" => {
+        CallFunc {
+            expr,
+            args,
+        }
+    },
+};
+
+pub unary_sub: UnarySub = {
+    "UnarySub" "(" <expr:expr> ")" => UnarySub { expr },
+};
+
+pub add: Add = {
+    "Add" "(" "(" <left:expr> "," <right:expr> ")" ")" => Add {
+        left,
+        right,
+    },
+};
+
+pub const: Const = {
+    "Const" "(" <int_literal> ")" => {
+        Const(<>)
+    }
+};
+
+pub name: Name = {
+    "Name" "(" <str_literal> ")" => Name(<>),
+};
+
+pub expr: Expr = {
+    <const> => (<>).into(),
+    <name> => (<>).into(),
+    <add> => (<>).into(),
+    <unary_sub> => (<>).into(),
+    <call_func> => (<>).into(),
+    <compare> => (<>).into(),
+    <or> => (<>).into(),
+    <and> => (<>).into(),
+    <not> => (<>).into(),
+    <list> => (<>).into(),
+    <dict> => (<>).into(),
+    <subscript> => (<>).into(),
+    <if_exp> => (<>).into(),
+    <lambda> => (<>).into(),
+    <discard> => (<>),
+};
+
+none_literal: () = {
+    "None" => (),
+};
+
+str_literal: String = <s:r"'[^']*'"> => {
+    let s = s.as_bytes();
+    let inner = &s[1..s.len() - 1];
+    ::std::str::from_utf8(inner).unwrap().into()
+};
+
+int_literal: i32 = {
+    <s:r"-?[0-9]+"> =>? {
+        let i: i32 = s.parse()
+            .map_err(|e| {
+                ParseError::User {
+                    error: ErrorKind::InvalidIntegerLiteral(s.into()).into()
+                }
+            })?;
+        Ok(i)
+    }
+};
+
+comma_list<T>: Vec<T> = {
+    "[" <comma<T>> "]" => (<>),
+    "(" <comma<T>> ")" => (<>),
+};
+
+comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+
+ident: String = <s:r"[_A-Za-z][_A-Za-z0-9]*"> => s.into();

@@ -33,7 +33,7 @@ COG_ZIP=$(THIS_DIR)/target/$(TARGET)/$(BUILD)/cog.zip
 $(RUNTIME_ROOT)/$(RUNTIME_LIBNAME):
 	$(MAKE) -C $(RUNTIME_DIR)
 
-cog: $(COG_ZIP) src crates
+cog: $(COG_ZIP) src lib
 
 pythonc: $(PYTHONC)
 
@@ -41,20 +41,16 @@ $(COG_ZIP): $(PYYC) $(PYTHONC) Makefile runtime
 	zip -r $(COG_ZIP) $(PYYC) Makefile runtime
 	zip -j $(COG_ZIP) $(PYTHONC)
 
-$(PYTHONC): src crates
+$(PYTHONC): src lib
 	rustup target add i686-unknown-linux-gnu
 	cargo build
 
 test: pyyruntime
 	git submodule update --init
-	cargo test
-	cargo test -p python-token
-	cargo test -p python-ast
-	cargo test -p python-ir
-	cargo test -p python-trans
+	cargo test --all
 
 pyyruntime: runtime/
 	make -C $(RUNTIME_ROOT)
 
 install:
-	cargo install
+	cargo install --debug --force

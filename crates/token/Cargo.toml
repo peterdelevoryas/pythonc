@@ -1,6 +1,0 @@
-[package]
-name = "python-token"
-version = "0.1.0"
-authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
-
-[dependencies]

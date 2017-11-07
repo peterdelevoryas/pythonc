@@ -1,148 +1,119 @@
-extern crate python_token as token;
-extern crate python_ast as ast;
-extern crate python_trans as trans;
-extern crate python_ir as ir;
-extern crate python_vm as vm;
-extern crate interference;
-extern crate liveness;
+#![feature(box_syntax, box_patterns, conservative_impl_trait)]
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate slab;
+#[macro_use]
+extern crate util;
+extern crate ast;
 
 pub mod error;
-pub use error::{Error, ErrorKind, Result, ResultExt};
+pub mod explicate;
+pub mod heapify;
+pub mod flatten;
+
+use flatten::Flatten;
+
+pub use error::*;
 
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
+use std::fmt;
 
-pub struct Compiler {
-    source: PathBuf,
-    runtime: Option<PathBuf>,
-    out_path: Option<PathBuf>,
-    create_new: bool,
+#[derive(Debug)]
+pub struct Pythonc {}
+
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq)]
+pub enum Stage {
+    Ast,
+    Explicated,
+    Heapified,
+    Flattened,
+    VAsm,
+    Liveness,
+    Asm,
+    Obj,
+    Bin,
 }
 
-impl Compiler {
-    pub fn new<P>(source: P) -> Compiler
-    where
-        P: Into<PathBuf>,
-    {
-        Compiler {
-            source: source.into(),
-            runtime: None,
-            out_path: None,
-            create_new: true,
+impl Pythonc {
+    pub fn new() -> Pythonc {
+        Pythonc {}
+    }
+
+    pub fn emit(
+        &self,
+        in_path: &Path,
+        stop_stage: Stage,
+        out_path: Option<PathBuf>,
+        runtime: Option<PathBuf>,
+    ) -> Result<()> {
+        let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
+        let out_path = &out_path;
+        let source = read_file(in_path).chain_err(|| {
+            format!("Unable to read input file {:?}", in_path.display())
+        })?;
+
+        let parser = ast::Parser::new();
+        let ast = parser.parse(&source).chain_err(|| "Unable to parse source")?;
+        if stop_stage == Stage::Ast {
+            let ast = format!("{:#?}", ast);
+            return write_out(ast, out_path);
         }
-    }
 
-    pub fn runtime<P>(&mut self, path: P) -> &mut Compiler
-    where
-        P: Into<PathBuf>,
-    {
-        self.runtime = Some(path.into());
-        self
-    }
-
-    pub fn out_path<P>(&mut self, path: P) -> &mut Compiler
-    where
-        P: Into<PathBuf>,
-    {
-        self.out_path = Some(path.into());
-        self
-    }
-
-    pub fn create_new(&mut self, create_new: bool) -> &mut Compiler {
-        self.create_new = create_new;
-        self
-    }
-
-    pub fn run(&self) -> Result<()> {
-        if let Some(ref runtime) = self.runtime {
-            let asm = self.source.with_extension("s");
-            emit_asm(&self.source, &asm, self.create_new)?;
-            let out_path = self.out_path.clone().unwrap_or(
-                self.source.with_extension(""),
-            );
-            link(asm, runtime, out_path)?;
-        } else {
-            let out_path = self.out_path.clone().unwrap_or(
-                self.source.with_extension("s"),
-            );
-            emit_asm(&self.source, out_path, self.create_new)?;
+        let mut explicate = explicate::Explicate::new();
+        let explicated = explicate.module(ast);
+        {
+            use explicate::TypeCheck;
+            // type check!
+            let result = {
+                let mut type_env = explicate::TypeEnv::new(&explicate);
+                explicated.type_check(&mut type_env)
+            };
+            result.chain_err(|| {
+                let fmt = explicate::Formatter::new(&explicate, &explicated);
+                format!("{}", fmt)
+            }).chain_err(|| "Error type checking explicated ast")?;
         }
+        if stop_stage == Stage::Explicated {
+            let fmt = explicate::Formatter::new(&explicate, &explicated);
+            return write_out(fmt, out_path);
+        }
+
+        let heapified = heapify::heapify(explicated);
+        if stop_stage == Stage::Heapified {
+            let fmt = explicate::Formatter::new(&explicate, &heapified);
+            return write_out(fmt, out_path)
+        }
+
+        let mut flattener = flatten::Flattener::from(explicate);
+        let flattened = heapified.flatten(&mut flattener);
+        if stop_stage == Stage::Flattened {
+            let fmt = flatten::Formatter::new(&flattener, &flattened);
+            return write_out(fmt, out_path)
+        }
+
         Ok(())
     }
 }
 
-pub fn compile(source: &str) -> Result<vm::Program> {
-    let tokens = token::Stream::new(source);
-    let ast = ast::parse_program(tokens).chain_err(|| "parse error")?;
-    let mut tmp_allocator = ir::TmpAllocator::new();
-    let ir: ir::Program = ir::Builder::build(ast, &mut tmp_allocator);
-    ir::debug_print(ir.stmts.iter());
-
-    let mut vm = vm::Program::build(&ir);
-    let asm;
-    let mut iteration = 0;
-    loop {
-        use interference::DSaturResult::*;
-        println!("iteration {}", iteration);
-        liveness::debug_print(&vm);
-
-        let mut ig = interference::Graph::build(&vm);
-        match ig.run_dsatur() {
-            Success => {
-                asm = ig.assign_homes(vm);
-                println!("asm:\n{}", asm);
-                break
-            }
-            Spill(u) => {
-                // replaces u with stack_index
-                vm.spill(u);
-                vm = vm.replace_stack_to_stack_ops(&mut tmp_allocator);
-            }
+impl Stage {
+    pub fn file_ext(&self) -> &str {
+        use self::Stage::*;
+        match *self {
+            Ast => "ast",
+            Explicated => "explicated",
+            Heapified => "heapified",
+            Flattened => "flattened",
+            VAsm => "vasm",
+            Liveness => "liveness",
+            Asm => "s",
+            Obj => "o",
+            Bin => "bin",
         }
-        iteration += 1;
     }
-
-    //let asm = trans::Program::build(&ir);
-    Ok(asm)
-}
-
-pub fn emit_asm<P1, P2>(source: P1, output: P2, create_new: bool) -> Result<()>
-where
-    P1: AsRef<Path>,
-    P2: AsRef<Path>,
-{
-    let source = read_file(source).chain_err(|| "reading source file")?;
-    let asm = compile(&source).chain_err(|| {
-        format!("compiling source file {:?}", source)
-    })?;
-
-    write_file(asm, output, create_new)
-}
-
-pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
-where
-    P1: AsRef<Path>,
-    P2: AsRef<Path>,
-    P3: AsRef<Path>,
-{
-    let (asm, runtime, output) = (asm.as_ref(), runtime.as_ref(), output.as_ref());
-    Command::new("gcc")
-        .args(&["-m32", "-g"])
-        .args(&[asm.as_os_str(), runtime.as_os_str()])
-        .arg("-o")
-        .arg(output.as_os_str())
-        .spawn()
-        .chain_err(|| "spawning gcc")?
-        .wait()
-        .chain_err(|| "gcc wasn't running")
-        .and_then(|e| if !e.success() {
-            Err(ErrorKind::Link(e).into())
-        } else {
-            Ok(())
-        })
 }
 
 fn read_file<P>(path: P) -> Result<String>
@@ -182,10 +153,33 @@ where
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+    P3: AsRef<Path>,
+{
+    use std::process::Command;
+
+    let (asm, runtime, output) = (asm.as_ref(), runtime.as_ref(), output.as_ref());
+    Command::new("gcc")
+        .args(&["-m32", "-g"])
+        .args(&[asm.as_os_str(), runtime.as_os_str()])
+        .arg("-o")
+        .arg(output.as_os_str())
+        .spawn()
+        .chain_err(|| "spawning gcc")?
+        .wait()
+        .chain_err(|| "gcc wasn't running")
+        .and_then(|e| if !e.success() {
+            Err(ErrorKind::LinkRuntime(e).into())
+        } else {
+            Ok(())
+        })
+}
+
+fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
+    write_file(data, out_path, false).chain_err(|| {
+        format!("Could not write output to {:?}", out_path.display())
+    })
 }

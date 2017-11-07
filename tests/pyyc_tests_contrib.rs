@@ -1,8 +1,9 @@
+#[macro_use]
 extern crate error_chain;
-extern crate python;
+extern crate pythonc;
 
 use error_chain::ChainedError;
-use python::{Compiler, Result, ResultExt};
+use pythonc::{Pythonc, Stage, Result, ResultExt};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -10,34 +11,55 @@ use std::process::Stdio;
 use std::fs::File;
 use std::fs;
 
-#[test]
-fn pyyc_tests_contrib() {
-    if let Err(e) = run() {
-        panic!("{}", e.display_chain());
+#[derive(Debug, Copy, Clone)]
+enum Lang {
+    P0,
+    P1,
+    P2,
+    P3,
+}
+
+impl Lang {
+    fn test_dir_name(self) -> &'static str {
+        match self {
+            Lang::P0 => "P0_tests",
+            Lang::P1 => "P1_tests",
+            Lang::P2 => "P2_tests",
+            Lang::P3 => "P3_tests",
+        }
     }
 }
 
-fn run() -> Result<()> {
+macro_rules! impl_lang_tests {
+    ($lang:expr, $stage:expr, $test_name:ident) => {
+        #[test]
+        fn $test_name() {
+            use std::io::Write;
+            if let Err(e) = run($lang, $stage) {
+                panic!("\n{}", e.display_chain());
+            }
+        }
+    }
+}
+
+impl_lang_tests!(Lang::P0, Stage::Bin, p0_bin_tests);
+impl_lang_tests!(Lang::P2, Stage::Explicated, p1_explicate_tests);
+
+fn run(lang: Lang, stage: Stage) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let runtime = manifest_dir.join("runtime/libpyyruntime.a");
     let pyyc_tests_contrib = manifest_dir.join("tests/pyyc-tests-contrib");
-    let subdirs = subdirs(pyyc_tests_contrib).chain_err(
-        || "getting subdirs of pyyc-tests-contrib",
-    )?;
-    for subdir in subdirs {
-        test_dir(&subdir, &runtime).chain_err(|| {
-            format!("test dir {:?}", subdir.display())
-        })?;
-    }
+    let lang_tests = pyyc_tests_contrib.join(lang.test_dir_name());
 
-    Ok(())
+    run_tests(&lang_tests, &runtime, stage).chain_err(|| format!("Test failure for {:?}", lang))
 }
 
 fn subdirs<P>(dir: P) -> Result<Vec<PathBuf>>
 where
     P: AsRef<Path>,
 {
-    let rd = fs::read_dir(dir).chain_err(|| "reading dir")?;
+    let dir = dir.as_ref();
+    let rd = fs::read_dir(dir).chain_err(|| format!("Error reading {}", dir.display()))?;
     let mut subdirs = vec![];
     for entry in rd {
         let entry = entry.chain_err(|| "reading dir entries")?;
@@ -49,14 +71,30 @@ where
     return Ok(subdirs);
 }
 
-fn test_dir<P1, P2>(dir: P1, runtime: P2) -> Result<()>
+fn read_file(path: &Path) -> Result<String> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut f = File::open(path).chain_err(|| {
+        format!("Could not open file {:?}", path.display())
+    })?;
+    let size = f.metadata()
+        .chain_err(|| "Could not query file size")?
+        .len() as usize;
+    let mut s = String::with_capacity(size);
+    f.read_to_string(&mut s).chain_err(
+        || "Could not read file data",
+    )?;
+    Ok(s)
+}
+
+fn run_tests<P1, P2>(dir: P1, runtime: P2, stage: Stage) -> Result<()>
 where
     P1: AsRef<Path>,
     P2: AsRef<Path>,
 {
     let dir = dir.as_ref();
     let runtime = runtime.as_ref();
-    let rd = fs::read_dir(dir).chain_err(|| "reading dir")?;
+    let rd = fs::read_dir(dir).chain_err(|| format!("Error reading dir {}", dir.display()))?;
     for entry in rd {
         let entry = entry.chain_err(|| "reading dir entries")?;
         let path = entry.path();
@@ -65,54 +103,84 @@ where
             continue;
         }
         let source = &path;
-        let mut compiler = Compiler::new(source);
-        compiler.create_new(false);
-        compiler.runtime(runtime);
-        compiler.run().chain_err(
-            || format!("compiling {:?}", source.display()),
-        )?;
+        let pythonc = Pythonc::new();
 
-        let compiled = source.with_extension("");
-        let input = source.with_extension("in");
-        let output = source.with_extension("out");
-        let expected = source.with_extension("expected");
+        let source_file_name = match source.file_name() {
+            Some(file_name) => {
+                match file_name.to_str() {
+                    Some(s) => s,
+                    None => bail!("Test source file name {:?} is not utf-8", source.display()),
+                }
+            }
+            None => {
+                bail!(
+                    "Test source path {:?} doesn't have file name",
+                    source.display()
+                )
+            }
+        };
 
-        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
-        let compiled = Command::new(&compiled)
-            .stdin(input_file)
-            .stdout(File::create(&output).chain_err(|| "creating output file")?)
-            .spawn()
-            .chain_err(|| "spawning child process")?;
+        let result = ::std::panic::catch_unwind(|| {
+            pythonc 
+                .emit(
+                    source,
+                    stage,
+                    None,
+                    Some(runtime.into()),
+                )
+                .chain_err(|| format!("Unable to compile {:?}", source_file_name))
+        });
 
-        let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
-        let reference = Command::new("python")
-            .arg(&source)
-            .stdin(input_file)
-            .stdout(File::create(&expected).chain_err(
-                || "creating expected file",
-            )?)
-            .spawn()
-            .chain_err(|| "spawning child process")?;
+        match result {
+            Ok(result) => result?,
+            Err(e) => bail!("panicked while compiling {:?}", source_file_name),
+        }
 
-        compiled
-            .wait_with_output()
-            .chain_err(|| "waiting on compiled")
-            .and_then(|output| if output.stderr.len() > 0 {
-                Err(String::from_utf8(output.stderr).unwrap().into())
-            } else {
-                Ok(())
+        if stage == Stage::Bin {
+            let compiled = source.with_extension("bin");
+            let input = source.with_extension("in");
+            let output = source.with_extension("out");
+            let expected = source.with_extension("expected");
+
+            let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
+            let compiled = Command::new(&compiled)
+                .stdin(input_file)
+                .stdout(File::create(&output).chain_err(|| "creating output file")?)
+                .spawn()
+                .chain_err(|| "spawning child process")?;
+
+            let input_file: Stdio = File::open(&input).map(Stdio::from).unwrap_or(Stdio::null());
+            let reference = Command::new("python")
+                .arg(&source)
+                .stdin(input_file)
+                .stdout(File::create(&expected).chain_err(
+                    || "creating expected file",
+                )?)
+                .spawn()
+                .chain_err(|| "spawning child process")?;
+
+            compiled
+                .wait_with_output()
+                .chain_err(|| "waiting on compiled")
+                .and_then(|output| if output.stderr.len() > 0 {
+                    Err(String::from_utf8(output.stderr).unwrap().into())
+                } else {
+                    Ok(())
+                })?;
+
+            reference
+                .wait_with_output()
+                .chain_err(|| "waiting on reference")
+                .and_then(|output| if output.stderr.len() > 0 {
+                    Err(String::from_utf8(output.stderr).unwrap().into())
+                } else {
+                    Ok(())
+                })?;
+
+            diff(&output, &expected).chain_err(|| {
+                format!("Diff on test {}", source.display())
             })?;
-
-        reference
-            .wait_with_output()
-            .chain_err(|| "waiting on reference")
-            .and_then(|output| if output.stderr.len() > 0 {
-                Err(String::from_utf8(output.stderr).unwrap().into())
-            } else {
-                Ok(())
-            })?;
-
-        diff(&output, &expected)?;
+        }
     }
     Ok(())
 }

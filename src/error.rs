@@ -1,20 +1,21 @@
-use ast::ParseError;
-use std::process::ExitStatus;
-
 error_chain! {
     types {
         Error, ErrorKind, ResultExt, Result;
     }
 
+    links {
+        Ast(::ast::error::Error, ::ast::error::ErrorKind);
+    }
+
     foreign_links {
+        Fmt(::std::fmt::Error);
         Io(::std::io::Error);
-        Parse(ParseError);
     }
 
     errors {
-        Link(e: ExitStatus) {
-            description("link error"),
-            display("link error (exit status {})", e),
+        LinkRuntime(e: ::std::process::ExitStatus) {
+            description("Error linking program with runtime"),
+            display("Error linking program with runtime (exit status {})", e),
         }
     }
 }
