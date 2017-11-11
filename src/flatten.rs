@@ -564,6 +564,16 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 write_args_list(f, args)?;
                 write!(f, ")")
             }
+            Expr::If(c, t, e, ref t_block, ref e_block) => {
+                writeln!(f, "if {} then {} else {}", c, t, e)?;
+                writeln!(f, "{indent}where {{", indent=self.indent())?;
+                writeln!(f, "{indent}then: ", indent=self.indent())?;
+                writeln!(f, "{indent}{block}", indent=self.indent(), block=self.indented(t_block.as_slice()))?;
+                writeln!(f, "{indent}else: ", indent=self.indent())?;
+                writeln!(f, "{indent}{block}", indent=self.indent(), block=self.indented(e_block.as_slice()))?;
+                write!(f, "{indent}}}", indent=self.indent())?;
+                Ok(())
+            }
             _ => write!(f, "expr")
         }
     }
