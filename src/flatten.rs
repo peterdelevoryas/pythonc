@@ -581,7 +581,10 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 write!(f, "inject {} from {}", loc, ty)
             }
             Expr::Const(i) => {
-                write!(f, "const {}", i)
+                write!(f, "const i32 {}", i)
+            }
+            Expr::LoadFunctionPointer(ref name) => {
+                write!(f, "const fn {}", name)
             }
             _ => write!(f, "expr")
         }
