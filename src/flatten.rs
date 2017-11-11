@@ -531,7 +531,11 @@ impl fmt::Display for Stmt {
         match *self {
             Stmt::Print(loc) => write!(f, "print {}", loc),
             Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, expr),
-            _ => write!(f, "stmt"),
+            Stmt::Discard(ref expr) => write!(f, "{}", expr),
+            Stmt::Return(ref loc) => match *loc {
+                Some(loc) => write!(f, "return {}", loc),
+                None => write!(f, "return"),
+            },
         }
     }
 }
