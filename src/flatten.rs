@@ -574,6 +574,12 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 write!(f, "{indent}}}", indent=self.indent())?;
                 Ok(())
             }
+            Expr::ProjectTo(loc, ty) => {
+                write!(f, "project {} to {}", loc, ty)
+            }
+            Expr::InjectFrom(loc, ty) => {
+                write!(f, "inject {} from {}", loc, ty)
+            }
             _ => write!(f, "expr")
         }
     }
