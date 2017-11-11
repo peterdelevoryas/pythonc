@@ -586,7 +586,6 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             Expr::LoadFunctionPointer(ref name) => {
                 write!(f, "const fn {}", name)
             }
-            _ => write!(f, "expr")
         }
     }
 }
