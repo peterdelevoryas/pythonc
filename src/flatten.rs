@@ -509,12 +509,25 @@ impl Flatten for ex::Var {
 
 impl<'a> fmt::Display for Formatter<'a, ()> {
     fn fmt(&self, f : &mut fmt::Formatter) -> fmt::Result {
-        for i in 0..(self.flattener.fn_index) {
-            let k = format!("fn_{}", i);
-            writeln!(f, "{}", k)?;
-            // TODO What was this supposed to do?
-            //writeln!(f, "{}", self.fmt(&self.flattener.units))?;
+        for (label, stmts) in &self.flattener.units {
+            writeln!(f, "{indent}{label}:", indent=self.indent(), label=label)?;
+            writeln!(f, "{indent}{stmts}", indent=self.indent(), stmts=self.indented(stmts.as_slice()))?;
         }
-        writeln!(f, "main:")
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in self.node {
+            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=self.fmt(stmt))?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, Stmt> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "unimplemented!()")
     }
 }
