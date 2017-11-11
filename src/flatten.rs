@@ -530,7 +530,16 @@ impl fmt::Display for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Stmt::Print(loc) => write!(f, "print {}", loc),
-            _ => write!(f, "unimplemented!()"),
+            Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, expr),
+            _ => write!(f, "stmt"),
+        }
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            _ => write!(f, "expr")
         }
     }
 }
