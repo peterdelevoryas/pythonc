@@ -580,6 +580,9 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             Expr::InjectFrom(loc, ty) => {
                 write!(f, "inject {} from {}", loc, ty)
             }
+            Expr::Const(i) => {
+                write!(f, "const {}", i)
+            }
             _ => write!(f, "expr")
         }
     }
