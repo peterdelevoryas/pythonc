@@ -542,9 +542,28 @@ impl fmt::Display for Stmt {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn write_args_list(f: &mut fmt::Formatter, args: &[Loc]) -> fmt::Result {
+            if !args.is_empty() {
+                write!(f, "{}", args[0])?;
+            }
+            for arg in &args[1..] {
+                write!(f, ", {}", arg)?;
+            }
+            Ok(())
+        }
         match *self {
             Expr::UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
             Expr::BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
+            Expr::CallFunc(func, ref args) => {
+                write!(f, "{}(", func)?;
+                write_args_list(f, args)?;
+                write!(f, ")")
+            }
+            Expr::RuntimeFunc(ref name, ref args) => {
+                write!(f, "@{}(", name)?;
+                write_args_list(f, args)?;
+                write!(f, ")")
+            }
             _ => write!(f, "expr")
         }
     }
