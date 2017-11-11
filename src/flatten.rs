@@ -520,14 +520,32 @@ impl<'a> fmt::Display for Formatter<'a, ()> {
 impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for stmt in self.node {
-            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=self.fmt(stmt))?;
+            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=stmt)?;
         }
         Ok(())
     }
 }
 
-impl<'a> fmt::Display for Formatter<'a, Stmt> {
+impl fmt::Display for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "unimplemented!()")
+        match *self {
+            Stmt::Print(loc) => write!(f, "print {}", loc),
+            _ => write!(f, "unimplemented!()"),
+        }
+    }
+}
+
+impl fmt::Display for Loc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Loc::Tmp(tmp) => write!(f, "{}", tmp),
+            Loc::Param(i) => write!(f, "%p{}", i),
+        }
+    }
+}
+
+impl fmt::Display for Tmp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "%t{}", self.0)
     }
 }
