@@ -701,8 +701,8 @@ impl Explicate {
         &self.var_data[var]
     }
 
-    pub fn formatter<'a, N: 'a + ?Sized>(&'a self, node: &'a N) -> Formatter<'a, N> {
-        Formatter::new(self, node)
+    pub fn formatter<'a, N: 'a + ?Sized>(&'a self, node: &'a N, show_casts: bool) -> Formatter<'a, N> {
+        Formatter::new(self, node, show_casts)
     }
 }
 
@@ -711,14 +711,16 @@ pub struct Formatter<'a, N: 'a + ?Sized> {
     explicate: &'a Explicate,
     node: &'a N,
     indent: usize,
+    show_casts: bool,
 }
 
 impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
-    pub fn new(explicate: &'a Explicate, node: &'a N) -> Formatter<'a, N> {
+    pub fn new(explicate: &'a Explicate, node: &'a N, show_casts: bool) -> Formatter<'a, N> {
         Formatter {
             explicate,
             node,
             indent: 0,
+            show_casts,
         }
     }
 
@@ -726,7 +728,8 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
         Formatter {
             explicate: self.explicate,
             node,
-            indent: self.indent
+            indent: self.indent,
+            show_casts: self.show_casts,
         }
     }
 
@@ -735,6 +738,7 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
             explicate: self.explicate,
             node,
             indent: self.indent + 1,
+            show_casts: self.show_casts,
         }
     }
 
@@ -843,17 +847,25 @@ impl<'a> fmt::Display for Formatter<'a, Let> {
 
 impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "@project_to::<{}>(", self.fmt(&self.node.to))?;
-        writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
-        write!(f, "{})", self.indent())
+        if self.show_casts {
+            writeln!(f, "@project_to::<{}>(", self.fmt(&self.node.to))?;
+            writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
+            write!(f, "{})", self.indent())
+        } else {
+            write!(f, "{}", self.fmt(&self.node.expr))
+        }
     }
 }
 
 impl<'a> fmt::Display for Formatter<'a, InjectFrom> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "@inject_from::<{}>(", self.fmt(&self.node.from))?;
-        writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
-        write!(f, "{})", self.indent())
+        if self.show_casts {
+            writeln!(f, "@inject_from::<{}>(", self.fmt(&self.node.from))?;
+            writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
+            write!(f, "{})", self.indent())
+        } else {
+            write!(f, "{}", self.fmt(&self.node.expr))
+        }
     }
 }
 
@@ -1077,7 +1089,7 @@ impl<'a> TypeEnv<'a> {
     }
 
     pub fn fmt<M: 'a + ?Sized>(&self, node: &'a M) -> Formatter<'a, M> {
-        Formatter::new(self.explicate, node)
+        Formatter::new(self.explicate, node, true)
     }
 }
 
@@ -1385,7 +1397,7 @@ impl TypeCheck for IfExp {
         };
         if cond_ty != Ty::Int {
             bail!("Type of condition in IfExp is not int: {}",
-                  Formatter::new(env.explicate, self))
+                  Formatter::new(env.explicate, self, true))
         }
         let then_ty = self.then.type_check(env)?;
         let else_ty = self.else_.type_check(env)?;

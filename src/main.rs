@@ -50,6 +50,13 @@ fn run() -> pythonc::Result<()> {
                 .long("runtime")
                 .required(false)
         )
+        .arg(
+            Arg::with_name("show_casts")
+                .help("Show casts (inject and project) in explicated stages")
+                .takes_value(false)
+                .long("show-casts")
+                .required(false)
+        )
         .get_matches();
 
     let emit: pythonc::Stage = match m.value_of("STAGE") {
@@ -76,7 +83,9 @@ fn run() -> pythonc::Result<()> {
         }
     }
 
+    let show_casts = m.is_present("show_casts");
+
     pythonc
-        .emit(&in_path, emit, out_path, runtime)
+        .emit(&in_path, emit, out_path, runtime, show_casts)
         .chain_err(|| format!("Could not compile {:?}", in_path.display()))
 }

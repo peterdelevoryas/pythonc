@@ -47,6 +47,7 @@ impl Pythonc {
         stop_stage: Stage,
         out_path: Option<PathBuf>,
         runtime: Option<PathBuf>,
+        show_casts: bool,
     ) -> Result<()> {
         let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
         let out_path = &out_path;
@@ -71,18 +72,19 @@ impl Pythonc {
                 explicated.type_check(&mut type_env)
             };
             result.chain_err(|| {
-                let fmt = explicate::Formatter::new(&explicate, &explicated);
+                // always show casts during type checking output
+                let fmt = explicate::Formatter::new(&explicate, &explicated, true);
                 format!("{}", fmt)
             }).chain_err(|| "Error type checking explicated ast")?;
         }
         if stop_stage == Stage::Explicated {
-            let fmt = explicate::Formatter::new(&explicate, &explicated);
+            let fmt = explicate::Formatter::new(&explicate, &explicated, show_casts);
             return write_out(fmt, out_path);
         }
 
         let heapified = heapify::heapify(explicated);
         if stop_stage == Stage::Heapified {
-            let fmt = explicate::Formatter::new(&explicate, &heapified);
+            let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
             return write_out(fmt, out_path)
         }
 
