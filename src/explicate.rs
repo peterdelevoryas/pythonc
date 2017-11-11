@@ -837,11 +837,22 @@ impl<'a> fmt::Display for Formatter<'a, Return> {
 
 impl<'a> fmt::Display for Formatter<'a, Let> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "let {} = (", self.fmt(&self.node.var))?;
-        writeln!(f, "{}{}", self.indented(&self.node.rhs).indent(), self.indented(&self.node.rhs))?;
-        writeln!(f, "{}) in (", self.indent())?;
-        writeln!(f, "{}{}", self.indented(&self.node.body).indent(), self.indented(&self.node.body))?;
-        write!(f, "{})", self.indent())
+        // formats let x = 3 in expr as:
+        // {
+        //     let x = 3;
+        //     expr
+        // }
+        // I think it's way easier to read this way
+        writeln!(f, "{{")?;
+        writeln!(f, "{indented}let {lhs} = {rhs};",
+                 indented=self.indented(&self.node.var).indent(),
+                 lhs=self.fmt(&self.node.var),
+                 rhs=self.indented(&self.node.rhs))?;
+        writeln!(f, "{indented}{expr}",
+                 indented=self.indented(&self.node.var).indent(),
+                 expr=self.indented(&self.node.body))?;
+        writeln!(f, "{indent}}}", indent=self.indent())?;
+        Ok(())
     }
 }
 
