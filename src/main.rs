@@ -1,17 +1,11 @@
-#![feature(plugin)]
-#![plugin(docopt_macros)]
-
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
-extern crate docopt;
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate error_chain;
+#[macro_use] extern crate clap;
 extern crate pythonc;
 
 use pythonc::error::*;
 use std::path::PathBuf;
 
+/*
 docopt!(Args derive Debug, "
 pythonc.
 
@@ -35,18 +29,19 @@ Options:
     flag_o: Option<PathBuf>,
     flag_stdout: bool,
 );
+*/
 
 quick_main!(run);
 
 fn run() -> pythonc::Result<()> {
-    let args: Args = Args::docopt().deserialize().unwrap_or_else(|e| e.exit());
-    if args.flag_version {
-        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
+    let matches = clap::App::new("pythonc")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(crate_authors!("\n"))
+        .get_matches();
 
     let pythonc = pythonc::Pythonc::new();
 
+    /*
     let in_path = &args.arg_INPUT;
     let out_path = if args.flag_stdout {
         Some(PathBuf::from("/dev/stdout"))
@@ -65,4 +60,6 @@ fn run() -> pythonc::Result<()> {
     pythonc
         .emit(in_path, stop_stage, out_path, runtime)
         .chain_err(|| format!("Could not compile {:?}", in_path.display()))
+    */
+    unimplemented!()
 }

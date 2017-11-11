@@ -1,12 +1,7 @@
 #![feature(box_syntax, box_patterns, conservative_impl_trait)]
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde;
+#[macro_use] extern crate error_chain;
+#[macro_use] extern crate util;
 extern crate slab;
-#[macro_use]
-extern crate util;
 extern crate ast;
 
 pub mod error;
@@ -25,7 +20,7 @@ use std::fmt;
 #[derive(Debug)]
 pub struct Pythonc {}
 
-#[derive(Deserialize, Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Stage {
     Ast,
     Explicated,

@@ -511,9 +511,10 @@ impl<'a> fmt::Display for Formatter<'a, ()> {
     fn fmt(&self, f : &mut fmt::Formatter) -> fmt::Result {
         for i in 0..(self.flattener.fn_index) {
             let k = format!("fn_{}", i);
-            writeln!(f, k)?;
-            self.fmt(self.flattener.units())?;
+            writeln!(f, "{}", k)?;
+            // TODO What was this supposed to do?
+            //writeln!(f, "{}", self.fmt(&self.flattener.units))?;
         }
-        writeln!(f, "main:")?
+        writeln!(f, "main:")
     }
 }
