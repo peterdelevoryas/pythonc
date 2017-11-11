@@ -509,12 +509,121 @@ impl Flatten for ex::Var {
 
 impl<'a> fmt::Display for Formatter<'a, ()> {
     fn fmt(&self, f : &mut fmt::Formatter) -> fmt::Result {
-        for i in 0..(self.flattener.fn_index) {
-            let k = format!("fn_{}", i);
-            writeln!(f, "{}", k)?;
-            // TODO What was this supposed to do?
-            //writeln!(f, "{}", self.fmt(&self.flattener.units))?;
+        for (label, stmts) in &self.flattener.units {
+            writeln!(f, "{indent}{label}:", indent=self.indent(), label=label)?;
+            writeln!(f, "{indent}{stmts}", indent=self.indent(), stmts=self.indented(stmts.as_slice()))?;
         }
-        writeln!(f, "main:")
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in self.node {
+            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=self.fmt(stmt))?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, Stmt> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self.node {
+            Stmt::Print(loc) => write!(f, "print {}", loc),
+            Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, self.fmt(expr)),
+            Stmt::Discard(ref expr) => write!(f, "{}", self.fmt(expr)),
+            Stmt::Return(ref loc) => match *loc {
+                Some(loc) => write!(f, "return {}", loc),
+                None => write!(f, "return"),
+            },
+        }
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, Expr> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn write_args_list(f: &mut fmt::Formatter, args: &[Loc]) -> fmt::Result {
+            if !args.is_empty() {
+                write!(f, "{}", args[0])?;
+            }
+            for arg in &args[1..] {
+                write!(f, ", {}", arg)?;
+            }
+            Ok(())
+        }
+        match *self.node {
+            Expr::UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
+            Expr::BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
+            Expr::CallFunc(func, ref args) => {
+                write!(f, "{}(", func)?;
+                write_args_list(f, args)?;
+                write!(f, ")")
+            }
+            Expr::RuntimeFunc(ref name, ref args) => {
+                write!(f, "@{}(", name)?;
+                write_args_list(f, args)?;
+                write!(f, ")")
+            }
+            Expr::If(c, t, e, ref t_block, ref e_block) => {
+                writeln!(f, "if {} then {} else {} where {{", c, t, e)?;
+                writeln!(f, "{indent}then: ", indent=self.indent())?;
+                writeln!(f, "{block}", block=self.indented(t_block.as_slice()))?;
+                writeln!(f, "{indent}else: ", indent=self.indent())?;
+                writeln!(f, "{block}", block=self.indented(e_block.as_slice()))?;
+                write!(f, "{indent}}}", indent=self.indent())?;
+                Ok(())
+            }
+            Expr::ProjectTo(loc, ty) => {
+                write!(f, "project {} to {}", loc, ty)
+            }
+            Expr::InjectFrom(loc, ty) => {
+                write!(f, "inject {} from {}", loc, ty)
+            }
+            Expr::Const(i) => {
+                write!(f, "const i32 {}", i)
+            }
+            Expr::LoadFunctionPointer(ref name) => {
+                write!(f, "const fn {}", name)
+            }
+        }
+    }
+}
+
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            UnaryOp::NEGATE => "neg",
+            UnaryOp::NOT => "not",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            BinOp::ADD => "+",
+            BinOp::EQ => "==",
+            BinOp::NOTEQ => "!=",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+
+
+
+impl fmt::Display for Loc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Loc::Tmp(tmp) => write!(f, "{}", tmp),
+            Loc::Param(i) => write!(f, "%p{}", i),
+        }
+    }
+}
+
+impl fmt::Display for Tmp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "%t{}", self.0)
     }
 }
