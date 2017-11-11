@@ -4,62 +4,79 @@ extern crate pythonc;
 
 use pythonc::error::*;
 use std::path::PathBuf;
-
-/*
-docopt!(Args derive Debug, "
-pythonc.
-
-Usage:
-    pythonc [options] INPUT
-    pythonc (-h | -v)
-
-Options:
-    --emit STAGE    Configure output stage.
-                    [values: ast, explicated, flattened, vasm, liveness, asm, obj, bin]
-                    [default: asm]
-    --runtime LIB   Path to runtime.
-    -o PATH         Configures output path.
-    --stdout        Print output to stdout (instead of to file).
-    -h --help       Show this message.
-    -v --version    Show version.
-",
-    arg_INPUT: PathBuf,
-    flag_emit: pythonc::Stage,
-    flag_runtime: Option<PathBuf>,
-    flag_o: Option<PathBuf>,
-    flag_stdout: bool,
-);
-*/
+use clap::Arg;
 
 quick_main!(run);
 
 fn run() -> pythonc::Result<()> {
-    let matches = clap::App::new("pythonc")
+    let m = clap::App::new("pythonc")
         .version(env!("CARGO_PKG_VERSION"))
         .author(crate_authors!("\n"))
+        .about("A Python (subset) compiler written in Rust")
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Input path")
+                .index(1)
+                .required(true)
+        )
+        .arg(
+            Arg::with_name("STAGE")
+                .help("Output stage")
+                .takes_value(true)
+                .long("emit")
+                .required(false)
+                .multiple(false)
+                .possible_values(&pythonc::Stage::variants())
+        )
+        .arg(
+            Arg::with_name("FILENAME")
+                .help("Out file")
+                .takes_value(true)
+                .short("o")
+                .required(false)
+        )
+        .arg(
+            Arg::with_name("stdout")
+                .help("Write output to stdout")
+                .takes_value(false)
+                .long("stdout")
+                .required(false)
+                .conflicts_with("FILENAME")
+        )
+        .arg(
+            Arg::with_name("LIB")
+                .help("Runtime library path (for linking)")
+                .takes_value(true)
+                .long("runtime")
+                .required(false)
+        )
         .get_matches();
+
+    let emit: pythonc::Stage = match m.value_of("STAGE") {
+        Some(stage) => stage.parse()?,
+        None => pythonc::Stage::Asm,
+    };
 
     let pythonc = pythonc::Pythonc::new();
 
-    /*
-    let in_path = &args.arg_INPUT;
-    let out_path = if args.flag_stdout {
+    let in_path: PathBuf = match m.value_of("INPUT") {
+        Some(s) => s.into(),
+        None => bail!("Missing input argument")
+    };
+    let out_path = if m.is_present("stdout") {
         Some(PathBuf::from("/dev/stdout"))
     } else {
-        args.flag_o
+        m.value_of("FILENAME").map(PathBuf::from)
     };
-    let runtime = args.flag_runtime;
-    let stop_stage = args.flag_emit;
+    let runtime = m.value_of("LIB").map(PathBuf::from);
 
-    if stop_stage == pythonc::Stage::Bin {
+    if emit == pythonc::Stage::Bin {
         if runtime.is_none() {
-            return Err("Cannot emit binary without runtime".into());
+            bail!("Cannot emit binary without runtime")
         }
     }
 
     pythonc
-        .emit(in_path, stop_stage, out_path, runtime)
+        .emit(&in_path, emit, out_path, runtime)
         .chain_err(|| format!("Could not compile {:?}", in_path.display()))
-    */
-    unimplemented!()
 }
