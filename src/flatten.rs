@@ -520,18 +520,18 @@ impl<'a> fmt::Display for Formatter<'a, ()> {
 impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for stmt in self.node {
-            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=stmt)?;
+            writeln!(f, "{indent}{stmt}", indent=self.indent(), stmt=self.fmt(stmt))?;
         }
         Ok(())
     }
 }
 
-impl fmt::Display for Stmt {
+impl<'a> fmt::Display for Formatter<'a, Stmt> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match *self.node {
             Stmt::Print(loc) => write!(f, "print {}", loc),
-            Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, expr),
-            Stmt::Discard(ref expr) => write!(f, "{}", expr),
+            Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, self.fmt(expr)),
+            Stmt::Discard(ref expr) => write!(f, "{}", self.fmt(expr)),
             Stmt::Return(ref loc) => match *loc {
                 Some(loc) => write!(f, "return {}", loc),
                 None => write!(f, "return"),
@@ -540,7 +540,7 @@ impl fmt::Display for Stmt {
     }
 }
 
-impl fmt::Display for Expr {
+impl<'a> fmt::Display for Formatter<'a, Expr> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn write_args_list(f: &mut fmt::Formatter, args: &[Loc]) -> fmt::Result {
             if !args.is_empty() {
@@ -551,7 +551,7 @@ impl fmt::Display for Expr {
             }
             Ok(())
         }
-        match *self {
+        match *self.node {
             Expr::UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
             Expr::BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
             Expr::CallFunc(func, ref args) => {
