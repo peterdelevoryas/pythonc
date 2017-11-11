@@ -543,10 +543,36 @@ impl fmt::Display for Stmt {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Expr::UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
+            Expr::BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
             _ => write!(f, "expr")
         }
     }
 }
+
+impl fmt::Display for UnaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            UnaryOp::NEGATE => "neg",
+            UnaryOp::NOT => "not",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl fmt::Display for BinOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            BinOp::ADD => "+",
+            BinOp::EQ => "==",
+            BinOp::NOTEQ => "!=",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+
+
 
 impl fmt::Display for Loc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
