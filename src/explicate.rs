@@ -757,7 +757,6 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        println!("{:#?}", self.node.funcs);
         writeln!(f, "func main() -> i32 {{")?;
         writeln!(
             f,
