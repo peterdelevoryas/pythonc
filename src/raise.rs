@@ -58,7 +58,13 @@ impl Builder {
 
     pub fn add_to_curr_func(&mut self, stmts: Vec<Stmt>) {
         for stmt in stmts {
-            //let stmt = self.stmt(stmt);
+            let stmt = self.stmt(stmt);
+            // would like to move this out of loop,
+            // because logically curr should be at the same spot
+            // because any new blocks should be ended before
+            // returning here, but borrow checker can't know that.
+            let curr = self.curr.last_mut().unwrap();
+            curr.stmts.push(stmt);
         }
     }
 
@@ -70,6 +76,15 @@ impl Builder {
             body: curr,
         };
         self.funcs.insert(data)
+    }
+}
+
+impl TransformAst for Builder {
+    fn closure(&mut self, closure: Closure) -> Expr {
+        self.new_func();
+        self.add_to_curr_func(closure.code);
+        let func = self.end_func(closure.args);
+        func.into()
     }
 }
 
