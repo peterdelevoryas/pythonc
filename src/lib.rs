@@ -90,16 +90,11 @@ impl Pythonc {
             return write_out(fmt, out_path)
         }
 
-        /*
-        let mut builder = raise::Builder::new();
-        builder.module(heapified);
-        let raised = builder.complete();
+        let trans_unit = raise::Builder::build(heapified);
         if stop_stage == Stage::Raised {
-            //let fmt = explicate::Formatter::new(&explicate, &raised, show_casts);
-            //return write_out(fmt, out_path)
-            unimplemented!()
+            let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts);
+            return write_out(fmt, out_path)
         }
-        */
 
 //        let mut flattener = flatten::Flattener::from(explicate);
 //        let flattened = heapified.flatten(&mut flattener);

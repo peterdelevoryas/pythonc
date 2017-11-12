@@ -755,6 +755,45 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
 
 use std::fmt;
 
+impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "func main() -> i32 {{")?;
+        writeln!(
+            f,
+            "{}{}",
+            self.indent(),
+            self.indented(&self.node.funcs[self.node.main])
+        )?;
+        writeln!(f, "{}}}", self.indent())?;
+        writeln!(f)?;
+        for (func, data) in &self.node.funcs {
+            if func == self.node.main {
+                continue
+            }
+            writeln!(f, "{indent}func {func}({params}) -> i32 {{",
+                indent=self.indent(),
+                func=func,
+                params="unimplemented")?;
+            writeln!(
+                f,
+                "{}{}",
+                self.indent(),
+                self.indented(&self.node.funcs[self.node.main])
+            )?;
+            writeln!(f, "{}}}", self.indent())?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, ::raise::func::Data> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}unimplemented", self.indent())?;
+        Ok(())
+    }
+}
+
 impl<'a> fmt::Display for Formatter<'a, Module> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use explicate::FreeVars;
@@ -763,6 +802,18 @@ impl<'a> fmt::Display for Formatter<'a, Module> {
         let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
         writeln!(f, ".free_vars: {}", self.fmt(free_vars.as_slice()))?;
         for stmt in &self.node.stmts {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
+        write!(f, "{}", self.indent())?;
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in self.node {
             write!(f, "{}", self.indent())?;
             writeln!(f, "{}", self.indented(stmt))?;
         }

@@ -21,8 +21,8 @@ pub struct Block {
 }
 
 pub struct TransUnit {
-    main: Func,
-    funcs: func::Slab<func::Data>,
+    pub main: Func,
+    pub funcs: func::Slab<func::Data>,
 }
 
 pub struct Builder {
