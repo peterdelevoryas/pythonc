@@ -770,10 +770,19 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             if func == self.node.main {
                 continue
             }
+            let (_, params): (_, String) = data.args.iter().map(|var| {
+                format!("{}", var)
+            }).fold((true, "".into()), |(first, mut acc), s| {
+                if !first {
+                    acc.push_str(", ");
+                }
+                acc.push_str(&s);
+                (false, acc)
+            });
             writeln!(f, "{indent}func {func}({params}) -> i32 {{",
                 indent=self.indent(),
                 func=func,
-                params="unimplemented")?;
+                params=params)?;
             writeln!(
                 f,
                 "{}{}",
