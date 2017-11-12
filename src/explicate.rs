@@ -757,6 +757,7 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        println!("{:#?}", self.node.funcs);
         writeln!(f, "func main() -> i32 {{")?;
         writeln!(
             f,
@@ -771,7 +772,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 continue
             }
             let (_, params): (_, String) = data.args.iter().map(|var| {
-                format!("{}", var)
+                format!("{}", self.fmt(var))
             }).fold((true, "".into()), |(first, mut acc), s| {
                 if !first {
                     acc.push_str(", ");
@@ -787,7 +788,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 f,
                 "{}{}",
                 self.indent(),
-                self.fmt(&self.node.funcs[self.node.main])
+                self.fmt(&self.node.funcs[func])
             )?;
             writeln!(f, "{}}}", self.indent())?;
             writeln!(f)?;
