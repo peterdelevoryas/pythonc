@@ -762,7 +762,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             f,
             "{}{}",
             self.indent(),
-            self.indented(&self.node.funcs[self.node.main])
+            self.fmt(&self.node.funcs[self.node.main])
         )?;
         writeln!(f, "{}}}", self.indent())?;
         writeln!(f)?;
@@ -787,7 +787,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 f,
                 "{}{}",
                 self.indent(),
-                self.indented(&self.node.funcs[self.node.main])
+                self.fmt(&self.node.funcs[self.node.main])
             )?;
             writeln!(f, "{}}}", self.indent())?;
             writeln!(f)?;
@@ -798,8 +798,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::func::Data> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}unimplemented", self.indent())?;
-        Ok(())
+        write!(f, "{}", self.fmt(self.node.body.stmts.as_slice()))
     }
 }
 
@@ -826,8 +825,6 @@ impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
             write!(f, "{}", self.indent())?;
             writeln!(f, "{}", self.indented(stmt))?;
         }
-        write!(f, "{}", self.indent())?;
-        writeln!(f, "}}")?;
         Ok(())
     }
 }

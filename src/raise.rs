@@ -17,7 +17,7 @@ pub use self::func::Func;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Block {
-    stmts: Vec<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 pub struct TransUnit {
