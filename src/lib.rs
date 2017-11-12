@@ -8,6 +8,7 @@ extern crate ast;
 pub mod error;
 pub mod explicate;
 pub mod heapify;
+pub mod raise;
 pub mod flatten;
 
 use flatten::Flatten;
@@ -27,6 +28,7 @@ arg_enum!{
         Ast,
         Explicated,
         Heapified,
+        Raised,
         Flattened,
         VAsm,
         Liveness,
@@ -88,12 +90,21 @@ impl Pythonc {
             return write_out(fmt, out_path)
         }
 
-        let mut flattener = flatten::Flattener::from(explicate);
-        let flattened = heapified.flatten(&mut flattener);
-        if stop_stage == Stage::Flattened {
-            let fmt = flatten::Formatter::new(&flattener, &flattened);
-            return write_out(fmt, out_path)
+        let mut builder = raise::Builder::new();
+        builder.module(heapified);
+        let raised = builder.complete();
+        if stop_stage == Stage::Raised {
+            //let fmt = explicate::Formatter::new(&explicate, &raised, show_casts);
+            //return write_out(fmt, out_path)
+            unimplemented!()
         }
+
+//        let mut flattener = flatten::Flattener::from(explicate);
+//        let flattened = heapified.flatten(&mut flattener);
+//        if stop_stage == Stage::Flattened {
+//            let fmt = flatten::Formatter::new(&flattener, &flattened);
+//            return write_out(fmt, out_path)
+//        }
 
         Ok(())
     }
@@ -106,6 +117,7 @@ impl Stage {
             Ast => "ast",
             Explicated => "explicated",
             Heapified => "heapified",
+            Raised => "raised",
             Flattened => "flattened",
             VAsm => "vasm",
             Liveness => "liveness",
