@@ -143,5 +143,11 @@ macro_rules! impl_ref {
                 self.iter()
             }
         }
+
+        impl ::std::fmt::Display for $ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                write!(f, "{}{}", $display_prefix, self.0)
+            }
+        }
     }
 }

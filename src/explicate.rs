@@ -1,5 +1,6 @@
 use ast;
 use std::collections::HashMap;
+use raise::Func;
 
 const MASK: i32 = 3;
 const SHIFT: i32 = 2;
@@ -76,7 +77,8 @@ impl_wrapper_enum! {
         ];
         simple: [
             Const,
-            Var
+            Var,
+            Func
         ];
     }
 }
@@ -753,6 +755,53 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
 
 use std::fmt;
 
+impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "func main() -> i32 {{")?;
+        writeln!(
+            f,
+            "{}{}",
+            self.indent(),
+            self.fmt(&self.node.funcs[self.node.main])
+        )?;
+        writeln!(f, "{}}}", self.indent())?;
+        writeln!(f)?;
+        for (func, data) in &self.node.funcs {
+            if func == self.node.main {
+                continue
+            }
+            let (_, params): (_, String) = data.args.iter().map(|var| {
+                format!("{}", self.fmt(var))
+            }).fold((true, "".into()), |(first, mut acc), s| {
+                if !first {
+                    acc.push_str(", ");
+                }
+                acc.push_str(&s);
+                (false, acc)
+            });
+            writeln!(f, "{indent}func {func}({params}) -> i32 {{",
+                indent=self.indent(),
+                func=func,
+                params=params)?;
+            writeln!(
+                f,
+                "{}{}",
+                self.indent(),
+                self.fmt(&self.node.funcs[func])
+            )?;
+            writeln!(f, "{}}}", self.indent())?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, ::raise::func::Data> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.fmt(self.node.body.stmts.as_slice()))
+    }
+}
+
 impl<'a> fmt::Display for Formatter<'a, Module> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use explicate::FreeVars;
@@ -766,6 +815,16 @@ impl<'a> fmt::Display for Formatter<'a, Module> {
         }
         write!(f, "{}", self.indent())?;
         writeln!(f, "}}")?;
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in self.node {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
         Ok(())
     }
 }
@@ -801,6 +860,7 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             Closure(box ref c) => write!(f, "{}", self.fmt(c)),
             Const(ref c) => write!(f, "{}", self.fmt(c)),
             Var(ref v) => write!(f, "{}", self.fmt(v)),
+            Func(ref func) => write!(f, "{}", func),
         }
     }
 }
@@ -1243,6 +1303,9 @@ impl TypeCheck for Expr {
                     format!("Error type checking var: {}", env.fmt(inner))
                 }),
 
+            Func(ref func) => {
+                bail!("Func's shouldn't be in the AST before type checking!")
+            }
         }
     }
 }
@@ -1513,6 +1576,7 @@ impl AddFreeVars for Expr {
             Closure(ref x) => x.add_free_vars(free_vars),
             Const(ref x) => x.add_free_vars(free_vars),
             Var(ref x) => x.add_free_vars(free_vars),
+            Func(ref x) => {},
         }
     }
 }
@@ -1752,6 +1816,7 @@ impl Uses for Expr {
             Closure(ref x) => HashSet::new(),
             Const(ref x) => x.uses(),
             Var(ref x) => x.uses(),
+            Func(ref f) => HashSet::new(),
         }
     }
 }

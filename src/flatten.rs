@@ -261,6 +261,7 @@ impl Flatten for ex::Expr {
             ex::Expr::Closure(v) => v.flatten(builder),
             ex::Expr::Const(c) => c.flatten(builder),
             ex::Expr::Var(v) => v.flatten(builder),
+            ex::Expr::Func(f) => panic!("Func in flatten"),
         }
     }
 }
