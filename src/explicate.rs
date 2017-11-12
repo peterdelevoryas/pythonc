@@ -1,5 +1,6 @@
 use ast;
 use std::collections::HashMap;
+use raise::Func;
 
 const MASK: i32 = 3;
 const SHIFT: i32 = 2;
@@ -76,7 +77,8 @@ impl_wrapper_enum! {
         ];
         simple: [
             Const,
-            Var
+            Var,
+            Func
         ];
     }
 }
@@ -801,6 +803,7 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             Closure(box ref c) => write!(f, "{}", self.fmt(c)),
             Const(ref c) => write!(f, "{}", self.fmt(c)),
             Var(ref v) => write!(f, "{}", self.fmt(v)),
+            Func(ref func) => write!(f, "{}", func),
         }
     }
 }
@@ -1243,6 +1246,9 @@ impl TypeCheck for Expr {
                     format!("Error type checking var: {}", env.fmt(inner))
                 }),
 
+            Func(ref func) => {
+                bail!("Func's shouldn't be in the AST before type checking!")
+            }
         }
     }
 }
@@ -1513,6 +1519,7 @@ impl AddFreeVars for Expr {
             Closure(ref x) => x.add_free_vars(free_vars),
             Const(ref x) => x.add_free_vars(free_vars),
             Var(ref x) => x.add_free_vars(free_vars),
+            Func(ref x) => {},
         }
     }
 }
@@ -1752,6 +1759,7 @@ impl Uses for Expr {
             Closure(ref x) => HashSet::new(),
             Const(ref x) => x.uses(),
             Var(ref x) => x.uses(),
+            Func(ref f) => HashSet::new(),
         }
     }
 }

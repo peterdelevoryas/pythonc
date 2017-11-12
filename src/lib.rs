@@ -90,6 +90,7 @@ impl Pythonc {
             return write_out(fmt, out_path)
         }
 
+        /*
         let mut builder = raise::Builder::new();
         builder.module(heapified);
         let raised = builder.complete();
@@ -98,6 +99,7 @@ impl Pythonc {
             //return write_out(fmt, out_path)
             unimplemented!()
         }
+        */
 
 //        let mut flattener = flatten::Flattener::from(explicate);
 //        let flattened = heapified.flatten(&mut flattener);

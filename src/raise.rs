@@ -24,24 +24,6 @@ pub struct TransUnit {
     funcs: func::Slab<func::Data>,
 }
 
-pub struct Builder {
-    funcs: func::Slab<func::Data>,
-}
-
-impl Builder {
-    pub fn new() -> Builder {
-        Builder {
-            funcs: func::Slab::new(),
-        }
-    }
-
-    pub fn module(&mut self, m: Module) {
-        unimplemented!()
-    }
-
-    pub fn complete(self) -> TransUnit {
-        TransUnit {
-            funcs: self.funcs,
-        }
-    }
+impl TransUnit {
+    
 }

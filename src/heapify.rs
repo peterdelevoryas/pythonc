@@ -75,6 +75,7 @@ impl Heapify for Expr {
             Closure(box x) => x.heapify(builder).into(),
             Var(x) => x.heapify(builder).into(),
             Const(x) => x.heapify(builder).into(),
+            Func(x) => panic!("Func in AST during heapification"),
         }
     }
 }
