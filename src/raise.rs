@@ -58,33 +58,8 @@ impl Builder {
 
     pub fn add_to_curr_func(&mut self, stmts: Vec<Stmt>) {
         for stmt in stmts {
-            let stmt = self.stmt(stmt);
+            //let stmt = self.stmt(stmt);
         }
-    }
-
-    pub fn stmt(&mut self, s: Stmt) -> Stmt {
-        match s {
-            Stmt::Printnl(p) => {
-                Printnl {
-                    expr: self.expr(p.expr),
-                }.into()
-            }
-            Stmt::Assign(a) => {
-                Assign {
-                    target: a.target,
-                    expr: self.expr(a.expr),
-                }.into()
-            }
-            Stmt::Expr(e) => self.expr(e).into(),
-            Stmt::Return(r) => Return {
-                expr: self.expr(r.expr),
-            }.into(),
-            _ => unimplemented!()
-        }
-    }
-
-    pub fn expr(&mut self, e: Expr) -> Expr {
-        unimplemented!()
     }
 
     // moves curr.last to funcs
@@ -95,5 +70,175 @@ impl Builder {
             body: curr,
         };
         self.funcs.insert(data)
+    }
+}
+
+pub trait TransformAst {
+    fn stmt(&mut self, s: Stmt) -> Stmt {
+        match s {
+            Stmt::Printnl(p) => self.printnl(p),
+            Stmt::Assign(a) => self.assign(a),
+            Stmt::Expr(e) => self.expr(e).into(),
+            Stmt::Return(r) => self.return_(r),
+        }
+    }
+
+    fn printnl(&mut self, printnl: Printnl) -> Stmt {
+        Printnl {
+            expr: self.expr(printnl.expr),
+        }.into()
+    }
+
+    fn assign(&mut self, assign: Assign) -> Stmt {
+        Assign {
+            target: self.target(assign.target),
+            expr: self.expr(assign.expr),
+        }.into()
+    }
+
+    fn return_(&mut self, return_: Return) -> Stmt {
+        Return {
+            expr: self.expr(return_.expr),
+        }.into()
+    }
+
+    fn target(&mut self, target: Target) -> Target {
+        match target {
+            Target::Var(var) => self.target_var(var),
+            Target::Subscript(subscript) => self.target_subscript(subscript),
+        }
+    }
+
+    fn target_var(&mut self, var: Var) -> Target {
+        var.into()
+    }
+
+    fn target_subscript(&mut self, subscript: Subscript) -> Target {
+        self.subscript(subscript).into()
+    }
+
+    fn var(&mut self, var: Var) -> Expr {
+        var.into()
+    }
+
+    fn subscript(&mut self, subscript: Subscript) -> Subscript {
+        Subscript {
+            base: self.expr(subscript.base),
+            elem: self.expr(subscript.elem),
+        }
+    }
+
+    fn expr(&mut self, e: Expr) -> Expr {
+        match e {
+            Expr::Let(box l) => self.let_(l),
+            Expr::ProjectTo(box p) => self.project_to(p),
+            Expr::InjectFrom(box x) => self.inject_from(x),
+            Expr::CallFunc(box x) => self.call_func(x),
+            Expr::CallRuntime(box x) => self.call_runtime(x),
+            Expr::Binary(box x) => self.binary(x),
+            Expr::Unary(box x) => self.unary(x),
+            Expr::Subscript(box s) => self.subscript(s).into(),
+            Expr::List(box l) => self.list(l),
+            Expr::Dict(box d) => self.dict(d),
+            Expr::IfExp(box e) => self.if_exp(e),
+            Expr::Closure(box c) => self.closure(c),
+            Expr::Const(c) => self.const_(c),
+            Expr::Var(v) => self.var(v),
+            Expr::Func(f) => self.func(f),
+        }
+    }
+
+    fn let_(&mut self, let_: Let) -> Expr {
+        Let {
+            var: self.let_var(let_.var),
+            rhs: self.expr(let_.rhs),
+            body: self.expr(let_.body),
+        }.into()
+    }
+
+    fn let_var(&mut self, var: Var) -> Var {
+        var
+    }
+
+    fn project_to(&mut self, project_to: ProjectTo) -> Expr {
+        ProjectTo {
+            to: project_to.to,
+            expr: self.expr(project_to.expr),
+        }.into()
+    }
+
+    fn inject_from(&mut self, inject_from: InjectFrom) -> Expr {
+        InjectFrom {
+            from: inject_from.from,
+            expr: self.expr(inject_from.expr),
+        }.into()
+    }
+
+    fn call_func(&mut self, call: CallFunc) -> Expr {
+        CallFunc {
+            expr: self.expr(call.expr),
+            args: call.args.into_iter().map(|expr| self.expr(expr)).collect(),
+        }.into()
+    }
+
+    fn call_runtime(&mut self, call: CallRuntime) -> Expr {
+        CallRuntime {
+            name: call.name,
+            args: call.args.into_iter().map(|expr| self.expr(expr)).collect(),
+        }.into()
+    }
+
+    fn binary(&mut self, binary: Binary) -> Expr {
+        Binary {
+            op: binary.op,
+            left: self.expr(binary.left),
+            right: self.expr(binary.right),
+        }.into()
+    }
+
+    fn unary(&mut self, unary: Unary) -> Expr {
+        Unary {
+            op: unary.op,
+            expr: self.expr(unary.expr),
+        }.into()
+    }
+
+    fn list(&mut self, list: List) -> Expr {
+        List {
+            exprs: list.exprs.into_iter().map(|expr| self.expr(expr)).collect()
+        }.into()
+    }
+
+    fn dict(&mut self, dict: Dict) -> Expr {
+        Dict {
+            tuples: dict.tuples.into_iter().map(|(l, r)| (self.expr(l), self.expr(r))).collect()
+        }.into()
+    }
+
+    fn if_exp(&mut self, if_exp: IfExp) -> Expr {
+        IfExp {
+            cond: self.expr(if_exp.cond),
+            then: self.expr(if_exp.then),
+            else_: self.expr(if_exp.else_),
+        }.into()
+    }
+
+    fn closure(&mut self, closure: Closure) -> Expr {
+        Closure {
+            args: closure.args.into_iter().map(|var| self.closure_var(var)).collect(),
+            code: closure.code.into_iter().map(|stmt| self.stmt(stmt)).collect(),
+        }.into()
+    }
+
+    fn const_(&mut self, const_: Const) -> Expr {
+        const_.into()
+    }
+
+    fn func(&mut self, func: Func) -> Expr {
+        func.into()
+    }
+
+    fn closure_var(&mut self, var: Var) -> Var {
+        var
     }
 }
