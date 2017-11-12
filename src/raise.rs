@@ -63,6 +63,27 @@ impl Builder {
     }
 
     pub fn stmt(&mut self, s: Stmt) -> Stmt {
+        match s {
+            Stmt::Printnl(p) => {
+                Printnl {
+                    expr: self.expr(p.expr),
+                }.into()
+            }
+            Stmt::Assign(a) => {
+                Assign {
+                    target: a.target,
+                    expr: self.expr(a.expr),
+                }.into()
+            }
+            Stmt::Expr(e) => self.expr(e).into(),
+            Stmt::Return(r) => Return {
+                expr: self.expr(r.expr),
+            }.into(),
+            _ => unimplemented!()
+        }
+    }
+
+    pub fn expr(&mut self, e: Expr) -> Expr {
         unimplemented!()
     }
 
