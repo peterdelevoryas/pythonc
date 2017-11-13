@@ -13,8 +13,7 @@ impl<'var_data> Builder<'var_data> {
     pub fn build(var_data: &'var_data mut var::Slab<var::Data>, m: Module) -> Module {
         let mut builder = Builder {
             var_data: var_data,
-            //free_vars: m.free_vars(),
-            free_vars: unimplemented!(),
+            free_vars: ::free_vars::free_vars(m.stmts.as_slice()),
         };
         let stmts = m.stmts.into_iter().map(|stmt| {
             builder.stmt(stmt)
@@ -72,7 +71,7 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     }
 
     fn closure(&mut self, closure: Closure) -> Expr {
-        unimplemented!()
+        closure.into()
         /*
         // first compute free vars for lower level
         self.free_vars.extend(closure.free_vars());

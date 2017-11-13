@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use explicate::*;
 use raise::VisitAst;
 
-pub fn free_vars<N>(node: &N) -> HashSet<Var>
+pub fn free_vars<N: ?Sized>(node: &N) -> HashSet<Var>
 where
     N: FreeVars
 {
