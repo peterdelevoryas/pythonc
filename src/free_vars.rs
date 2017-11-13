@@ -18,14 +18,13 @@ impl FreeVars for [Stmt] {
     fn free_vars(&self) -> HashSet<Var> {
         let mut collect = Collect::new();
         collect.stmts(self);
-        collect.free_vars
+        collect.free_vars()
     }
 }
 
 // get the free vars for a closure
 impl FreeVars for Closure {
     fn free_vars(&self) -> HashSet<Var> {
-        let mut collect = Collect::new();
         let mut free_vars = self.code.free_vars();
         // remove free variables that are
         // defined by args list to closure
@@ -36,12 +35,36 @@ impl FreeVars for Closure {
 
 #[derive(Debug, Clone)]
 struct Collect {
-    free_vars: HashSet<Var>,
+    defined: HashSet<Var>,
+    used: HashSet<Var>,
 }
 
 impl Collect {
     fn new() -> Collect {
-        Collect { free_vars: HashSet::new() }
+        Collect {
+            defined: HashSet::new(),
+            used: HashSet::new(),
+        }
+    }
+
+    fn defined(&mut self, var: Var) {
+        self.defined.insert(var);
+    }
+
+    fn is_defined(&self, var: Var) -> bool {
+        self.defined.contains(&var)
+    }
+
+    fn used(&mut self, var: Var) {
+        self.used.insert(var);
+    }
+
+    fn is_used(&self, var: Var) -> bool {
+        self.used.contains(&var)
+    }
+
+    fn free_vars(&self) -> HashSet<Var> {
+        self.used.difference(&self.defined).map(|&v| v).collect()
     }
 }
 
