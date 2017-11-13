@@ -4,6 +4,7 @@ use error::*;
 pub mod func {
     use explicate::Var;
     use super::Block;
+    use std::collections::HashSet;
 
     impl_ref!(Func, "f");
 
@@ -11,6 +12,15 @@ pub mod func {
     pub struct Data {
         pub args: Vec<Var>,
         pub body: Block,
+    }
+
+    impl ::explicate::FreeVars for Data {
+        fn free_vars(&self) -> HashSet<Var> {
+            ::explicate::Closure {
+                args: self.args.clone(),
+                code: self.body.stmts.clone(),
+            }.free_vars()
+        }
     }
 }
 pub use self::func::Func;

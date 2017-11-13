@@ -757,6 +757,20 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let free_vars_string = |set: HashSet<Var>| -> String {
+            let (_, free_vars): (_, String) = set.into_iter().map(|var| {
+                format!("{}", self.fmt(&var))
+            }).fold((true, "".into()), |(first, mut acc), s| {
+                if !first {
+                    acc.push_str(", ");
+                }
+                acc.push_str(&s);
+                (false, acc)
+            });
+            free_vars
+        };
+
+        use explicate::FreeVars;
         writeln!(f, "func main() -> i32 {{")?;
         writeln!(
             f,
@@ -765,6 +779,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             self.fmt(&self.node.funcs[self.node.main])
         )?;
         writeln!(f, "{}}}", self.indent())?;
+        writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[self.node.main].free_vars()))?;
         writeln!(f)?;
         for (func, data) in &self.node.funcs {
             if func == self.node.main {
@@ -790,9 +805,11 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 self.fmt(&self.node.funcs[func])
             )?;
             writeln!(f, "{}}}", self.indent())?;
+            writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[func].free_vars()))?;
             writeln!(f)?;
         }
         Ok(())
+
     }
 }
 
