@@ -807,7 +807,10 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 self.fmt(self.node.funcs[func].code.as_slice())
             )?;
             writeln!(f, "{}}}", self.indent())?;
-            //writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[func].free_vars()))?;
+            writeln!(f, "{}free vars: ({})", self.indent(),
+                free_vars_string(::free_vars::free_vars(&self.node.funcs[func]))
+            )?;
+
             writeln!(f)?;
         }
         Ok(())
