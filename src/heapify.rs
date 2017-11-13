@@ -21,10 +21,9 @@ impl<'var_data> Builder<'var_data> {
 
     pub fn heapify_module(&mut self, module: Module) -> Module {
         self.needs_heapifying.stmts(module.stmts.as_slice());
+        debug!("needs heapifying: {:?}", self.needs_heapifying.vars);
         let heapified = self.heapify_stmts(module.stmts);
         let free_vars = ::free_vars::free_vars(heapified.as_slice());
-        // there shouldn't be any free variables
-        assert!(free_vars.is_empty());
         Module { stmts: heapified }
     }
 
@@ -160,5 +159,6 @@ impl ::raise::VisitAst for NeedsHeapifying {
     fn closure(&mut self, closure: &Closure) {
         let free_vars = ::free_vars::free_vars(closure);
         self.vars.extend(free_vars);
+        self.stmts(closure.code.as_slice());
     }
 }
