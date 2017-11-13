@@ -28,7 +28,7 @@ impl FreeVars for Closure {
         let mut free_vars = self.code.free_vars();
         // remove free variables that are
         // defined by args list to closure
-        free_vars.retain(|fv| self.args.contains(fv));
+        free_vars.retain(|fv| !self.args.contains(fv));
         free_vars
     }
 }
