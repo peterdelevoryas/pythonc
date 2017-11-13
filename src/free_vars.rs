@@ -73,4 +73,20 @@ impl VisitAst for Collect {
         // don't enter closure, only visit ast nodes
         // in the scope we were called from!
     }
+
+    fn target_var(&mut self, &var: &Var) {
+        self.defined(var);
+    }
+
+    fn var(&mut self, &var: &Var) {
+        self.used(var);
+    }
+
+    fn closure_var(&mut self, var: &Var) {
+        panic!("Closure's should not be entered during free_vars::Collect!");
+    }
+
+    fn let_var(&mut self, &var: &Var) {
+        self.defined(var);
+    }
 }
