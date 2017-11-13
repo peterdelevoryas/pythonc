@@ -824,14 +824,14 @@ impl<'a> fmt::Display for Formatter<'a, Module> {
         use explicate::FreeVars;
         write!(f, "{}", self.indent())?;
         writeln!(f, "module {{")?;
-        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
-        writeln!(f, ".free_vars: {}", self.fmt(free_vars.as_slice()))?;
         for stmt in &self.node.stmts {
             write!(f, "{}", self.indent())?;
             writeln!(f, "{}", self.indented(stmt))?;
         }
         write!(f, "{}", self.indent())?;
-        writeln!(f, "}}")?;
+        write!(f, "}}")?;
+        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
+        writeln!(f, ".free_vars: {}", self.fmt(free_vars.as_slice()))?;
         Ok(())
     }
 }
@@ -1034,13 +1034,13 @@ impl<'a> fmt::Display for Formatter<'a, IfExp> {
 impl<'a> fmt::Display for Formatter<'a, Closure> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "closure{} {{", self.fmt(self.node.args.as_slice()))?;
-        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
-        writeln!(f, "{}.free_vars: {}", self.indent(), self.fmt(free_vars.as_slice()))?;
         for stmt in &self.node.code {
             writeln!(f, "{}", self.indented(stmt))?;
         }
         write!(f, "{}", self.indent())?;
-        writeln!(f, "}}")
+        write!(f, "}}")?;
+        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
+        writeln!(f, ".free_vars={}", self.fmt(free_vars.as_slice()))
     }
 }
 
