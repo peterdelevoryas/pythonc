@@ -25,7 +25,12 @@ impl FreeVars for [Stmt] {
 // get the free vars for a closure
 impl FreeVars for Closure {
     fn free_vars(&self) -> HashSet<Var> {
-        unimplemented!()
+        let mut collect = Collect::new();
+        let mut free_vars = self.code.free_vars();
+        // remove free variables that are
+        // defined by args list to closure
+        free_vars.retain(|fv| self.args.contains(fv));
+        free_vars
     }
 }
 
