@@ -757,7 +757,6 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        /*
         let free_vars_string = |set: HashSet<Var>| -> String {
             let (_, free_vars): (_, String) = set.into_iter().map(|var| {
                 format!("{}", self.fmt(&var))
@@ -770,7 +769,6 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             });
             free_vars
         };
-        */
 
         //use explicate::FreeVars;
         writeln!(f, "func main() -> i32 {{")?;
@@ -778,10 +776,12 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             f,
             "{}{}",
             self.indent(),
-            self.fmt(&self.node.funcs[self.node.main])
+            self.fmt(self.node.funcs[self.node.main].code.as_slice())
         )?;
         writeln!(f, "{}}}", self.indent())?;
-        //writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[self.node.main].free_vars()))?;
+        //writeln!(f, "{}free vars: ({})", self.indent(),
+            //free_vars_string(::free_vars::free_vars(self.node.funcs[self.node.main].body)
+        //)?;
         writeln!(f)?;
         for (func, data) in &self.node.funcs {
             if func == self.node.main {
@@ -804,7 +804,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 f,
                 "{}{}",
                 self.indent(),
-                self.fmt(&self.node.funcs[func])
+                self.fmt(self.node.funcs[func].code.as_slice())
             )?;
             writeln!(f, "{}}}", self.indent())?;
             //writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[func].free_vars()))?;
@@ -812,12 +812,6 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
         }
         Ok(())
 
-    }
-}
-
-impl<'a> fmt::Display for Formatter<'a, ::raise::func::Data> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.fmt(self.node.body.stmts.as_slice()))
     }
 }
 

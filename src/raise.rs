@@ -7,12 +7,6 @@ pub mod func {
     use std::collections::HashSet;
 
     impl_ref!(Func, "f");
-
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub struct Data {
-        pub args: Vec<Var>,
-        pub body: Block,
-    }
 }
 pub use self::func::Func;
 
@@ -23,7 +17,7 @@ pub struct Block {
 
 pub struct TransUnit {
     pub main: Func,
-    pub funcs: func::Slab<func::Data>,
+    pub funcs: func::Slab<Closure>,
 }
 
 pub struct Builder {
@@ -34,7 +28,7 @@ pub struct Builder {
     // is exited, the current block is popped off the
     // stack and added to the slab of funcs.
     curr: Vec<Block>,
-    funcs: func::Slab<func::Data>,
+    funcs: func::Slab<Closure>,
 }
 
 impl Builder {
@@ -72,9 +66,9 @@ impl Builder {
     // moves curr.last to funcs
     pub fn end_func(&mut self, params: Vec<Var>) -> Func {
         let curr = self.curr.pop().expect("end_block with empty curr");
-        let data = func::Data {
+        let data = Closure {
             args: params,
-            body: curr,
+            code: curr.stmts,
         };
         self.funcs.insert(data)
     }
