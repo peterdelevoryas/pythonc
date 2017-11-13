@@ -439,6 +439,7 @@ impl Flatten for ex::IfExp {
 impl Flatten for ex::Closure {
     type Output = Loc;
     fn flatten(self, builder: &mut Flattener) -> Loc {
+        /*
         use self::ex::AddFreeVars;
 
         let mut freevars = HashSet::new();
@@ -484,6 +485,8 @@ impl Flatten for ex::Closure {
             "create_closure".into(),
             vec![fnptr, freevars_list]
         ))
+        */
+        unimplemented!()
     }
 }
 

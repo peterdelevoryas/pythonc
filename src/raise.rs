@@ -13,15 +13,6 @@ pub mod func {
         pub args: Vec<Var>,
         pub body: Block,
     }
-
-    impl ::explicate::FreeVars for Data {
-        fn free_vars(&self) -> HashSet<Var> {
-            ::explicate::Closure {
-                args: self.args.clone(),
-                code: self.body.stmts.clone(),
-            }.free_vars()
-        }
-    }
 }
 pub use self::func::Func;
 
@@ -265,5 +256,153 @@ pub trait TransformAst {
 
     fn closure_var(&mut self, var: Var) -> Var {
         var
+    }
+}
+
+pub trait VisitAst {
+    fn stmt(&mut self, s: &Stmt) {
+        match *s {
+            Stmt::Printnl(ref p) => self.printnl(p),
+            Stmt::Assign(ref a) => self.assign(a),
+            Stmt::Expr(ref e) => self.expr(e).into(),
+            Stmt::Return(ref r) => self.return_(r),
+        }
+    }
+
+    fn printnl(&mut self, printnl: &Printnl) {
+        self.expr(&printnl.expr)
+    }
+
+    fn assign(&mut self, assign: &Assign) {
+        self.target(&assign.target);
+        self.expr(&assign.expr);
+    }
+
+    fn return_(&mut self, return_: &Return) {
+        self.expr(&return_.expr);
+    }
+
+    fn target(&mut self, target: &Target) {
+        match *target {
+            Target::Var(ref var) => self.target_var(var),
+            Target::Subscript(ref subscript) => self.target_subscript(subscript),
+        }
+    }
+
+    fn target_var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn target_subscript(&mut self, subscript: &Subscript) {
+        // nothing to do by default
+    }
+
+    fn var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn subscript(&mut self, subscript: &Subscript) {
+        self.expr(&subscript.base);
+        self.expr(&subscript.elem);
+    }
+
+    fn expr(&mut self, e: &Expr) {
+        match *e {
+            Expr::Let(box ref l) => self.let_(l),
+            Expr::ProjectTo(box ref p) => self.project_to(p),
+            Expr::InjectFrom(box ref x) => self.inject_from(x),
+            Expr::CallFunc(box ref x) => self.call_func(x),
+            Expr::CallRuntime(box ref x) => self.call_runtime(x),
+            Expr::Binary(box ref x) => self.binary(x),
+            Expr::Unary(box ref x) => self.unary(x),
+            Expr::Subscript(box ref s) => self.subscript(s).into(),
+            Expr::List(box ref l) => self.list(l),
+            Expr::Dict(box ref d) => self.dict(d),
+            Expr::IfExp(box ref e) => self.if_exp(e),
+            Expr::Closure(box ref c) => self.closure(c),
+            Expr::Const(ref c) => self.const_(c),
+            Expr::Var(ref v) => self.var(v),
+            Expr::Func(ref f) => self.func(f),
+        }
+    }
+
+    fn let_(&mut self, let_: &Let) {
+        self.let_var(&let_.var);
+        self.expr(&let_.rhs);
+        self.expr(&let_.body);
+    }
+
+    fn let_var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn project_to(&mut self, project_to: &ProjectTo) {
+        self.expr(&project_to.expr);
+    }
+
+    fn inject_from(&mut self, inject_from: &InjectFrom) {
+        self.expr(&inject_from.expr);
+    }
+
+    fn call_func(&mut self, call: &CallFunc) {
+        self.expr(&call.expr);
+        for arg in &call.args {
+            self.expr(arg);
+        }
+    }
+
+    fn call_runtime(&mut self, call: &CallRuntime) {
+        for arg in &call.args {
+            self.expr(arg);
+        }
+    }
+
+    fn binary(&mut self, binary: &Binary) {
+        self.expr(&binary.left);
+        self.expr(&binary.right);
+    }
+
+    fn unary(&mut self, unary: &Unary) {
+        self.expr(&unary.expr);
+    }
+
+    fn list(&mut self, list: &List) {
+        for expr in &list.exprs {
+            self.expr(expr);
+        }
+    }
+
+    fn dict(&mut self, dict: &Dict) {
+        for &(ref l, ref r) in &dict.tuples {
+            self.expr(l);
+            self.expr(r);
+        }
+    }
+
+    fn if_exp(&mut self, if_exp: &IfExp) {
+        self.expr(&if_exp.cond);
+        self.expr(&if_exp.then);
+        self.expr(&if_exp.else_);
+    }
+
+    fn closure(&mut self, closure: &Closure) {
+        for var in &closure.args {
+            self.closure_var(var);
+        }
+        for stmt in &closure.code {
+            self.stmt(stmt);
+        }
+    }
+
+    fn const_(&mut self, const_: &Const) {
+        // do nothing by default
+    }
+
+    fn func(&mut self, func: &Func) {
+        // do nothing by default
+    }
+
+    fn closure_var(&mut self, var: &Var) {
+        // do nothing by default
     }
 }

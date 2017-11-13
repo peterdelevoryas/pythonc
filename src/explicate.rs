@@ -757,6 +757,7 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        /*
         let free_vars_string = |set: HashSet<Var>| -> String {
             let (_, free_vars): (_, String) = set.into_iter().map(|var| {
                 format!("{}", self.fmt(&var))
@@ -769,8 +770,9 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             });
             free_vars
         };
+        */
 
-        use explicate::FreeVars;
+        //use explicate::FreeVars;
         writeln!(f, "func main() -> i32 {{")?;
         writeln!(
             f,
@@ -779,7 +781,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             self.fmt(&self.node.funcs[self.node.main])
         )?;
         writeln!(f, "{}}}", self.indent())?;
-        writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[self.node.main].free_vars()))?;
+        //writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[self.node.main].free_vars()))?;
         writeln!(f)?;
         for (func, data) in &self.node.funcs {
             if func == self.node.main {
@@ -805,7 +807,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 self.fmt(&self.node.funcs[func])
             )?;
             writeln!(f, "{}}}", self.indent())?;
-            writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[func].free_vars()))?;
+            //writeln!(f, "{}free vars: ({})", self.indent(), free_vars_string(self.node.funcs[func].free_vars()))?;
             writeln!(f)?;
         }
         Ok(())
@@ -821,7 +823,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::func::Data> {
 
 impl<'a> fmt::Display for Formatter<'a, Module> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use explicate::FreeVars;
+        //use explicate::FreeVars;
         write!(f, "{}", self.indent())?;
         writeln!(f, "module {{")?;
         for stmt in &self.node.stmts {
@@ -830,8 +832,8 @@ impl<'a> fmt::Display for Formatter<'a, Module> {
         }
         write!(f, "{}", self.indent())?;
         write!(f, "}}")?;
-        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
-        writeln!(f, ".free_vars: {}", self.fmt(free_vars.as_slice()))?;
+        //let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
+        //writeln!(f, ".free_vars: {}", self.fmt(free_vars.as_slice()))?;
         Ok(())
     }
 }
@@ -1039,8 +1041,9 @@ impl<'a> fmt::Display for Formatter<'a, Closure> {
         }
         write!(f, "{}", self.indent())?;
         write!(f, "}}")?;
-        let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
-        writeln!(f, ".free_vars={}", self.fmt(free_vars.as_slice()))
+        //let free_vars: Vec<Var> = self.node.free_vars().into_iter().collect();
+        //writeln!(f, ".free_vars={}", self.fmt(free_vars.as_slice()))
+        Ok(())
     }
 }
 
@@ -1545,452 +1548,9 @@ impl TypeCheck for Var {
 
 use std::collections::HashSet;
 
-pub trait AddFreeVars {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>);
-}
-
-impl AddFreeVars for Module {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.stmts.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for [Stmt] {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        for stmt in self {
-            stmt.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for Stmt {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        use explicate::Stmt::*;
-        match *self {
-            Printnl(ref x) => x.add_free_vars(free_vars),
-            Assign(ref x) => x.add_free_vars(free_vars),
-            Expr(ref x) => x.add_free_vars(free_vars),
-            Return(ref x) => x.add_free_vars(free_vars),
-        }
-    }
-}
-
-impl AddFreeVars for Expr {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        use explicate::Expr::*;
-        match *self {
-            Let(ref x) => x.add_free_vars(free_vars),
-            ProjectTo(ref x) => x.add_free_vars(free_vars),
-            InjectFrom(ref x) => x.add_free_vars(free_vars),
-            CallFunc(ref x) => x.add_free_vars(free_vars),
-            CallRuntime(ref x) => x.add_free_vars(free_vars),
-            Binary(ref x) => x.add_free_vars(free_vars),
-            Unary(ref x) => x.add_free_vars(free_vars),
-            Subscript(ref x) => x.add_free_vars(free_vars),
-            List(ref x) => x.add_free_vars(free_vars),
-            Dict(ref x) => x.add_free_vars(free_vars),
-            IfExp(ref x) => x.add_free_vars(free_vars),
-            Closure(ref x) => x.add_free_vars(free_vars),
-            Const(ref x) => x.add_free_vars(free_vars),
-            Var(ref x) => x.add_free_vars(free_vars),
-            Func(ref x) => {},
-        }
-    }
-}
-
-impl AddFreeVars for Target {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        use explicate::Target::*;
-        match *self {
-            Var(var) => var.add_free_vars(free_vars),
-            Subscript(ref s) => s.add_free_vars(free_vars),
-        }
-    }
-}
-
-impl AddFreeVars for Printnl {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars)
-    }
-}
-
-impl AddFreeVars for Assign {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.target.add_free_vars(free_vars);
-        self.expr.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for Return {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars)
-    }
-}
-
-impl AddFreeVars for Let {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.var.add_free_vars(free_vars);
-        self.rhs.add_free_vars(free_vars);
-        self.body.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for ProjectTo {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars)
-    }
-}
-
-impl AddFreeVars for InjectFrom {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars)
-    }
-}
-
-impl AddFreeVars for CallFunc {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars);
-        for arg in &self.args {
-            arg.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for CallRuntime {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        for arg in &self.args {
-            arg.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for Binary {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.left.add_free_vars(free_vars);
-        self.right.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for Unary {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.expr.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for Subscript {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.base.add_free_vars(free_vars);
-        self.elem.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for List {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        for expr in &self.exprs {
-            expr.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for Dict {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        for tuple in &self.tuples {
-            tuple.0.add_free_vars(free_vars);
-            tuple.1.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for IfExp {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        self.cond.add_free_vars(free_vars);
-        self.then.add_free_vars(free_vars);
-        self.else_.add_free_vars(free_vars);
-    }
-}
-
-impl AddFreeVars for Closure {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        free_vars.extend(self.free_vars());
-        for stmt in &self.code {
-            stmt.add_free_vars(free_vars);
-        }
-    }
-}
-
-impl AddFreeVars for Var {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        // empty
-    }
-}
-
-impl AddFreeVars for Const {
-    fn add_free_vars(&self, free_vars: &mut HashSet<Var>) {
-        // empty
-    }
-}
-
-pub trait FreeVars {
-    fn free_vars(&self) -> HashSet<Var>;
-}
-
-impl FreeVars for Module {
-    fn free_vars(&self) -> HashSet<Var> {
-        self.stmts.free_vars()
-    }
-}
-
-impl FreeVars for [Stmt] {
-    fn free_vars(&self) -> HashSet<Var> {
-        let defs = self.defs();
-        let uses = self.uses();
-        uses.difference(&defs).map(|&v| v).collect()
-    }
-}
-
-impl FreeVars for Closure {
-    fn free_vars(&self) -> HashSet<Var> {
-        let body_free_vars = self.code.free_vars();
-        let params = set_union!(self.args.iter());
-        body_free_vars.difference(&params).map(|&v| v).collect()
-    }
-}
-
-pub trait Defs {
-    fn defs(&self) -> HashSet<Var>;
-}
-
-impl Defs for [Stmt] {
-    fn defs(&self) -> HashSet<Var> {
-        let mut defs = HashSet::new();
-        for s in self {
-            if let Stmt::Assign(ref assign) = *s {
-                if let Target::Var(var) = assign.target {
-                    defs.insert(var);
-                }
-            }
-        }
-        defs
-    }
-}
-
-impl Defs for Closure {
-    fn defs(&self) -> HashSet<Var> {
-        let mut defs = HashSet::new();
-        // add all parameter definitions
-        for &arg in &self.args {
-            defs.insert(arg);
-        }
-        // add body definitions
-        defs.extend(self.code.defs());
-
-        defs
-    }
-}
-
-pub trait Uses {
-    fn uses(&self) -> HashSet<Var>;
-}
-
-impl Uses for [Stmt] {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        for stmt in self {
-            uses.extend(stmt.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for Stmt {
-    fn uses(&self) -> HashSet<Var> {
-        use self::Stmt::*;
-        match *self {
-            Printnl(ref x) => x.uses(),
-            Assign(ref x) => x.uses(),
-            Expr(ref x) => x.uses(),
-            Return(ref x) => x.uses(),
-        }
-    }
-}
-
-impl Uses for Expr {
-    fn uses(&self) -> HashSet<Var> {
-        use self::Expr::*;
-        match *self {
-            Let(ref x) => x.uses(),
-            ProjectTo(ref x) => x.uses(),
-            InjectFrom(ref x) => x.uses(),
-            CallFunc(ref x) => x.uses(),
-            CallRuntime(ref x) => x.uses(),
-            Binary(ref x) => x.uses(),
-            Unary(ref x) => x.uses(),
-            Subscript(ref x) => x.uses(),
-            List(ref x) => x.uses(),
-            Dict(ref x) => x.uses(),
-            IfExp(ref x) => x.uses(),
-            // Filter Closures out of expressions
-            Closure(ref x) => HashSet::new(),
-            Const(ref x) => x.uses(),
-            Var(ref x) => x.uses(),
-            Func(ref f) => HashSet::new(),
-        }
-    }
-}
-
-impl Uses for Target {
-    fn uses(&self) -> HashSet<Var> {
-        use self::Target::*;
-        match *self {
-            Var(ref x) => HashSet::new(),
-            Subscript(ref x) => {
-                let mut uses = HashSet::new();
-                uses.extend(x.base.uses());
-                uses.extend(x.elem.uses());
-                uses
-            }
-        }
-    }
-}
-
-impl Uses for Printnl {
-    fn uses(&self) -> HashSet<Var> {
-        self.expr.uses()
-    }
-}
-
-impl Uses for Assign {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        uses.extend(self.target.uses());
-        uses.extend(self.expr.uses());
-        uses
-    }
-}
-
-impl Uses for Return {
-    fn uses(&self) -> HashSet<Var> {
-        self.expr.uses()
-    }
-}
-
-impl Uses for Let {
-    fn uses(&self) -> HashSet<Var> {
-        set_union!(
-            self.rhs.uses(),
-            self.body.uses()
-        )
-    }
-}
-
-impl Uses for ProjectTo {
-    fn uses(&self) -> HashSet<Var> {
-        self.expr.uses()
-    }
-}
-
-impl Uses for InjectFrom {
-    fn uses(&self) -> HashSet<Var> {
-        self.expr.uses()
-    }
-}
-
-impl Uses for CallFunc {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = self.expr.uses();
-        for arg in &self.args {
-            uses.extend(arg.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for CallRuntime {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        for arg in &self.args {
-            uses.extend(arg.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for Binary {
-    fn uses(&self) -> HashSet<Var> {
-        set_union!(
-            self.left.uses(),
-            self.right.uses()
-        )
-    }
-}
-
-impl Uses for Unary {
-    fn uses(&self) -> HashSet<Var> {
-        self.expr.uses()
-    }
-}
-
-impl Uses for Subscript {
-    fn uses(&self) -> HashSet<Var> {
-        set_union!(
-            self.base.uses(),
-            self.elem.uses()
-        )
-    }
-}
-
-impl Uses for List {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        for expr in &self.exprs {
-            uses.extend(expr.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for Dict {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        for tuple in &self.tuples {
-            uses.extend(tuple.0.uses());
-            uses.extend(tuple.1.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for IfExp {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        uses.extend(self.cond.uses());
-        uses.extend(self.then.uses());
-        uses.extend(self.else_.uses());
-        uses
-    }
-}
-
-impl Uses for Closure {
-    fn uses(&self) -> HashSet<Var> {
-        let mut uses = HashSet::new();
-        for stmt in &self.code {
-            uses.extend(stmt.uses());
-        }
-        uses
-    }
-}
-
-impl Uses for Const {
-    fn uses(&self) -> HashSet<Var> {
-        // no new uses in a constant
-        HashSet::new()
-    }
-}
-
-impl Uses for Var {
-    fn uses(&self) -> HashSet<Var> {
-        set!(*self)
-    }
+#[derive(Debug)]
+pub struct Defs {
+    defs: HashSet<Var>,
 }
 
 #[cfg(test)]

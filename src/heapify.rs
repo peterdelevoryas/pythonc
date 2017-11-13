@@ -11,10 +11,10 @@ pub struct Builder<'var_data> {
 
 impl<'var_data> Builder<'var_data> {
     pub fn build(var_data: &'var_data mut var::Slab<var::Data>, m: Module) -> Module {
-        use explicate::FreeVars;
         let mut builder = Builder {
             var_data: var_data,
-            free_vars: m.free_vars(),
+            //free_vars: m.free_vars(),
+            free_vars: unimplemented!(),
         };
         let stmts = m.stmts.into_iter().map(|stmt| {
             builder.stmt(stmt)
@@ -72,6 +72,8 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     }
 
     fn closure(&mut self, closure: Closure) -> Expr {
+        unimplemented!()
+        /*
         // first compute free vars for lower level
         self.free_vars.extend(closure.free_vars());
         // closure code gets heapified first, to add lower level free vars
@@ -102,5 +104,6 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             closure = let_(free_var, List { exprs: vec![Const::Int(0).into()] }, closure).into();
         }
         closure
+        */
     }
 }
