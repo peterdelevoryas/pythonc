@@ -260,6 +260,12 @@ pub trait TransformAst {
 }
 
 pub trait VisitAst {
+    fn stmts(&mut self, stmts: &[Stmt]) {
+        for s in stmts {
+            self.stmt(s);
+        }
+    }
+
     fn stmt(&mut self, s: &Stmt) {
         match *s {
             Stmt::Printnl(ref p) => self.printnl(p),
