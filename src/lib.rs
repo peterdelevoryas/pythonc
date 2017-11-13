@@ -84,11 +84,18 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
+        let heapified = heapify::Builder::build(explicated);
+        if stop_stage == Stage::Heapified {
+            let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
+            return write_out(fmt, out_path)
+        }
+        /*
         let heapified = heapify::heapify(explicated);
         if stop_stage == Stage::Heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
             return write_out(fmt, out_path)
         }
+        */
 
         let trans_unit = raise::Builder::build(heapified);
         if stop_stage == Stage::Raised {
