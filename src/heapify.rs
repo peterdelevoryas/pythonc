@@ -33,18 +33,6 @@ impl<'var_data> Builder<'var_data> {
         let fvs = self.var_data.insert(var::Data::Temp);
         fvs
     }
-
-    fn heap_assign(&mut self) -> Assign {
-        let tmp = self.new_temp();
-        Assign {
-            target: tmp.into(),
-            expr: List {
-                exprs: vec![
-                    Const::Int(0).into()
-                ],
-            }.into(),
-        }
-    }
 }
 
 impl<'var_data> TransformAst for Builder<'var_data> {
