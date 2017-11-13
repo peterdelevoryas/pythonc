@@ -13,7 +13,7 @@ impl<'var_data> Builder<'var_data> {
     pub fn build(var_data: &'var_data mut var::Slab<var::Data>, m: Module) -> Module {
         let mut builder = Builder {
             var_data: var_data,
-            free_vars: ::free_vars::free_vars(m.stmts.as_slice()),
+            free_vars: HashSet::new(),
         };
         let stmts = m.stmts.into_iter().map(|stmt| {
             builder.stmt(stmt)
