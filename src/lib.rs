@@ -10,6 +10,7 @@ pub mod explicate;
 pub mod heapify;
 pub mod raise;
 pub mod flatten;
+pub mod free_vars;
 
 use flatten::Flatten;
 
