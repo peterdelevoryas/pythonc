@@ -300,7 +300,7 @@ pub trait VisitAst {
     }
 
     fn target_subscript(&mut self, subscript: &Subscript) {
-        // nothing to do by default
+        self.subscript(subscript);
     }
 
     fn var(&mut self, var: &Var) {
