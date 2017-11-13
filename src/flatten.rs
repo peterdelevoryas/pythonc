@@ -1,8 +1,11 @@
 use explicate as ex;
+use raise;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert;
+
+use explicate::Var;
 
 use fmt;
 
@@ -21,40 +24,29 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
-    UnaryOp(UnaryOp, Loc),
-    BinOp(BinOp, Loc, Loc),
-    CallFunc(Loc, Vec<Loc>),
-    RuntimeFunc(String, Vec<Loc>),
-    If(Loc, Loc, Loc, Vec<Stmt>, Vec<Stmt>),
-    ProjectTo(Loc, ex::Ty),
-    InjectFrom(Loc, ex::Ty),
+    UnaryOp(UnaryOp, Var),
+    BinOp(BinOp, Var, Var),
+    CallFunc(Var, Vec<Var>),
+    RuntimeFunc(String, Vec<Var>),
+    If(Var, Vec<Stmt>, Vec<Stmt>),
+    ProjectTo(Var, ex::Ty),
+    InjectFrom(Var, ex::Ty),
     Const(i32),
-    LoadFunctionPointer(String), // Is this necessary? -- who cares, should produce the fnptr for the given unit
+    LoadFunctionPointer(raise::Func), // Is this necessary? -- who cares, should produce the fnptr for the given unit
+    Alias(Var),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
-    Print(Loc),
-    Def(Tmp, Expr),
+    Print(Var),
+    Def(Var, Expr),
     Discard(Expr),
-    Return(Option<Loc>)
+    Return(Option<Var>)
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Loc {
-    Tmp(Tmp),
-    Param(i32),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Tmp(i32);
 
 #[derive(Debug)]
 pub struct Flattener {
     var_data: ex::var::Slab<ex::var::Data>,
-    pub names: HashMap<ex::Var, Loc>,
-    tmp_index: i32,
-    fn_index: i32,
     pub units: HashMap<String, Vec<Stmt>>,
     context: String,
 }
@@ -67,14 +59,8 @@ pub struct Formatter<'a, N: 'a + ?Sized> {
 }
 
 impl Flattener {
-    pub fn next_tmp(&mut self) -> Tmp {
-        let r = Tmp(self.tmp_index);
-        self.tmp_index += 1;
-        r
-    }
-    pub fn enter_next_fn(&mut self) -> String {
-        self.context = format!("fn_{}", self.fn_index);
-        self.fn_index += 1;
+    pub fn enter_fn(&mut self, name: String) -> String {
+        self.context = name;
         self.context.clone()
     }
     pub fn enter_recoverable_block(&mut self) -> String{
@@ -102,25 +88,10 @@ impl Flattener {
     pub fn restore_context(&mut self, new: String) {
         self.context = new;
     }
-    pub fn get_tmp_index(&self) -> i32 {
-        self.tmp_index
-    }
-    pub fn restore_tmp_index(&mut self, i : i32) {
-        self.tmp_index = i;
-    }
-    pub fn name(&mut self, v: ex::Var, l : Loc) {
-        self.names.insert(v, l);
-    }
-    pub fn def(&mut self, e: Expr) -> Loc {
-        let t = self.next_tmp();
-        self.push(Stmt::Def(t, e));
-        Loc::Tmp(t)
-    }
-    pub fn require(&self, v : ex::Var) -> Loc {
-        *(match self.names.get(&v) {
-            Some(t) => t,
-            None => panic!(format!("Required name {:?} is not defined", v))
-        })
+    pub fn def(&mut self, e: Expr) -> Var {
+        let tmp = self.var_data.insert(ex::var::Data::Temp);
+        self.push(Stmt::Def(tmp, e));
+        tmp
     }
 }
 
@@ -158,9 +129,6 @@ impl convert::From<ex::Explicate> for Flattener {
     fn from(explicate: ex::Explicate) -> Flattener {
         Flattener {
             var_data: explicate.var_data,
-            names: HashMap::new(),
-            tmp_index: 0,
-            fn_index: 0,
             units: HashMap::new(),
             context: "main".into(),
         }
@@ -207,7 +175,7 @@ impl Flatten for ex::Assign {
 
         match self.target {
             ex::Target::Var(var) => {
-                builder.name(var, val);
+                builder.push(Stmt::Def(var, Expr::Alias(val)));
             }
             ex::Target::Subscript(subs) => {
                 let base = subs.base.flatten(builder);
@@ -244,8 +212,8 @@ impl Flatten for ex::Return {
 }
 
 impl Flatten for ex::Expr {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         match self {
             ex::Expr::Let(v) =>v.flatten(builder),
             ex::Expr::ProjectTo(v) => v.flatten(builder),
@@ -258,42 +226,43 @@ impl Flatten for ex::Expr {
             ex::Expr::List(v) => v.flatten(builder),
             ex::Expr::Dict(v) => v.flatten(builder),
             ex::Expr::IfExp(v) => v.flatten(builder),
-            ex::Expr::Closure(v) => v.flatten(builder),
+            ex::Expr::Closure(v) => panic!("Encountered Closure in Flattening step."),
             ex::Expr::Const(c) => c.flatten(builder),
             ex::Expr::Var(v) => v.flatten(builder),
-            ex::Expr::Func(f) => panic!("Func in flatten"),
+            ex::Expr::Func(f) => f.flatten(builder),
         }
     }
 }
 
 impl Flatten for ex::Let {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let rhs = self.rhs.flatten(builder);
-        builder.name(self.var, rhs);
+        builder.push(Stmt::Def(self.var, Expr::Alias(rhs)));
         self.body.flatten(builder)
     }
 }
 
 impl Flatten for ex::ProjectTo {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let po = self.expr.flatten(builder);
+
         builder.def(Expr::ProjectTo(po, self.to))
     }
 }
 
 impl Flatten for ex::InjectFrom {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let prim = self.expr.flatten(builder);
         builder.def(Expr::InjectFrom(prim, self.from))
     }
 }
 
 impl Flatten for ex::CallFunc {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let base = self.expr.flatten(builder);
         let base_ptr = builder.def(Expr::RuntimeFunc(
             "get_fun_ptr".into(),
@@ -315,16 +284,16 @@ impl Flatten for ex::CallFunc {
 }
 
 impl Flatten for ex::CallRuntime {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let args = self.args.into_iter().map(|expr| expr.flatten(builder)).collect();
         builder.def(Expr::RuntimeFunc(self.name, args))
     }
 }
 
 impl Flatten for ex::Binary {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let op = match self.op {
             ex::Binop::Add => BinOp::ADD,
             ex::Binop::Eq => BinOp::EQ,
@@ -337,8 +306,8 @@ impl Flatten for ex::Binary {
 }
 
 impl Flatten for ex::Unary {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let op = match self.op {
             ex::Unop::Neg => UnaryOp::NEGATE,
             ex::Unop::Not => UnaryOp::NOT,
@@ -349,8 +318,8 @@ impl Flatten for ex::Unary {
 }
 
 impl Flatten for ex::Subscript {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let base = self.base.flatten(builder);
         let elem = self.elem.flatten(builder);
         builder.def(Expr::RuntimeFunc(
@@ -361,8 +330,8 @@ impl Flatten for ex::Subscript {
 }
 
 impl Flatten for ex::List {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         // TODO: Verify API
         let new_l_size = builder.def(Expr::Const(self.exprs.len() as i32));
         let new_l_size_injected = builder.def(Expr::InjectFrom(new_l_size, ex::Ty::Int));
@@ -391,8 +360,8 @@ impl Flatten for ex::List {
 }
 
 impl Flatten for ex::Dict {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let new_d = builder.def(Expr::RuntimeFunc(
             "create_dict".into(),
             vec![]
@@ -415,8 +384,8 @@ impl Flatten for ex::Dict {
 }
 
 impl Flatten for ex::IfExp {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         let flatc = self.cond.flatten(builder);
 
         let saved_tmp = builder.get_tmp_index();
@@ -436,60 +405,9 @@ impl Flatten for ex::IfExp {
     }
 }
 
-impl Flatten for ex::Closure {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
-        use self::ex::AddFreeVars;
-
-        let mut freevars = HashSet::new();
-        self.add_free_vars(&mut freevars);
-
-        let current = builder.get_context();
-        let fn_label = builder.enter_next_fn();
-
-        for (i, p) in self.args.iter().enumerate() {
-            // Add one as offest for Param(0), which is always the free list
-            builder.name(*p, Loc::Param((i+1) as i32));
-        }
-
-        self.code.flatten(builder);
-
-        builder.restore_context(current);
-
-        // TODO: create closure object, actually call function
-        let fnptr = builder.def(Expr::LoadFunctionPointer(fn_label));
-
-        let numfreevars = builder.def(Expr::Const(freevars.len() as i32));
-        let numfreevars_injected = builder.def(Expr::InjectFrom(numfreevars, ex::Ty::Int));
-        let freevars_list = builder.def(Expr::RuntimeFunc(
-            "create_list".into(),
-            vec![numfreevars_injected]
-        ));
-
-        for (i, var) in freevars.iter().enumerate() {
-            let constval = builder.def(Expr::Const(i as i32));
-            let injected = builder.def(Expr::InjectFrom(constval, ex::Ty::Int));
-
-            let varloc = builder.require(*var);
-
-            builder.push(Stmt::Discard(
-                Expr::RuntimeFunc(
-                    "set_subscript".into(),
-                    vec![freevars_list, injected, varloc]
-                )
-            ))
-        }
-
-        builder.def(Expr::RuntimeFunc(
-            "create_closure".into(),
-            vec![fnptr, freevars_list]
-        ))
-    }
-}
-
 impl Flatten for ex::Const {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
         // Gross
         builder.def(
             match self {
@@ -501,10 +419,17 @@ impl Flatten for ex::Const {
     }
 }
 
-impl Flatten for ex::Var {
-    type Output = Loc;
-    fn flatten(self, builder: &mut Flattener) -> Loc {
-        builder.require(self)
+impl Flatten for Var {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
+        self
+    }
+}
+
+impl Flatten for raise::Func {
+    type Output = Var;
+    fn flatten(self, builder: &mut Flattener) -> Var {
+        builder.def(Expr::LoadFunctionPointer(self))
     }
 }
 
@@ -543,7 +468,7 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
 
 impl<'a> fmt::Display for Formatter<'a, Expr> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn write_args_list(f: &mut fmt::Formatter, args: &[Loc]) -> fmt::Result {
+        fn write_args_list(f: &mut fmt::Formatter, args: &[Var]) -> fmt::Result {
             if !args.is_empty() {
                 write!(f, "{}", args[0])?;
             }
@@ -565,7 +490,7 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 write_args_list(f, args)?;
                 write!(f, ")")
             }
-            Expr::If(c, t, e, ref t_block, ref e_block) => {
+            Expr::If(c, ref t_block, ref e_block) => {
                 writeln!(f, "if {} then {} else {} where {{", c, t, e)?;
                 writeln!(f, "{indent}then: ", indent=self.indent())?;
                 writeln!(f, "{block}", block=self.indented(t_block.as_slice()))?;
@@ -612,19 +537,8 @@ impl fmt::Display for BinOp {
 }
 
 
-
-
-impl fmt::Display for Loc {
+impl fmt::Display for Var {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Loc::Tmp(tmp) => write!(f, "{}", tmp),
-            Loc::Param(i) => write!(f, "%p{}", i),
-        }
-    }
-}
-
-impl fmt::Display for Tmp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "%t{}", self.0)
+        write!(f, "{}", self)
     }
 }
