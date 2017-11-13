@@ -1,0 +1,17 @@
+fn main() {
+    // returned back from function
+    let x = new_allocation();
+    let x = use(x);
+
+
+    // or just pass as a reference,
+    // which doesn't consume x
+    let x = new_allocation();
+    use(&x);
+
+    // the prototype for copy looks like this:
+    fn copy(x: &Type) -> Type;
+
+    // A copy function doesn't need to consume, since
+    // it's just going to copy byte values
+}
