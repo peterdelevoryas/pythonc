@@ -95,7 +95,7 @@ impl Pythonc {
             return write_out(fmt, out_path)
         }
 
-        let trans_unit = raise::Builder::build(heapified);
+        let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
         if stop_stage == Stage::Raised {
             let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts);
             return write_out(fmt, out_path)

@@ -776,18 +776,18 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             f,
             "{}{}",
             self.indent(),
-            self.fmt(self.node.funcs[self.node.main].code.as_slice())
+            self.fmt(self.node.funcs[self.node.main].closure.code.as_slice())
         )?;
         writeln!(f, "{}}}", self.indent())?;
         writeln!(f, "{}free vars: ({})", self.indent(),
-            free_vars_string(::free_vars::free_vars(&self.node.funcs[self.node.main]))
+            free_vars_string(::free_vars::free_vars(&self.node.funcs[self.node.main].closure))
         )?;
         writeln!(f)?;
         for (func, data) in &self.node.funcs {
             if func == self.node.main {
                 continue
             }
-            let (_, params): (_, String) = data.args.iter().map(|var| {
+            let (_, params): (_, String) = data.closure.args.iter().map(|var| {
                 format!("{}", self.fmt(var))
             }).fold((true, "".into()), |(first, mut acc), s| {
                 if !first {
@@ -804,11 +804,11 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 f,
                 "{}{}",
                 self.indent(),
-                self.fmt(self.node.funcs[func].code.as_slice())
+                self.fmt(self.node.funcs[func].closure.code.as_slice())
             )?;
             writeln!(f, "{}}}", self.indent())?;
             writeln!(f, "{}free vars: ({})", self.indent(),
-                free_vars_string(::free_vars::free_vars(&self.node.funcs[func]))
+                free_vars_string(::free_vars::free_vars(&self.node.funcs[func].closure))
             )?;
 
             writeln!(f)?;

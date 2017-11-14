@@ -3,10 +3,17 @@ use error::*;
 
 pub mod func {
     use explicate::Var;
+    use explicate::Closure;
     use super::Block;
     use std::collections::HashSet;
 
     impl_ref!(Func, "f");
+
+    #[derive(Debug, Clone)]
+    pub struct Data {
+        pub free_vars: Vec<Var>,
+        pub closure: Closure,
+    }
 }
 pub use self::func::Func;
 
@@ -17,10 +24,10 @@ pub struct Block {
 
 pub struct TransUnit {
     pub main: Func,
-    pub funcs: func::Slab<Closure>,
+    pub funcs: func::Slab<func::Data>,
 }
 
-pub struct Builder {
+pub struct Builder<'var_data> {
     // curr is a stack of blocks that are being created.
     // Each time a nested block is entered, the nested
     // block is pushed on top, and thus the top of the stack
@@ -28,19 +35,21 @@ pub struct Builder {
     // is exited, the current block is popped off the
     // stack and added to the slab of funcs.
     curr: Vec<Block>,
-    funcs: func::Slab<Closure>,
+    funcs: func::Slab<func::Data>,
+    var_data: &'var_data mut var::Slab<var::Data>,
 }
 
-impl Builder {
-    pub fn build(heapified: Module) -> TransUnit {
+impl<'var_data> Builder<'var_data> {
+    pub fn build(heapified: Module, var_data: &'var_data mut var::Slab<var::Data>) -> TransUnit {
         let mut builder = Self {
             curr: vec![],
             funcs: func::Slab::new(),
+            var_data: var_data,
         };
         builder.new_func();
         builder.add_to_curr_func(heapified.stmts);
         // no params for main function
-        let main = builder.end_func(vec![]);
+        let main = builder.end_func(vec![], vec![]);
         TransUnit {
             main,
             funcs: builder.funcs,
@@ -64,22 +73,58 @@ impl Builder {
     }
 
     // moves curr.last to funcs
-    pub fn end_func(&mut self, params: Vec<Var>) -> Func {
-        let curr = self.curr.pop().expect("end_block with empty curr");
-        let data = Closure {
-            args: params,
-            code: curr.stmts,
+    pub fn end_func(&mut self, free_vars: Vec<Var>, mut params: Vec<Var>) -> Func {
+        let fvs_list = self.new_temp();
+        params.insert(0, fvs_list);
+        let code = {
+            let curr = self.curr.pop().expect("end_block with empty curr");
+            let mut stmts = vec![];
+            for (i, &fv) in free_vars.iter().enumerate() {
+                stmts.push(Assign {
+                    target: fv.into(),
+                    expr: Subscript {
+                        base: fvs_list.into(),
+                        elem: Const::Int(i as i32).into(),
+                    }.into()
+                }.into());
+            }
+            stmts.extend(curr.stmts);
+            stmts
+        };
+        let data = func::Data {
+            free_vars: free_vars,
+            closure: Closure {
+                args: params,
+                code: code,
+            }
         };
         self.funcs.insert(data)
     }
+
+    fn new_temp(&mut self) -> Var {
+        self.var_data.insert(var::Data::Temp)
+    }
 }
 
-impl TransformAst for Builder {
+impl<'var_data> TransformAst for Builder<'var_data> {
     fn closure(&mut self, closure: Closure) -> Expr {
+        let fvs: Vec<Var> = ::heapify::all_free_vars(&closure)
+            .into_iter()
+            .collect();
         self.new_func();
         self.add_to_curr_func(closure.code);
-        let func = self.end_func(closure.args);
-        func.into()
+        let func = self.end_func(fvs.clone(), closure.args);
+        trace!("all free vars for {}: {:?}", func, fvs);
+        let list = List {
+            exprs: fvs.into_iter().map(|v| v.into()).collect(),
+        };
+        CallRuntime {
+            name: "create_closure".into(),
+            args: vec![
+                func.into(),
+                list.into(),
+            ],
+        }.into()
     }
 }
 
