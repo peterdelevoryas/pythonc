@@ -8,23 +8,27 @@ use std::collections::HashSet;
 #[derive(Debug)]
 pub struct Builder<'var_data> {
     var_data: &'var_data mut var::Slab<var::Data>,
-    needs_heapifying: NeedsHeapifying,
+    all_free_vars: HashSet<Var>,
+    heapified: HashSet<Var>,
 }
 
 impl<'var_data> Builder<'var_data> {
     pub fn new(var_data: &'var_data mut var::Slab<var::Data>) -> Builder<'var_data> {
         Builder {
             var_data,
-            needs_heapifying: NeedsHeapifying::new(),
+            all_free_vars: HashSet::new(),
+            heapified: HashSet::new(),
         }
     }
 
     pub fn heapify_module(&mut self, module: Module) -> Module {
-        self.needs_heapifying.stmts(module.stmts.as_slice());
-        debug!("needs heapifying: {:?}", self.needs_heapifying.vars);
+        self.all_free_vars = all_free_vars(&module);
+        debug!("all free vars: {:?}", self.all_free_vars);
         let heapified = self.heapify_stmts(module.stmts);
-        let free_vars = ::free_vars::free_vars(heapified.as_slice());
-        Module { stmts: heapified }
+
+        Module {
+            stmts: heapified
+        }
     }
 
     fn heapify_stmts(&mut self, stmts: Vec<Stmt>) -> Vec<Stmt> {
@@ -59,9 +63,15 @@ fn subscript_0(var: Var) -> Subscript {
     }
 }
 
+fn list_0() -> List {
+    List {
+        exprs: vec![Const::Int(0).into()],
+    }
+}
+
 impl<'var_data> TransformAst for Builder<'var_data> {
     fn target_var(&mut self, var: Var) -> Target {
-        if self.needs_heapifying.get(var) {
+        if self.all_free_vars.contains(&var) {
             subscript_0(var).into()
         } else {
             var.into()
@@ -69,7 +79,7 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     }
 
     fn var(&mut self, var: Var) -> Expr {
-        if self.needs_heapifying.get(var) {
+        if self.all_free_vars.contains(&var) {
             subscript_0(var).into()
         } else {
             var.into()
@@ -77,23 +87,20 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     }
 
     fn let_var(&mut self, var: Var) -> Var {
-        if self.needs_heapifying.get(var) {
+        if self.all_free_vars.contains(&var) {
             panic!("lhs of let needs heapifying!!!")
         }
         var
     }
 
     fn closure(&mut self, closure: Closure) -> Expr {
-        let closure = Closure {
-            args: closure.args,
-            code: self.heapify_stmts(closure.code),
-        };
+
         // need to rename parameters to be heapified,
         // and move heapified parameters into body
         let heapified_params: Vec<Var> = closure.args
             .iter()
             .map(|&var| var)
-            .filter(|&var| self.needs_heapifying.get(var))
+            .filter(|var| self.all_free_vars.contains(var))
             .collect();
         let heapified_params_inits: Vec<Stmt> = heapified_params
             .iter()
@@ -114,51 +121,88 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             })
             .collect();
 
-        let heapified_locals: Vec<Stmt> = {
-            let local_free_vars = ::free_vars::free_vars(closure.code.as_slice());
-            local_free_vars
-                .iter()
-                .map(|&var| self.assign_list_0(var).into())
-                .collect()
-        };
+        let needs_heapifying_outside: HashSet<Var> = all_free_vars(&closure)
+            .into_iter()
+            .filter(|var| {
+                println!("heapified {:?} contains {:?}?", self.heapified, var);
+                !self.heapified.contains(var)
+            })
+            .collect();
+        trace!("needs heapifying outside: {:?}", needs_heapifying_outside);
+        for &var in &needs_heapifying_outside {
+            self.heapified.insert(var);
+        }
 
         let code = {
             let mut code = vec![];
             code.extend(heapified_params_inits);
             code.extend(heapified_params_assigns);
-            code.extend(heapified_locals);
-            code.extend(closure.code);
+            code.extend(self.heapify_stmts(closure.code));
             code
         };
 
-        Closure {
+        let mut ret: Expr = Closure {
             args: renamed_args,
             code: code,
-        }.into()
+        }.into();
+
+        for &var in &needs_heapifying_outside {
+            ret = let_(var, list_0(), ret).into();
+        }
+
+        ret
+    }
+}
+
+
+/// Finds free variables in local scope _and_ nested scopes
+pub fn all_free_vars<T>(node: &T) -> HashSet<Var>
+where
+    T: AllFreeVars
+{
+    node.all_free_vars()
+}
+
+pub trait AllFreeVars {
+    fn all_free_vars(&self) -> HashSet<Var>;
+}
+
+impl AllFreeVars for Module {
+    fn all_free_vars(&self) -> HashSet<Var> {
+        let mut collector = Collector::new();
+        let local_free_vars = ::free_vars::free_vars(self.stmts.as_slice());
+        collector.vars.extend(local_free_vars);
+        collector.stmts(self.stmts.as_slice());
+        collector.vars
+    }
+}
+
+impl AllFreeVars for Closure {
+    fn all_free_vars(&self) -> HashSet<Var> {
+        let mut collector = Collector::new();
+        collector.closure(self);
+        collector.vars
     }
 }
 
 #[derive(Debug)]
-struct NeedsHeapifying {
+struct Collector {
     vars: HashSet<Var>,
 }
 
-impl NeedsHeapifying {
-    fn new() -> NeedsHeapifying {
-        NeedsHeapifying {
+impl Collector {
+    fn new() -> Self {
+        Self {
             vars: HashSet::new()
         }
     }
-
-    fn get(&self, var: Var) -> bool {
-        self.vars.contains(&var)
-    }
 }
 
-impl ::raise::VisitAst for NeedsHeapifying {
+impl ::raise::VisitAst for Collector {
     fn closure(&mut self, closure: &Closure) {
-        let free_vars = ::free_vars::free_vars(closure);
-        self.vars.extend(free_vars);
+        let nested_free_vars = ::free_vars::free_vars(closure);
+        trace!("nested free vars: {:?}", nested_free_vars);
+        self.vars.extend(nested_free_vars);
         self.stmts(closure.code.as_slice());
     }
 }
