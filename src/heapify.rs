@@ -124,7 +124,6 @@ impl<'var_data> TransformAst for Builder<'var_data> {
         let needs_heapifying_outside: HashSet<Var> = all_free_vars(&closure)
             .into_iter()
             .filter(|var| {
-                println!("heapified {:?} contains {:?}?", self.heapified, var);
                 !self.heapified.contains(var)
             })
             .collect();
