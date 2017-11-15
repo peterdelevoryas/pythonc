@@ -126,6 +126,31 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             ],
         }.into()
     }
+
+    fn call_func(&mut self, call: CallFunc) -> Expr {
+        // need to first evaluate target expr into a var
+        let f = self.new_temp();
+        let get_fun_ptr = CallRuntime {
+            name: "get_fun_ptr".into(),
+            args: vec![f.into()]
+        };
+        let get_free_vars = CallRuntime {
+            name: "get_free_vars".into(),
+            args: vec![f.into()]
+        };
+        let_(f, self.expr(call.expr), {
+            let mut args = vec![];
+            args.push(get_free_vars.into());
+            for arg in call.args {
+                let heapified = self.expr(arg);
+                args.push(heapified);
+            }
+            CallFunc {
+                expr: get_fun_ptr.into(),
+                args: args,
+            }
+        }).into()
+    }
 }
 
 pub trait TransformAst {
