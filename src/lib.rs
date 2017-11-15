@@ -2,6 +2,7 @@
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate util;
 #[macro_use] extern crate clap;
+#[macro_use] extern crate log;
 extern crate slab;
 extern crate ast;
 
@@ -10,6 +11,7 @@ pub mod explicate;
 pub mod heapify;
 pub mod raise;
 pub mod flatten;
+pub mod free_vars;
 
 use flatten::Flatten;
 
@@ -84,13 +86,16 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let heapified = heapify::heapify(explicated);
+        let heapified = {
+            let mut builder = heapify::Builder::new(&mut explicate.var_data);
+            builder.heapify_module(explicated)
+        };
         if stop_stage == Stage::Heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
             return write_out(fmt, out_path)
         }
 
-        let trans_unit = raise::Builder::build(heapified);
+        let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
         if stop_stage == Stage::Raised {
             let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts);
             return write_out(fmt, out_path)

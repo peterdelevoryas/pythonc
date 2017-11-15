@@ -11,6 +11,7 @@ error_chain! {
         Fmt(::std::fmt::Error);
         Io(::std::io::Error);
         Clap(::clap::Error);
+        Log(::log::SetLoggerError);
     }
 
     errors {

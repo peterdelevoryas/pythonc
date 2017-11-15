@@ -1,5 +1,6 @@
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate clap;
+extern crate env_logger;
 extern crate pythonc;
 
 use pythonc::error::*;
@@ -9,6 +10,7 @@ use clap::Arg;
 quick_main!(run);
 
 fn run() -> pythonc::Result<()> {
+    env_logger::init()?;
     let m = clap::App::new("pythonc")
         .version(env!("CARGO_PKG_VERSION"))
         .author(crate_authors!("\n"))
