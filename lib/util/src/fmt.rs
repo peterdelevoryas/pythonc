@@ -1,4 +1,3 @@
-use std::fmt;
 use std::io;
 
 pub trait Fmt {
@@ -53,6 +52,10 @@ where
     fn write_byte(&mut self, b: u8) -> io::Result<()> {
         self.target.write(&[b])?;
         Ok(())
+    }
+
+    pub fn into_inner(self) -> W {
+        self.target
     }
 }
 
