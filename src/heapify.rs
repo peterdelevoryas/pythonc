@@ -70,6 +70,33 @@ fn list_0() -> List {
 }
 
 impl<'var_data> TransformAst for Builder<'var_data> {
+    fn assign(&mut self, assign: Assign) -> Stmt {
+        // recurse on assignment before anything.
+        // the lhs might actually get heapified
+        // during this step.
+        let rhs = self.expr(assign.expr);
+
+        if let Target::Var(var) = assign.target {
+            // if free var and not heapified yet
+            if self.all_free_vars.contains(&var) && !self.heapified.contains(&var) {
+                // turn rhs into [rhs] (list of 1 expr)
+                let heapified = ::explicate::assign(var, List {
+                    exprs: vec![rhs]
+                });
+                // record as heapified
+                self.heapified.insert(var);
+                return heapified.into()
+            }
+        }
+
+        // otherwise, do default behavior
+        let target = self.target(assign.target);
+        Assign {
+            target,
+            expr: rhs,
+        }.into()
+    }
+
     fn target_var(&mut self, var: Var) -> Target {
         if self.all_free_vars.contains(&var) {
             subscript_0(var).into()
@@ -127,10 +154,13 @@ impl<'var_data> TransformAst for Builder<'var_data> {
                 !self.heapified.contains(var)
             })
             .collect();
+
+        /*
         trace!("needs heapifying outside: {:?}", needs_heapifying_outside);
         for &var in &needs_heapifying_outside {
             self.heapified.insert(var);
         }
+        */
 
         let code = {
             let mut code = vec![];
@@ -145,9 +175,11 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             code: code,
         }.into();
 
+        /*
         for &var in &needs_heapifying_outside {
             ret = let_(var, list_0(), ret).into();
         }
+        */
 
         ret
     }
