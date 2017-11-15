@@ -22,11 +22,13 @@ impl util::fmt::Fmt for Stmt {
                 writeln!(f, "x = y;")?;
             }
             Stmt::If { ref then } => {
+                writeln!(f, "if ... {{")?;
                 f.indent();
                 for stmt in then {
                     f.fmt(stmt)?;
                 }
                 f.dedent();
+                writeln!(f, "}}")?;
             }
         }
         Ok(())
@@ -40,7 +42,14 @@ fn main() {
         Stmt::If {
             then: vec![
                 Stmt::Def,
-                Stmt::Def,
+                Stmt::If {
+                    then: vec![
+                        Stmt::Def,
+                        Stmt::Def,
+                        Stmt::Def,
+                        Stmt::Def,
+                    ],
+                },
                 Stmt::Def,
             ],
         },
