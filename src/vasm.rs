@@ -33,6 +33,8 @@ pub enum Instr {
     /// See doc for `Shr` for why this only allows
     /// `Imm`
     Shl(Lval, Imm),
+    /// `mov lval, $func`
+    MovLabel(Lval, raise::Func),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -276,6 +278,13 @@ impl Block {
         self.push_instr(Instr::Shl(lval.into(), imm));
     }
 
+    fn mov_label<L>(&mut self, lval: L, func: raise::Func)
+    where
+        L: Into<Lval>,
+    {
+        self.push_instr(Instr::MovLabel(lval.into(), func));
+    }
+
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
             flat::Stmt::Def(lhs, flat::Expr::UnaryOp(op, rhs)) => {
@@ -333,6 +342,12 @@ impl Block {
                         panic!("Encountered InjectFrom(Func) during vasm generation")
                     }
                 }
+            }
+            flat::Stmt::Def(lhs, flat::Expr::Const(i)) => {
+                self.mov(lhs, i);
+            }
+            flat::Stmt::Def(lhs, flat::Expr::LoadFunctionPointer(f)) => {
+                self.mov_label(lhs, f);
             }
             flat::Stmt::Discard(expr) => {
             }
