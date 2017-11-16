@@ -14,7 +14,7 @@ pub enum Instr {
     Neg(Lval),
     Push(Rval),
     Pop(Lval),
-    CallIndirect(Rval),
+    CallIndirect(Lval),
     Call(String),
     If(Rval, Block, Block),
     /// `Lval - Rval, sets EQ and NE (and other) flags`
@@ -135,17 +135,6 @@ impl Block {
         self.push_instr(Instr::Push(rval));
     }
 
-    fn call(&mut self, name: String) {
-        self.push_instr(Instr::Call(name));
-    }
-
-    fn call_indirect<R>(&mut self, rval: R)
-    where
-        R: Into<Rval>,
-    {
-        self.push_instr(Instr::CallIndirect(rval.into()));
-    }
-
     /// ```
     /// if lval == 0 {
     ///     lval = 1;
@@ -223,6 +212,29 @@ impl Block {
         self.push_instr(Instr::Cmp(lval, rval));
     }
 
+    /// ```
+    /// push arg[n]
+    /// push arg[n - 1]
+    /// ...
+    /// push arg[1]
+    /// push arg[0]
+    /// ```
+    fn push_args_in_reverse(&mut self, args: Vec<Var>) {
+        for arg in args.into_iter().rev() {
+            self.push(arg);
+        }
+    }
+
+    fn call_indirect<L>(&mut self, lval: L)
+    where
+        L: Into<Lval>,
+    {
+        self.push_instr(Instr::CallIndirect(lval.into()));
+    }
+
+    fn call_direct(&mut self, name: String) {
+        self.push_instr(Instr::Call(name));
+    }
 
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
@@ -240,6 +252,16 @@ impl Block {
                     flat::BinOp::EQ => self.eq(lhs, r),
                     flat::BinOp::NOTEQ => self.not_eq(lhs, r),
                 }
+            }
+            flat::Stmt::Def(lhs, flat::Expr::CallFunc(f, args)) => {
+                self.push_args_in_reverse(args);
+                self.call_indirect(f);
+                self.mov(lhs, Reg::EAX);
+            }
+            flat::Stmt::Def(lhs, flat::Expr::RuntimeFunc(name, args)) => {
+                self.push_args_in_reverse(args);
+                self.call_direct(name);
+                self.mov(lhs, Reg::EAX);
             }
             flat::Stmt::Discard(expr) => {
             }
