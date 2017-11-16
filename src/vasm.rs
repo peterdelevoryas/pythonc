@@ -442,8 +442,10 @@ impl fmt::Fmt for Instr {
         use std::io::Write;
 
         match *self {
-            Instr::Mov(_, _) => {
-                write!(f, "mov _, _")?;
+            Instr::Mov(lval, rval) => {
+                write!(f, "mov {rval}, {lval}",
+                       lval=lval,
+                       rval=rval)?;
             }
             _ => unimplemented!(),
         }
@@ -482,5 +484,36 @@ where
 impl From<Imm> for Rval {
     fn from(i: Imm) -> Self {
         Rval::Imm(i)
+    }
+}
+
+impl ::std::fmt::Display for Lval {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            Lval::Reg(reg) => {
+                let reg = match reg {
+                    Reg::EAX => "eax",
+                    Reg::EBX => "ebx",
+                    Reg::ECX => "ecx",
+                    Reg::EDX => "edx",
+                    Reg::ESI => "esi",
+                    Reg::EDI => "edi",
+                    Reg::ESP => "esp",
+                    Reg::EBP => "ebp",
+                };
+                write!(f, "%{}", reg)
+            }
+            Lval::StackSlot(slot) => write!(f, "stack {}", slot.ebp_offset),
+            Lval::Var(var) => write!(f, "{}", var),
+        }
+    }
+}
+
+impl ::std::fmt::Display for Rval {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            Rval::Lval(lval) => write!(f, "{}", lval),
+            Rval::Imm(imm) => write!(f, "${}", imm),
+        }
     }
 }
