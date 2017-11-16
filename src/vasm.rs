@@ -11,6 +11,7 @@ use std::collections::HashMap;
 pub enum Instr {
     Mov(Lval, Rval),
     Add(Lval, Rval),
+    Neg(Lval),
     Push(Rval),
     Pop(Lval),
     Call(Rval),
