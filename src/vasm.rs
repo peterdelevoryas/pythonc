@@ -35,6 +35,8 @@ pub enum Instr {
     Shl(Lval, Imm),
     /// `mov lval, $func`
     MovLabel(Lval, raise::Func),
+    /// Just `ret`, nothing else
+    Ret,
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -285,6 +287,17 @@ impl Block {
         self.push_instr(Instr::MovLabel(lval.into(), func));
     }
 
+    fn pop<L>(&mut self, lval: L)
+    where
+        L: Into<Lval>,
+    {
+        self.push_instr(Instr::Pop(lval.into()));
+    }
+
+    fn ret(&mut self) {
+        self.push_instr(Instr::Ret);
+    }
+
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
             flat::Stmt::Def(lhs, flat::Expr::UnaryOp(op, rhs)) => {
@@ -365,6 +378,12 @@ impl Block {
                 // skip over all the other kinds of exprs in a discard
             }
             flat::Stmt::Return(var) => {
+                if let Some(var) = var {
+                    self.mov(Reg::EAX, var);
+                }
+                self.mov(Reg::EBP, Reg::ESP);
+                self.pop(Reg::EBP);
+                self.ret();
             }
             flat::Stmt::If(cond, then, else_) => {
 
