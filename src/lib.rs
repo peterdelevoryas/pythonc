@@ -12,8 +12,10 @@ pub mod heapify;
 pub mod raise;
 pub mod flatten;
 pub mod free_vars;
+pub mod virtualize;
 
 use flatten::Flatten;
+use virtualize::Virtualize;
 
 pub use error::*;
 
@@ -105,6 +107,13 @@ impl Pythonc {
         let flattened = trans_unit.flatten(&mut flattener);
         if stop_stage == Stage::Flattened {
             let fmt = flatten::Formatter::new(&flattener, &flattened);
+            return write_out(fmt, out_path)
+        }
+
+        let mut virtualizer = virtualize::Virtualizer::new(flattener.var_data);
+        let virtualized = flattener.units.virtualize(&mut virtualizer);
+        if stop_stage == Stage::VAsm {
+            let fmt = virtualize::Formatter::new(&virtualizer);
             return write_out(fmt, out_path)
         }
 
