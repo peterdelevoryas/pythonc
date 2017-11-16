@@ -116,13 +116,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let mut virtualizer = virtualize::Virtualizer::new(flattener.var_data);
-        let virtualized = flattener.units.virtualize(&mut virtualizer);
         if stop_stage == Stage::VAsm {
-            /*
-            let fmt = virtualize::Formatter::new(&virtualizer);
-            return write_out(fmt, out_path);
-            */
             unimplemented!()
         }
 
