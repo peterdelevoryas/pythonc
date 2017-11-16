@@ -2,13 +2,13 @@ use ast;
 use std::collections::HashMap;
 use raise::Func;
 
-const MASK: i32 = 3;
-const SHIFT: i32 = 2;
+pub const MASK: i32 = 3;
+pub const SHIFT: i32 = 2;
 
-const INT_TAG: i32 = 0;
-const BOOL_TAG: i32 = 1;
-const FLOAT_TAG: i32 = 2;
-const BIG_TAG: i32 = 3;
+pub const INT_TAG: i32 = 0;
+pub const BOOL_TAG: i32 = 1;
+pub const FLOAT_TAG: i32 = 2;
+pub const BIG_TAG: i32 = 3;
 
 macro_rules! set {
     ($($e:expr),*) => ({

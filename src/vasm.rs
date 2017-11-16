@@ -23,7 +23,16 @@ pub enum Instr {
     Sete(Lval),
     /// `Lval = NE ? 1 : 0;`
     Setne(Lval),
+    Or(Lval, Rval),
     And(Lval, Rval),
+    /// I think `shr` requires arg to be
+    /// in CL, which complicates instruction
+    /// selection, so for now this only allows
+    /// `Imm`'s, which is all we need
+    Shr(Lval, Imm),
+    /// See doc for `Shr` for why this only allows
+    /// `Imm`
+    Shl(Lval, Imm),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -237,8 +246,34 @@ impl Block {
         self.push_instr(Instr::Call(name));
     }
 
-    fn and<L, R>(&mut self, lval: L, rval: R) {
+    fn and<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
         self.push_instr(Instr::And(lval.into(), rval.into()));
+    }
+
+    fn or<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        self.push_instr(Instr::Or(lval.into(), rval.into()));
+    }
+
+    fn shr<L>(&mut self, lval: L, imm: Imm)
+    where
+        L: Into<Lval>,
+    {
+        self.push_instr(Instr::Shr(lval.into(), imm));
+    }
+
+    fn shl<L>(&mut self, lval: L, imm: Imm)
+    where
+        L: Into<Lval>,
+    {
+        self.push_instr(Instr::Shl(lval.into(), imm));
     }
 
     fn stmt(&mut self, stmt: flat::Stmt) {
@@ -271,7 +306,33 @@ impl Block {
             flat::Stmt::Def(lhs, flat::Expr::GetTag(var)) => {
                 self.mov(lhs, var);
                 // MASK = 3
-                self.and(lhs, 0b11);
+                self.and(lhs, ex::MASK);
+            }
+            flat::Stmt::Def(lhs, flat::Expr::ProjectTo(var, _)) => {
+                self.mov(lhs, var);
+                self.shr(lhs, ex::SHIFT);
+            }
+            flat::Stmt::Def(lhs, flat::Expr::InjectFrom(var, ty)) => {
+                self.mov(lhs, var);
+                match ty {
+                    ex::Ty::Int => {
+                        self.shl(lhs, ex::SHIFT);
+                        self.or(lhs, ex::INT_TAG);
+                    }
+                    ex::Ty::Bool => {
+                        self.shl(lhs, ex::SHIFT);
+                        self.or(lhs, ex::BOOL_TAG);
+                    }
+                    ex::Ty::Big => {
+                        self.or(lhs, ex::BIG_TAG);
+                    }
+                    ex::Ty::Pyobj => {
+                        panic!("Encountered InjectFrom(Pyobj) during vasm generation")
+                    }
+                    ex::Ty::Func => {
+                        panic!("Encountered InjectFrom(Func) during vasm generation")
+                    }
+                }
             }
             flat::Stmt::Discard(expr) => {
             }
