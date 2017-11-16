@@ -442,14 +442,35 @@ impl fmt::Fmt for Instr {
         use std::io::Write;
 
         match *self {
-            Instr::Mov(lval, rval) => {
-                write!(f, "mov {rval}, {lval}",
-                       lval=lval,
-                       rval=rval)?;
+            Instr::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
+            Instr::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
+            Instr::Neg(lval) => writeln!(f, "neg {}", lval),
+            Instr::Push(rval) => writeln!(f, "push {}", rval),
+            Instr::Pop(lval) => writeln!(f, "pop {}", lval),
+            Instr::CallIndirect(lval) => writeln!(f, "call *{}", lval),
+            Instr::Call(ref name) => writeln!(f, "call {}", name),
+            Instr::If(cond, ref then, ref else_) => {
+                writeln!(f, "if {} {{", cond)?;
+                f.indent();
+                f.fmt(then)?;
+                f.dedent();
+                writeln!(f, "}} else {{")?;
+                f.indent();
+                f.fmt(else_)?;
+                f.dedent();
+                writeln!(f, "}}")?;
+                Ok(())
             }
-            _ => unimplemented!(),
+            Instr::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
+            Instr::Sete(lval) => writeln!(f, "sete {}", lval),
+            Instr::Setne(lval) => writeln!(f, "setne {}", lval),
+            Instr::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
+            Instr::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
+            Instr::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
+            Instr::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
+            Instr::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
+            Instr::Ret => writeln!(f, "ret"),
         }
-        Ok(())
     }
 }
 
