@@ -3,14 +3,16 @@ use error::*;
 
 pub mod func {
     use explicate::Var;
+    use explicate::Closure;
     use super::Block;
+    use std::collections::HashSet;
 
     impl_ref!(Func, "f");
 
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone)]
     pub struct Data {
-        pub args: Vec<Var>,
-        pub body: Block,
+        pub free_vars: Vec<Var>,
+        pub closure: Closure,
     }
 }
 pub use self::func::Func;
@@ -25,7 +27,7 @@ pub struct TransUnit {
     pub funcs: func::Slab<func::Data>,
 }
 
-pub struct Builder {
+pub struct Builder<'var_data> {
     // curr is a stack of blocks that are being created.
     // Each time a nested block is entered, the nested
     // block is pushed on top, and thus the top of the stack
@@ -34,18 +36,20 @@ pub struct Builder {
     // stack and added to the slab of funcs.
     curr: Vec<Block>,
     funcs: func::Slab<func::Data>,
+    var_data: &'var_data mut var::Slab<var::Data>,
 }
 
-impl Builder {
-    pub fn build(heapified: Module) -> TransUnit {
+impl<'var_data> Builder<'var_data> {
+    pub fn build(heapified: Module, var_data: &'var_data mut var::Slab<var::Data>) -> TransUnit {
         let mut builder = Self {
             curr: vec![],
             funcs: func::Slab::new(),
+            var_data: var_data,
         };
         builder.new_func();
         builder.add_to_curr_func(heapified.stmts);
         // no params for main function
-        let main = builder.end_func(vec![]);
+        let main = builder.end_func(vec![], vec![]);
         TransUnit {
             main,
             funcs: builder.funcs,
@@ -69,22 +73,83 @@ impl Builder {
     }
 
     // moves curr.last to funcs
-    pub fn end_func(&mut self, params: Vec<Var>) -> Func {
-        let curr = self.curr.pop().expect("end_block with empty curr");
+    pub fn end_func(&mut self, free_vars: Vec<Var>, mut params: Vec<Var>) -> Func {
+        let fvs_list = self.new_temp();
+        params.insert(0, fvs_list);
+        let code = {
+            let curr = self.curr.pop().expect("end_block with empty curr");
+            let mut stmts = vec![];
+            for (i, &fv) in free_vars.iter().enumerate() {
+                stmts.push(Assign {
+                    target: fv.into(),
+                    expr: Subscript {
+                        base: fvs_list.into(),
+                        elem: Const::Int(i as i32).into(),
+                    }.into()
+                }.into());
+            }
+            stmts.extend(curr.stmts);
+            stmts
+        };
         let data = func::Data {
-            args: params,
-            body: curr,
+            free_vars: free_vars,
+            closure: Closure {
+                args: params,
+                code: code,
+            }
         };
         self.funcs.insert(data)
     }
+
+    fn new_temp(&mut self) -> Var {
+        self.var_data.insert(var::Data::Temp)
+    }
 }
 
-impl TransformAst for Builder {
+impl<'var_data> TransformAst for Builder<'var_data> {
     fn closure(&mut self, closure: Closure) -> Expr {
+        let fvs: Vec<Var> = ::heapify::all_free_vars(&closure)
+            .into_iter()
+            .collect();
         self.new_func();
         self.add_to_curr_func(closure.code);
-        let func = self.end_func(closure.args);
-        func.into()
+        let func = self.end_func(fvs.clone(), closure.args);
+        trace!("all free vars for {}: {:?}", func, fvs);
+        let list = List {
+            exprs: fvs.into_iter().map(|v| v.into()).collect(),
+        };
+        CallRuntime {
+            name: "create_closure".into(),
+            args: vec![
+                func.into(),
+                list.into(),
+            ],
+        }.into()
+    }
+
+    fn call_func(&mut self, call: CallFunc) -> Expr {
+        // need to first evaluate target expr into a var
+        let f = self.new_temp();
+        let get_fun_ptr = CallRuntime {
+            name: "get_fun_ptr".into(),
+            args: vec![f.into()]
+        };
+        let get_free_vars = CallRuntime {
+            name: "get_free_vars".into(),
+            args: vec![f.into()]
+        };
+        let_(f, self.expr(call.expr), {
+            let mut args = vec![];
+            args.push(get_free_vars.into());
+            for arg in call.args {
+                let heapified = self.expr(arg);
+                args.push(heapified);
+            }
+            CallFunc {
+                expr: get_fun_ptr.into(),
+                args: args,
+            }
+        }).into()
     }
 }
 
@@ -255,5 +320,159 @@ pub trait TransformAst {
 
     fn closure_var(&mut self, var: Var) -> Var {
         var
+    }
+}
+
+pub trait VisitAst {
+    fn stmts(&mut self, stmts: &[Stmt]) {
+        for s in stmts {
+            self.stmt(s);
+        }
+    }
+
+    fn stmt(&mut self, s: &Stmt) {
+        match *s {
+            Stmt::Printnl(ref p) => self.printnl(p),
+            Stmt::Assign(ref a) => self.assign(a),
+            Stmt::Expr(ref e) => self.expr(e).into(),
+            Stmt::Return(ref r) => self.return_(r),
+        }
+    }
+
+    fn printnl(&mut self, printnl: &Printnl) {
+        self.expr(&printnl.expr)
+    }
+
+    fn assign(&mut self, assign: &Assign) {
+        self.target(&assign.target);
+        self.expr(&assign.expr);
+    }
+
+    fn return_(&mut self, return_: &Return) {
+        self.expr(&return_.expr);
+    }
+
+    fn target(&mut self, target: &Target) {
+        match *target {
+            Target::Var(ref var) => self.target_var(var),
+            Target::Subscript(ref subscript) => self.target_subscript(subscript),
+        }
+    }
+
+    fn target_var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn target_subscript(&mut self, subscript: &Subscript) {
+        self.subscript(subscript);
+    }
+
+    fn var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn subscript(&mut self, subscript: &Subscript) {
+        self.expr(&subscript.base);
+        self.expr(&subscript.elem);
+    }
+
+    fn expr(&mut self, e: &Expr) {
+        match *e {
+            Expr::Let(box ref l) => self.let_(l),
+            Expr::ProjectTo(box ref p) => self.project_to(p),
+            Expr::InjectFrom(box ref x) => self.inject_from(x),
+            Expr::CallFunc(box ref x) => self.call_func(x),
+            Expr::CallRuntime(box ref x) => self.call_runtime(x),
+            Expr::Binary(box ref x) => self.binary(x),
+            Expr::Unary(box ref x) => self.unary(x),
+            Expr::Subscript(box ref s) => self.subscript(s).into(),
+            Expr::List(box ref l) => self.list(l),
+            Expr::Dict(box ref d) => self.dict(d),
+            Expr::IfExp(box ref e) => self.if_exp(e),
+            Expr::Closure(box ref c) => self.closure(c),
+            Expr::Const(ref c) => self.const_(c),
+            Expr::Var(ref v) => self.var(v),
+            Expr::Func(ref f) => self.func(f),
+        }
+    }
+
+    fn let_(&mut self, let_: &Let) {
+        self.let_var(&let_.var);
+        self.expr(&let_.rhs);
+        self.expr(&let_.body);
+    }
+
+    fn let_var(&mut self, var: &Var) {
+        // nothing to do by default
+    }
+
+    fn project_to(&mut self, project_to: &ProjectTo) {
+        self.expr(&project_to.expr);
+    }
+
+    fn inject_from(&mut self, inject_from: &InjectFrom) {
+        self.expr(&inject_from.expr);
+    }
+
+    fn call_func(&mut self, call: &CallFunc) {
+        self.expr(&call.expr);
+        for arg in &call.args {
+            self.expr(arg);
+        }
+    }
+
+    fn call_runtime(&mut self, call: &CallRuntime) {
+        for arg in &call.args {
+            self.expr(arg);
+        }
+    }
+
+    fn binary(&mut self, binary: &Binary) {
+        self.expr(&binary.left);
+        self.expr(&binary.right);
+    }
+
+    fn unary(&mut self, unary: &Unary) {
+        self.expr(&unary.expr);
+    }
+
+    fn list(&mut self, list: &List) {
+        for expr in &list.exprs {
+            self.expr(expr);
+        }
+    }
+
+    fn dict(&mut self, dict: &Dict) {
+        for &(ref l, ref r) in &dict.tuples {
+            self.expr(l);
+            self.expr(r);
+        }
+    }
+
+    fn if_exp(&mut self, if_exp: &IfExp) {
+        self.expr(&if_exp.cond);
+        self.expr(&if_exp.then);
+        self.expr(&if_exp.else_);
+    }
+
+    fn closure(&mut self, closure: &Closure) {
+        for var in &closure.args {
+            self.closure_var(var);
+        }
+        for stmt in &closure.code {
+            self.stmt(stmt);
+        }
+    }
+
+    fn const_(&mut self, const_: &Const) {
+        // do nothing by default
+    }
+
+    fn func(&mut self, func: &Func) {
+        // do nothing by default
+    }
+
+    fn closure_var(&mut self, var: &Var) {
+        // do nothing by default
     }
 }

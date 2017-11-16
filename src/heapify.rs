@@ -1,283 +1,239 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 use error::*;
 use explicate::*;
+use raise::TransformAst;
+use raise::VisitAst;
+use std::collections::HashSet;
 
-fn find_vars_to_heapify<T: AddFreeVars>(ast: &T) -> HashSet<Var> {
-    let mut fv = HashSet::new();
-    ast.add_free_vars(&mut fv);
-    fv
+#[derive(Debug)]
+pub struct Builder<'var_data> {
+    var_data: &'var_data mut var::Slab<var::Data>,
+    all_free_vars: HashSet<Var>,
+    heapified: HashSet<Var>,
 }
 
-pub fn heapify(mut ast: Module) -> Module {
-    let mut b = Builder {
-        needs_heapify: find_vars_to_heapify(&ast),
-    };
-    ast.heapify(&mut b)
-}
+impl<'var_data> Builder<'var_data> {
+    pub fn new(var_data: &'var_data mut var::Slab<var::Data>) -> Builder<'var_data> {
+        Builder {
+            var_data,
+            all_free_vars: HashSet::new(),
+            heapified: HashSet::new(),
+        }
+    }
 
-pub struct Builder {
-    needs_heapify: HashSet<Var>,
-}
+    pub fn heapify_module(&mut self, module: Module) -> Module {
+        self.all_free_vars = all_free_vars(&module);
+        debug!("all free vars: {:?}", self.all_free_vars);
+        let heapified = self.heapify_stmts(module.stmts);
 
-pub trait Heapify {
-    type Output;
-    fn heapify(self, builder: &mut Builder) -> Self::Output;
-}
-
-impl Heapify for Module {
-    type Output = Module;
-    fn heapify(mut self, builder: &mut Builder) -> Self::Output {
         Module {
-            stmts: self.stmts.heapify(builder),
+            stmts: heapified
         }
     }
-}
 
-impl Heapify for Vec<Stmt> {
-    type Output = Vec<Stmt>;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        self.into_iter().map(|stmt| {
-            stmt.heapify(builder)
-        }).collect()
+    fn heapify_stmts(&mut self, stmts: Vec<Stmt>) -> Vec<Stmt> {
+        stmts.into_iter().map(|stmt| self.stmt(stmt)).collect()
     }
-}
 
-impl Heapify for Stmt {
-    type Output = Stmt;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        use self::Stmt::*;
-        match self {
-            Printnl(x) => x.heapify(builder).into(),
-            Assign(x) => x.heapify(builder).into(),
-            Expr(x) => x.heapify(builder).into(),
-            Return(x) => x.heapify(builder).into(),
-        }
+    fn new_temp(&mut self) -> Var {
+        self.var_data.insert(var::Data::Temp)
     }
-}
 
-impl Heapify for Expr {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        use self::Expr::*;
-        match self {
-            Let(box x) => x.heapify(builder).into(),
-            ProjectTo(box x) => x.heapify(builder).into(),
-            InjectFrom(box x) => x.heapify(builder).into(),
-            CallFunc(box x) => x.heapify(builder).into(),
-            CallRuntime(box x) => x.heapify(builder).into(),
-            Binary(box x) => x.heapify(builder).into(),
-            Unary(box x) => x.heapify(builder).into(),
-            Subscript(box x) => x.heapify(builder).into(),
-            List(box x) => x.heapify(builder).into(),
-            Dict(box x) => x.heapify(builder).into(),
-            IfExp(box x) => x.heapify(builder).into(),
-            Closure(box x) => x.heapify(builder).into(),
-            Var(x) => x.heapify(builder).into(),
-            Const(x) => x.heapify(builder).into(),
-            Func(x) => panic!("Func in AST during heapification"),
-        }
-    }
-}
-
-impl Heapify for Target {
-    type Output = Target;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        match self {
-            Target::Var(var) if builder.needs_heapify.contains(&var) => {
-                Subscript {
-                    base: var.into(),
-                    elem: inject_from(Const::Int(0), Ty::Int).into(),
-                }.into()
-            }
-            target => target,
-        }
-    }
-}
-
-impl Heapify for Printnl {
-    type Output = Stmt;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Printnl {
-            expr: self.expr.heapify(builder)
-        }.into()
-    }
-}
-
-impl Heapify for Assign {
-    type Output = Stmt;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
+    fn assign_list_0(&mut self, var: Var) -> Assign {
         Assign {
-            target: self.target.heapify(builder),
-            expr: self.expr.heapify(builder),
-        }.into()
+            target: var.into(),
+            expr: List {
+                exprs: vec![Const::Int(0).into()]
+            }.into()
+        }
+    }
+
+    fn assign_to(&mut self, target: Var, source: Var) -> Assign {
+        Assign {
+            target: subscript_0(target).into(),
+            expr: source.into(),
+        }
     }
 }
 
-impl Heapify for Return {
-    type Output = Stmt;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Return {
-            expr: self.expr.heapify(builder)
-        }.into()
+fn subscript_0(var: Var) -> Subscript {
+    Subscript {
+        base: var.into(),
+        elem: Const::Int(0).into(),
     }
 }
 
-impl Heapify for Let {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        // ignore var, does not need to ever be modified
-        // since it can only be a temporary created by compiler
-        Let {
-            var: self.var,
-            rhs: self.rhs.heapify(builder),
-            body: self.body.heapify(builder),
-        }.into()
+fn list_0() -> List {
+    List {
+        exprs: vec![Const::Int(0).into()],
     }
 }
 
-impl Heapify for ProjectTo {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        ProjectTo {
-            to: self.to,
-            expr: self.expr.heapify(builder)
+impl<'var_data> TransformAst for Builder<'var_data> {
+    fn assign(&mut self, assign: Assign) -> Stmt {
+        // recurse on assignment before anything.
+        // the lhs might actually get heapified
+        // during this step.
+        let rhs = self.expr(assign.expr);
+
+        if let Target::Var(var) = assign.target {
+            // if free var and not heapified yet
+            if self.all_free_vars.contains(&var) && !self.heapified.contains(&var) {
+                // turn rhs into [rhs] (list of 1 expr)
+                let heapified = ::explicate::assign(var, List {
+                    exprs: vec![rhs]
+                });
+                // record as heapified
+                self.heapified.insert(var);
+                return heapified.into()
+            }
+        }
+
+        // otherwise, do default behavior
+        let target = self.target(assign.target);
+        Assign {
+            target,
+            expr: rhs,
         }.into()
     }
-}
 
-impl Heapify for InjectFrom {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        InjectFrom {
-            from: self.from,
-            expr: self.expr.heapify(builder)
-        }.into()
+    fn target_var(&mut self, var: Var) -> Target {
+        if self.all_free_vars.contains(&var) {
+            subscript_0(var).into()
+        } else {
+            var.into()
+        }
     }
-}
 
-impl Heapify for CallFunc {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        CallFunc {
-            expr: self.expr.heapify(builder),
-            args: self.args.into_iter().map(|arg| arg.heapify(builder)).collect()
-        }.into()
+    fn var(&mut self, var: Var) -> Expr {
+        if self.all_free_vars.contains(&var) {
+            subscript_0(var).into()
+        } else {
+            var.into()
+        }
     }
-}
 
-impl Heapify for CallRuntime {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        CallRuntime {
-            name: self.name,
-            args: self.args.into_iter().map(|arg| arg.heapify(builder)).collect()
-        }.into()
+    fn let_var(&mut self, var: Var) -> Var {
+        if self.all_free_vars.contains(&var) {
+            panic!("lhs of let needs heapifying!!!")
+        }
+        var
     }
-}
 
-impl Heapify for Binary {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Binary {
-            op: self.op,
-            left: self.left.heapify(builder),
-            right: self.right.heapify(builder),
-        }.into()
-    }
-}
+    fn closure(&mut self, closure: Closure) -> Expr {
 
-impl Heapify for Unary {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Unary {
-            op: self.op,
-            expr: self.expr.heapify(builder)
-        }.into()
-    }
-}
+        // need to rename parameters to be heapified,
+        // and move heapified parameters into body
+        let heapified_params: Vec<Var> = closure.args
+            .iter()
+            .map(|&var| var)
+            .filter(|var| self.all_free_vars.contains(var))
+            .collect();
+        let heapified_params_inits: Vec<Stmt> = heapified_params
+            .iter()
+            .map(|&var| self.assign_list_0(var).into())
+            .collect();
 
-impl Heapify for Subscript {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Subscript {
-            base: self.base.heapify(builder),
-            elem: self.elem.heapify(builder),
-        }.into()
-    }
-}
+        let mut heapified_params_assigns: Vec<Stmt> = vec![];
+        let renamed_args: Vec<Var> = closure.args
+            .iter()
+            .map(|&var| {
+                if heapified_params.contains(&var) {
+                    let renamed = self.new_temp();
+                    heapified_params_assigns.push(self.assign_to(var, renamed).into());
+                    renamed
+                } else {
+                    var
+                }
+            })
+            .collect();
 
-impl Heapify for List {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        List {
-            exprs: self.exprs.into_iter().map(|e| e.heapify(builder)).collect()
-        }.into()
-    }
-}
+        let needs_heapifying_outside: HashSet<Var> = all_free_vars(&closure)
+            .into_iter()
+            .filter(|var| {
+                !self.heapified.contains(var)
+            })
+            .collect();
 
-impl Heapify for Dict {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        Dict {
-            tuples: self.tuples.into_iter().map(|(l, r)| {
-                (l.heapify(builder), r.heapify(builder))
-            }).collect()
-        }.into()
-    }
-}
+        /*
+        trace!("needs heapifying outside: {:?}", needs_heapifying_outside);
+        for &var in &needs_heapifying_outside {
+            self.heapified.insert(var);
+        }
+        */
 
-impl Heapify for IfExp {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        IfExp {
-            cond: self.cond.heapify(builder),
-            then: self.then.heapify(builder),
-            else_: self.else_.heapify(builder),
-        }.into()
-    }
-}
+        let code = {
+            let mut code = vec![];
+            code.extend(heapified_params_inits);
+            code.extend(heapified_params_assigns);
+            code.extend(self.heapify_stmts(closure.code));
+            code
+        };
 
-impl Heapify for Closure {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        let free_vars = self.free_vars();
-        // arguments shouldn't need heapification here
-        let code = self.code.heapify(builder);
         let mut ret: Expr = Closure {
-            args: self.args,
+            args: renamed_args,
             code: code,
         }.into();
-        for free_var in free_vars {
-            ret = let_(free_var,
-                       List {
-                           exprs: vec![
-                               inject_from(Const::Int(0), Ty::Int).into()
-                           ],
-                       },
-                       ret).into();
+
+        /*
+        for &var in &needs_heapifying_outside {
+            ret = let_(var, list_0(), ret).into();
         }
+        */
+
         ret
     }
 }
 
-impl Heapify for Var {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        if builder.needs_heapify.contains(&self) {
-            Subscript {
-                base: self.into(),
-                elem: inject_from(Const::Int(0), Ty::Int).into(),
-            }.into()
-        } else {
-            self.into()
+
+/// Finds free variables in local scope _and_ nested scopes
+pub fn all_free_vars<T>(node: &T) -> HashSet<Var>
+where
+    T: AllFreeVars
+{
+    node.all_free_vars()
+}
+
+pub trait AllFreeVars {
+    fn all_free_vars(&self) -> HashSet<Var>;
+}
+
+impl AllFreeVars for Module {
+    fn all_free_vars(&self) -> HashSet<Var> {
+        let mut collector = Collector::new();
+        let local_free_vars = ::free_vars::free_vars(self.stmts.as_slice());
+        collector.vars.extend(local_free_vars);
+        collector.stmts(self.stmts.as_slice());
+        collector.vars
+    }
+}
+
+impl AllFreeVars for Closure {
+    fn all_free_vars(&self) -> HashSet<Var> {
+        let mut collector = Collector::new();
+        collector.closure(self);
+        collector.vars
+    }
+}
+
+#[derive(Debug)]
+struct Collector {
+    vars: HashSet<Var>,
+}
+
+impl Collector {
+    fn new() -> Self {
+        Self {
+            vars: HashSet::new()
         }
     }
 }
 
-impl Heapify for Const {
-    type Output = Expr;
-    fn heapify(self, builder: &mut Builder) -> Self::Output {
-        self.into()
+impl ::raise::VisitAst for Collector {
+    fn closure(&mut self, closure: &Closure) {
+        let nested_free_vars = ::free_vars::free_vars(closure);
+        trace!("nested free vars: {:?}", nested_free_vars);
+        self.vars.extend(nested_free_vars);
+        self.stmts(closure.code.as_slice());
     }
 }
