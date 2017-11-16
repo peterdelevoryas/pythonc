@@ -1,6 +1,7 @@
 use explicate as ex;
 use flatten as flat;
 use raise;
+use util::fmt;
 
 use explicate::Var;
 
@@ -130,4 +131,12 @@ impl Func {
     }
 }
 
+impl fmt::Fmt for Module {
+    fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        use std::io::Write;
 
+        writeln!(f, "vasm {{")?;
+        writeln!(f, "}}")?;
+        Ok(())
+    }
+}

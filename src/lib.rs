@@ -118,7 +118,7 @@ impl Pythonc {
 
         let vasm_module = vasm::Module::from(flattener);
         if stop_stage == Stage::VAsm {
-            unimplemented!()
+            return fmt_out(&vasm_module, out_path)
         }
 
         Ok(())
@@ -209,6 +209,11 @@ where
         .chain_err(|| format!("creating file {:?}", path.display()))
 }
 
-fn fmt_out<F: util::fmt::Fmt>(data: F, out_path: &Path) -> Result<()> {
-    unimplemented!()
+fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
+    use std::io::Write;
+
+    let f = open_out_file(out_path, false)?;
+    let mut f = util::fmt::Formatter::new(f);
+    f.fmt(data).chain_err(|| "Error fmt'ing data")?;
+    Ok(())
 }
