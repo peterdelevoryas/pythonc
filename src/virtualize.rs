@@ -193,8 +193,9 @@ impl Virtualize for flat::Stmt {
                 }
             }
             Stmt::Discard(expr) => {
-                () // TODO
+                unimplemented!()
             }
+            _ => unimplemented!()
         }
     }
 }
