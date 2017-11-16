@@ -386,7 +386,9 @@ impl Block {
                 self.ret();
             }
             flat::Stmt::If(cond, then, else_) => {
-
+                let then = Block::from(then);
+                let else_ = Block::from(else_);
+                self.push_instr(Instr::If(cond.into(), then, else_));
             }
         }
     }
