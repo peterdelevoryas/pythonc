@@ -110,9 +110,21 @@ pub struct Func {
 
 impl Func {
     pub fn from(f: flat::Function) -> Func {
+        let mut block = Block::from(f.body);
+        match block.instrs.last() {
+            Some(&Instr::Ret) => {
+                // If there is a return already,
+                // don't insert another one
+            }
+            Some(_) | None => {
+                block.mov(Reg::ESP, Reg::EBP);
+                block.pop(Reg::EBP);
+                block.ret();
+            }
+        }
         Func {
             num_stack_slots: 0,
-            block: Block::from(f.body),
+            block: block,
         }
     }
 }
