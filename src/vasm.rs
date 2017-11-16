@@ -17,9 +17,12 @@ pub enum Instr {
     CallIndirect(Rval),
     Call(String),
     If(Rval, Block, Block),
-    Cmp(Lval, Imm),
-    Sete(Lval, Imm),
-    Setne(Lval, Imm),
+    /// `Lval - Rval, sets EQ and NE (and other) flags`
+    Cmp(Lval, Rval),
+    /// `Lval = EQ ? 1 : 0;`
+    Sete(Lval),
+    /// `Lval = NE ? 1 : 0;`
+    Setne(Lval),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -116,16 +119,6 @@ impl Block {
         self.push_instr(Instr::Mov(lval, rval));
     }
 
-    fn add<L, R>(&mut self, lval: L, rval: R)
-    where
-        L: Into<Lval>,
-        R: Into<Rval>,
-    {
-        let lval = lval.into();
-        let rval = rval.into();
-        self.push_instr(Instr::Add(lval, rval));
-    }
-
     fn neg<L>(&mut self, lval: L)
     where
         L: Into<Lval>,
@@ -153,15 +146,83 @@ impl Block {
         self.push_instr(Instr::CallIndirect(rval.into()));
     }
 
+    /// ```
+    /// if lval == 0 {
+    ///     lval = 1;
+    /// } else {
+    ///     lval = 0;
+    /// }
+    /// ```
     fn not<L>(&mut self, lval: L)
     where
         L: Into<Lval>,
     {
         let lval = lval.into();
-        self.push_instr(Instr::Cmp(lval, 0));
-        self.push_instr(Instr::Sete(lval, 1));
-        self.push_instr(Instr::Setne(lval, 0));
+        self.push_instr(Instr::Cmp(lval, 0.into()));
+        self.push_instr(Instr::Sete(lval));
     }
+
+    /// ```
+    /// lval += rval;
+    /// ```
+    fn add<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Add(lval, rval));
+    }
+
+    /// ```
+    /// if lval == rval {
+    ///     lval = 1;
+    /// } else {
+    ///     lval = 0;
+    /// }
+    /// ```
+    fn eq<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Cmp(lval, rval));
+        self.push_instr(Instr::Sete(lval));
+    }
+
+    /// ```
+    /// if lval != rval {
+    ///     lval = 1;
+    /// } else {
+    ///     lval = 0;
+    /// }
+    /// ```
+    fn not_eq<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Cmp(lval, rval));
+        self.push_instr(Instr::Setne(lval));
+    }
+
+    /// Sets compare flags like EQ and NE
+    /// that can be read by `sete` and `setne`
+    fn cmp<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Cmp(lval, rval));
+    }
+
 
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
@@ -170,6 +231,14 @@ impl Block {
                 match op {
                     flat::UnaryOp::NEGATE => self.neg(lhs),
                     flat::UnaryOp::NOT => self.not(lhs),
+                }
+            }
+            flat::Stmt::Def(lhs, flat::Expr::BinOp(op, l, r)) => {
+                self.mov(lhs, l);
+                match op {
+                    flat::BinOp::ADD => self.add(lhs, r),
+                    flat::BinOp::EQ => self.eq(lhs, r),
+                    flat::BinOp::NOTEQ => self.not_eq(lhs, r),
                 }
             }
             flat::Stmt::Discard(expr) => {
