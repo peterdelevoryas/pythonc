@@ -14,6 +14,12 @@ pub mod func {
         pub free_vars: Vec<Var>,
         pub closure: Closure,
     }
+
+    impl Func {
+        pub fn is_main_func(&self) -> bool {
+            self.0 == 0
+        }
+    }
 }
 pub use self::func::Func;
 

@@ -179,17 +179,57 @@ impl Block {
             flat::Stmt::If(cond, then, else_) => {
 
             }
-            _ => unimplemented!()
+            _ => {}
         }
     }
 }
 
 impl fmt::Fmt for Module {
+    fn fmt<W: ::std::io::Write>(&self, out: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        use std::io::Write;
+
+        writeln!(out, "vasm {{")?;
+        for (f, func) in &self.funcs {
+            if f.is_main_func() {
+                writeln!(out, "main:")?;
+            } else {
+                writeln!(out, "{}:", f)?;
+            }
+            out.indent();
+            out.fmt(func)?;
+            out.dedent();
+        }
+        writeln!(out, "}}")?;
+        Ok(())
+    }
+}
+
+impl fmt::Fmt for Func {
+    fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        f.fmt(&self.block)?;
+        Ok(())
+    }
+}
+
+impl fmt::Fmt for Block {
+    fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        for instr in &self.instrs {
+            f.fmt(instr)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Fmt for Instr {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
 
-        writeln!(f, "vasm {{")?;
-        writeln!(f, "}}")?;
+        match *self {
+            Instr::Mov(_, _) => {
+                write!(f, "mov _, _")?;
+            }
+            _ => unimplemented!(),
+        }
         Ok(())
     }
 }
