@@ -492,7 +492,7 @@ mod test {
             stmts: vec![
                 Stmt::Expr(Expr::Const(Const(1))),
                 Stmt::Printnl(Printnl { expr: Expr::Const(Const(1)) }),
-            ]
+            ],
         };
         let result = parser::parse_module(source).unwrap();
         assert_eq!(result, expect);

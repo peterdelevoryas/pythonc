@@ -4,7 +4,7 @@ use raise::VisitAst;
 
 pub fn free_vars<N: ?Sized>(node: &N) -> HashSet<Var>
 where
-    N: FreeVars
+    N: FreeVars,
 {
     node.free_vars()
 }

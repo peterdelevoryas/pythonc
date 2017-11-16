@@ -26,9 +26,7 @@ impl<'var_data> Builder<'var_data> {
         debug!("all free vars: {:?}", self.all_free_vars);
         let heapified = self.heapify_stmts(module.stmts);
 
-        Module {
-            stmts: heapified
-        }
+        Module { stmts: heapified }
     }
 
     fn heapify_stmts(&mut self, stmts: Vec<Stmt>) -> Vec<Stmt> {
@@ -42,9 +40,7 @@ impl<'var_data> Builder<'var_data> {
     fn assign_list_0(&mut self, var: Var) -> Assign {
         Assign {
             target: var.into(),
-            expr: List {
-                exprs: vec![Const::Int(0).into()]
-            }.into()
+            expr: List { exprs: vec![Const::Int(0).into()] }.into(),
         }
     }
 
@@ -64,9 +60,7 @@ fn subscript_0(var: Var) -> Subscript {
 }
 
 fn list_0() -> List {
-    List {
-        exprs: vec![Const::Int(0).into()],
-    }
+    List { exprs: vec![Const::Int(0).into()] }
 }
 
 impl<'var_data> TransformAst for Builder<'var_data> {
@@ -80,21 +74,16 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             // if free var and not heapified yet
             if self.all_free_vars.contains(&var) && !self.heapified.contains(&var) {
                 // turn rhs into [rhs] (list of 1 expr)
-                let heapified = ::explicate::assign(var, List {
-                    exprs: vec![rhs]
-                });
+                let heapified = ::explicate::assign(var, List { exprs: vec![rhs] });
                 // record as heapified
                 self.heapified.insert(var);
-                return heapified.into()
+                return heapified.into();
             }
         }
 
         // otherwise, do default behavior
         let target = self.target(assign.target);
-        Assign {
-            target,
-            expr: rhs,
-        }.into()
+        Assign { target, expr: rhs }.into()
     }
 
     fn target_var(&mut self, var: Var) -> Target {
@@ -124,7 +113,8 @@ impl<'var_data> TransformAst for Builder<'var_data> {
 
         // need to rename parameters to be heapified,
         // and move heapified parameters into body
-        let heapified_params: Vec<Var> = closure.args
+        let heapified_params: Vec<Var> = closure
+            .args
             .iter()
             .map(|&var| var)
             .filter(|var| self.all_free_vars.contains(var))
@@ -135,24 +125,21 @@ impl<'var_data> TransformAst for Builder<'var_data> {
             .collect();
 
         let mut heapified_params_assigns: Vec<Stmt> = vec![];
-        let renamed_args: Vec<Var> = closure.args
+        let renamed_args: Vec<Var> = closure
+            .args
             .iter()
-            .map(|&var| {
-                if heapified_params.contains(&var) {
-                    let renamed = self.new_temp();
-                    heapified_params_assigns.push(self.assign_to(var, renamed).into());
-                    renamed
-                } else {
-                    var
-                }
+            .map(|&var| if heapified_params.contains(&var) {
+                let renamed = self.new_temp();
+                heapified_params_assigns.push(self.assign_to(var, renamed).into());
+                renamed
+            } else {
+                var
             })
             .collect();
 
         let needs_heapifying_outside: HashSet<Var> = all_free_vars(&closure)
             .into_iter()
-            .filter(|var| {
-                !self.heapified.contains(var)
-            })
+            .filter(|var| !self.heapified.contains(var))
             .collect();
 
         /*
@@ -189,7 +176,7 @@ impl<'var_data> TransformAst for Builder<'var_data> {
 /// Finds free variables in local scope _and_ nested scopes
 pub fn all_free_vars<T>(node: &T) -> HashSet<Var>
 where
-    T: AllFreeVars
+    T: AllFreeVars,
 {
     node.all_free_vars()
 }
@@ -223,9 +210,7 @@ struct Collector {
 
 impl Collector {
     fn new() -> Self {
-        Self {
-            vars: HashSet::new()
-        }
+        Self { vars: HashSet::new() }
     }
 }
 

@@ -44,9 +44,7 @@ pub mod var {
     #[derive(Debug)]
     pub enum Data {
         /// A User created variable
-        User {
-            source_name: String,
-        },
+        User { source_name: String },
         /// A Compiler created temporary variable
         Temp,
     }
@@ -320,9 +318,7 @@ pub fn return_<E>(expr: E) -> Return
 where
     E: Into<Expr>,
 {
-    Return {
-        expr: expr.into(),
-    }
+    Return { expr: expr.into() }
 }
 
 pub fn assign<T, E>(target: T, expr: E) -> Assign
@@ -338,11 +334,9 @@ where
 
 pub fn get_tag<E>(expr: E) -> GetTag
 where
-    E: Into<Expr>
+    E: Into<Expr>,
 {
-    GetTag {
-        expr: expr.into(),
-    }
+    GetTag { expr: expr.into() }
 }
 
 impl Binop {
@@ -387,7 +381,7 @@ impl Explicate {
             b.name(ast::Name(name.into()));
         }
 
-        return b
+        return b;
     }
 
     pub fn lookup_var(&self, name: &ast::Name) -> Var {
@@ -395,9 +389,7 @@ impl Explicate {
     }
 
     fn force_insert_name(&mut self, name: &ast::Name) {
-        let user_var = var::Data::User {
-            source_name: name.0.clone(),
-        };
+        let user_var = var::Data::User { source_name: name.0.clone() };
         let var = self.var_data.insert(user_var);
         self.names.insert(name.clone(), var);
     }
@@ -434,12 +426,12 @@ impl Explicate {
 
     pub fn module(&mut self, module: ast::Module) -> Module {
         self.add_names_in_module(&module);
-        let stmts = module.stmts.into_iter()
+        let stmts = module
+            .stmts
+            .into_iter()
             .map(|stmt| self.stmt(stmt))
             .collect();
-        Module {
-            stmts
-        }
+        Module { stmts }
     }
 
     pub fn stmt(&mut self, stmt: ast::Stmt) -> Stmt {
@@ -473,9 +465,7 @@ impl Explicate {
 
     pub fn target(&mut self, target: ast::Target) -> Target {
         match target {
-            ast::Target::Name(name) => {
-                self.name(name).into()
-            }
+            ast::Target::Name(name) => self.name(name).into(),
             ast::Target::Subscript(s) => self.subscript(s).into(),
         }
     }
@@ -485,12 +475,16 @@ impl Explicate {
         let saved = self.names.clone();
         self.add_names_in_function(&function);
         let closure = Closure {
-            args: function.args.into_iter().map(|arg| {
-                self.name(ast::Name(arg))
-            }).collect(),
-            code: function.code.into_iter().map(|stmt| {
-                self.stmt(stmt)
-            }).collect(),
+            args: function
+                .args
+                .into_iter()
+                .map(|arg| self.name(ast::Name(arg)))
+                .collect(),
+            code: function
+                .code
+                .into_iter()
+                .map(|stmt| self.stmt(stmt))
+                .collect(),
         };
         // restore the name environment
         self.names = saved;
@@ -498,9 +492,7 @@ impl Explicate {
     }
 
     pub fn printnl(&mut self, printnl: ast::Printnl) -> Printnl {
-        Printnl {
-            expr: self.expr(printnl.expr),
-        }
+        Printnl { expr: self.expr(printnl.expr) }
     }
 
     pub fn assign(&mut self, assign: ast::Assign) -> Assign {
@@ -511,9 +503,7 @@ impl Explicate {
     }
 
     pub fn return_(&mut self, assign: ast::Return) -> Return {
-        Return {
-            expr: self.expr(assign.expr)
-        }
+        Return { expr: self.expr(assign.expr) }
     }
 
     pub fn const_(&mut self, const_: ast::Const) -> InjectFrom {
@@ -522,11 +512,9 @@ impl Explicate {
 
     pub fn name(&mut self, name: ast::Name) -> Var {
         if let Some(&var) = self.names.get(&name) {
-            return var
+            return var;
         }
-        let user_var = var::Data::User {
-            source_name: name.0.clone(),
-        };
+        let user_var = var::Data::User { source_name: name.0.clone() };
         let var = self.var_data.insert(user_var);
         self.names.insert(name.clone(), var);
         var
@@ -542,7 +530,7 @@ impl Explicate {
                 op: Unop::Neg,
                 expr: project_to(self.expr(unary_sub.expr), Ty::Int).into(),
             },
-            Ty::Int
+            Ty::Int,
         )
     }
 
@@ -552,7 +540,7 @@ impl Explicate {
             args: c.args.into_iter().map(|e| self.expr(e)).collect(),
         }
     }
-    
+
     pub fn binop(&mut self, left: ast::Expr, right: ast::Expr, binop: Binop) -> Let {
         let left_expr = self.expr(left);
         let right_expr = self.expr(right);
@@ -561,40 +549,52 @@ impl Explicate {
         let small_result = inject_from(
             // TODO Is this correct, to always project to Int in case of smalls?
             binary(binop, project_to(left, Ty::Int), project_to(right, Ty::Int)),
-            binop.ret_ty()
+            binop.ret_ty(),
         );
 
         let big_result = match binop {
-            Binop::Add => inject_from(CallRuntime {
-                name: "add".into(),
-                args: vec![
-                    project_to(left, Ty::Big).into(),
-                    project_to(right, Ty::Big).into(),
-                ],
-            }, Ty::Big),
-            Binop::Eq => inject_from(CallRuntime {
-                name: "equal".into(),
-                args: vec![
-                    project_to(left, Ty::Big).into(),
-                    project_to(right, Ty::Big).into(),
-                ]
-            }, Ty::Bool),
-            Binop::NotEq => inject_from(CallRuntime {
-                name: "not_equal".into(),
-                args: vec![
-                    project_to(left, Ty::Big).into(),
-                    project_to(right, Ty::Big).into(),
-                ],
-            }, Ty::Bool),
+            Binop::Add => {
+                inject_from(
+                    CallRuntime {
+                        name: "add".into(),
+                        args: vec![
+                            project_to(left, Ty::Big).into(),
+                            project_to(right, Ty::Big).into(),
+                        ],
+                    },
+                    Ty::Big,
+                )
+            }
+            Binop::Eq => {
+                inject_from(
+                    CallRuntime {
+                        name: "equal".into(),
+                        args: vec![
+                            project_to(left, Ty::Big).into(),
+                            project_to(right, Ty::Big).into(),
+                        ],
+                    },
+                    Ty::Bool,
+                )
+            }
+            Binop::NotEq => {
+                inject_from(
+                    CallRuntime {
+                        name: "not_equal".into(),
+                        args: vec![
+                            project_to(left, Ty::Big).into(),
+                            project_to(right, Ty::Big).into(),
+                        ],
+                    },
+                    Ty::Bool,
+                )
+            }
         };
 
         let_(left, left_expr, {
             let_(right, right_expr, {
                 IfExp {
-                    cond: binary(Binop::Eq,
-                        get_tag(left),
-                        Const::Int(BIG_TAG),
-                    ).into(),
+                    cond: binary(Binop::Eq, get_tag(left), Const::Int(BIG_TAG)).into(),
                     then: big_result.into(),
                     else_: small_result.into(),
                 }
@@ -617,9 +617,7 @@ impl Explicate {
             IfExp {
                 cond: CallRuntime {
                     name: "is_true".into(),
-                    args: vec![
-                        first.into(),
-                    ],
+                    args: vec![first.into()],
                 }.into(),
                 then: first.into(),
                 else_: self.expr(or.right),
@@ -634,9 +632,7 @@ impl Explicate {
             IfExp {
                 cond: CallRuntime {
                     name: "is_true".into(),
-                    args: vec![
-                        first.into(),
-                    ],
+                    args: vec![first.into()],
                 }.into(),
                 then: self.expr(and.right),
                 else_: first.into(),
@@ -647,9 +643,7 @@ impl Explicate {
     pub fn not(&mut self, not: ast::Not) -> ProjectTo {
         let is_true = CallRuntime {
             name: "is_true".into(),
-            args: vec![
-                self.expr(not.expr),
-            ],
+            args: vec![self.expr(not.expr)],
         };
         let logical_not = Unary {
             op: Unop::Not,
@@ -660,15 +654,16 @@ impl Explicate {
     }
 
     pub fn list(&mut self, list: ast::List) -> InjectFrom {
-        let list = List {
-            exprs: list.exprs.into_iter().map(|e| self.expr(e)).collect(),
-        };
+        let list = List { exprs: list.exprs.into_iter().map(|e| self.expr(e)).collect() };
         inject_from(list, Ty::Big)
     }
 
     pub fn dict(&mut self, dict: ast::Dict) -> InjectFrom {
         let dict = Dict {
-            tuples: dict.tuples.into_iter().map(|(l, r)| (self.expr(l), self.expr(r))).collect(),
+            tuples: dict.tuples
+                .into_iter()
+                .map(|(l, r)| (self.expr(l), self.expr(r)))
+                .collect(),
         };
         inject_from(dict, Ty::Big)
     }
@@ -684,10 +679,11 @@ impl Explicate {
         let saved = self.names.clone();
         self.add_names_in_lambda(&l);
         let closure = Closure {
-            args: l.args.into_iter().map(|arg| self.name(ast::Name(arg))).collect(),
-            code: vec![
-                return_(self.expr(l.expr)).into()
-            ],
+            args: l.args
+                .into_iter()
+                .map(|arg| self.name(ast::Name(arg)))
+                .collect(),
+            code: vec![return_(self.expr(l.expr)).into()],
         };
         self.names = saved;
         inject_from(closure, Ty::Big)
@@ -697,9 +693,7 @@ impl Explicate {
         IfExp {
             cond: CallRuntime {
                 name: "is_true".into(),
-                args: vec![
-                    self.expr(e.cond),
-                ],
+                args: vec![self.expr(e.cond)],
             }.into(),
             then: self.expr(e.then),
             else_: self.expr(e.else_),
@@ -715,7 +709,11 @@ impl Explicate {
         &self.var_data[var]
     }
 
-    pub fn formatter<'a, N: 'a + ?Sized>(&'a self, node: &'a N, show_casts: bool) -> Formatter<'a, N> {
+    pub fn formatter<'a, N: 'a + ?Sized>(
+        &'a self,
+        node: &'a N,
+        show_casts: bool,
+    ) -> Formatter<'a, N> {
         Formatter::new(self, node, show_casts)
     }
 }
@@ -770,15 +768,15 @@ use std::fmt;
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let free_vars_string = |set: HashSet<Var>| -> String {
-            let (_, free_vars): (_, String) = set.into_iter().map(|var| {
-                format!("{}", self.fmt(&var))
-            }).fold((true, "".into()), |(first, mut acc), s| {
-                if !first {
-                    acc.push_str(", ");
-                }
-                acc.push_str(&s);
-                (false, acc)
-            });
+            let (_, free_vars): (_, String) = set.into_iter()
+                .map(|var| format!("{}", self.fmt(&var)))
+                .fold((true, "".into()), |(first, mut acc), s| {
+                    if !first {
+                        acc.push_str(", ");
+                    }
+                    acc.push_str(&s);
+                    (false, acc)
+                });
             free_vars
         };
 
@@ -791,27 +789,37 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
             self.fmt(self.node.funcs[self.node.main].closure.code.as_slice())
         )?;
         writeln!(f, "{}}}", self.indent())?;
-        writeln!(f, "{}free vars: ({})", self.indent(),
-            free_vars_string(::free_vars::free_vars(&self.node.funcs[self.node.main].closure))
+        writeln!(
+            f,
+            "{}free vars: ({})",
+            self.indent(),
+            free_vars_string(::free_vars::free_vars(
+                &self.node.funcs[self.node.main].closure,
+            ))
         )?;
         writeln!(f)?;
         for (func, data) in &self.node.funcs {
             if func == self.node.main {
-                continue
+                continue;
             }
-            let (_, params): (_, String) = data.closure.args.iter().map(|var| {
-                format!("{}", self.fmt(var))
-            }).fold((true, "".into()), |(first, mut acc), s| {
-                if !first {
-                    acc.push_str(", ");
-                }
-                acc.push_str(&s);
-                (false, acc)
-            });
-            writeln!(f, "{indent}func {func}({params}) -> i32 {{",
-                indent=self.indent(),
-                func=func,
-                params=params)?;
+            let (_, params): (_, String) = data.closure
+                .args
+                .iter()
+                .map(|var| format!("{}", self.fmt(var)))
+                .fold((true, "".into()), |(first, mut acc), s| {
+                    if !first {
+                        acc.push_str(", ");
+                    }
+                    acc.push_str(&s);
+                    (false, acc)
+                });
+            writeln!(
+                f,
+                "{indent}func {func}({params}) -> i32 {{",
+                indent = self.indent(),
+                func = func,
+                params = params
+            )?;
             writeln!(
                 f,
                 "{}{}",
@@ -819,7 +827,10 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 self.fmt(self.node.funcs[func].closure.code.as_slice())
             )?;
             writeln!(f, "{}}}", self.indent())?;
-            writeln!(f, "{}free vars: ({})", self.indent(),
+            writeln!(
+                f,
+                "{}free vars: ({})",
+                self.indent(),
                 free_vars_string(::free_vars::free_vars(&self.node.funcs[func].closure))
             )?;
 
@@ -912,9 +923,12 @@ impl<'a> fmt::Display for Formatter<'a, Printnl> {
 
 impl<'a> fmt::Display for Formatter<'a, Assign> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} = {}",
-               self.fmt(&self.node.target),
-               self.fmt(&self.node.expr))
+        write!(
+            f,
+            "{} = {}",
+            self.fmt(&self.node.target),
+            self.fmt(&self.node.expr)
+        )
     }
 }
 
@@ -933,14 +947,20 @@ impl<'a> fmt::Display for Formatter<'a, Let> {
         // }
         // I think it's way easier to read this way
         writeln!(f, "{{")?;
-        writeln!(f, "{indented}let {lhs} = {rhs};",
-                 indented=self.indented(&self.node.var).indent(),
-                 lhs=self.fmt(&self.node.var),
-                 rhs=self.indented(&self.node.rhs))?;
-        writeln!(f, "{indented}{expr}",
-                 indented=self.indented(&self.node.var).indent(),
-                 expr=self.indented(&self.node.body))?;
-        writeln!(f, "{indent}}}", indent=self.indent())?;
+        writeln!(
+            f,
+            "{indented}let {lhs} = {rhs};",
+            indented = self.indented(&self.node.var).indent(),
+            lhs = self.fmt(&self.node.var),
+            rhs = self.indented(&self.node.rhs)
+        )?;
+        writeln!(
+            f,
+            "{indented}{expr}",
+            indented = self.indented(&self.node.var).indent(),
+            expr = self.indented(&self.node.body)
+        )?;
+        writeln!(f, "{indent}}}", indent = self.indent())?;
         Ok(())
     }
 }
@@ -956,7 +976,12 @@ impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
             writeln!(f, "@project_to::<{}>(", self.fmt(&self.node.to))?;
-            writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
+            writeln!(
+                f,
+                "{}{}",
+                self.indented(&self.node.expr).indent(),
+                self.indented(&self.node.expr)
+            )?;
             write!(f, "{})", self.indent())
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
@@ -968,7 +993,12 @@ impl<'a> fmt::Display for Formatter<'a, InjectFrom> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
             writeln!(f, "@inject_from::<{}>(", self.fmt(&self.node.from))?;
-            writeln!(f, "{}{}", self.indented(&self.node.expr).indent(), self.indented(&self.node.expr))?;
+            writeln!(
+                f,
+                "{}{}",
+                self.indented(&self.node.expr).indent(),
+                self.indented(&self.node.expr)
+            )?;
             write!(f, "{})", self.indent())
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
@@ -978,22 +1008,35 @@ impl<'a> fmt::Display for Formatter<'a, InjectFrom> {
 
 impl<'a> fmt::Display for Formatter<'a, CallFunc> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "call_func({}, {})", self.fmt(&self.node.expr), self.fmt(self.node.args.as_slice()))
+        write!(
+            f,
+            "call_func({}, {})",
+            self.fmt(&self.node.expr),
+            self.fmt(self.node.args.as_slice())
+        )
     }
 }
 
 impl<'a> fmt::Display for Formatter<'a, CallRuntime> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "call_runtime({}, {})", self.node.name, self.fmt(self.node.args.as_slice()))
+        write!(
+            f,
+            "call_runtime({}, {})",
+            self.node.name,
+            self.fmt(self.node.args.as_slice())
+        )
     }
 }
 
 impl<'a> fmt::Display for Formatter<'a, Binary> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}({}, {})",
+        write!(
+            f,
+            "{}({}, {})",
             self.fmt(&self.node.op),
             self.fmt(&self.node.left),
-            self.fmt(&self.node.right))
+            self.fmt(&self.node.right)
+        )
     }
 }
 
@@ -1009,7 +1052,12 @@ impl<'a> fmt::Display for Formatter<'a, Binop> {
 
 impl<'a> fmt::Display for Formatter<'a, Unary> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}({})", self.fmt(&self.node.op), self.fmt(&self.node.expr))
+        write!(
+            f,
+            "{}({})",
+            self.fmt(&self.node.op),
+            self.fmt(&self.node.expr)
+        )
     }
 }
 
@@ -1024,7 +1072,12 @@ impl<'a> fmt::Display for Formatter<'a, Unop> {
 
 impl<'a> fmt::Display for Formatter<'a, Subscript> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}[{}]", self.fmt(&self.node.base), self.fmt(&self.node.elem))
+        write!(
+            f,
+            "{}[{}]",
+            self.fmt(&self.node.base),
+            self.fmt(&self.node.elem)
+        )
     }
 }
 
@@ -1043,9 +1096,19 @@ impl<'a> fmt::Display for Formatter<'a, Dict> {
 impl<'a> fmt::Display for Formatter<'a, IfExp> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "if {} {{", self.fmt(&self.node.cond))?;
-        writeln!(f, "{}{}", self.indented(&self.node.then).indent(), self.indented(&self.node.then))?;
+        writeln!(
+            f,
+            "{}{}",
+            self.indented(&self.node.then).indent(),
+            self.indented(&self.node.then)
+        )?;
         writeln!(f, "{}}} else {{", self.indent())?;
-        writeln!(f, "{}{}", self.indented(&self.node.else_).indent(), self.indented(&self.node.else_))?;
+        writeln!(
+            f,
+            "{}{}",
+            self.indented(&self.node.else_).indent(),
+            self.indented(&self.node.else_)
+        )?;
         write!(f, "{}}}", self.indent())
     }
 }
@@ -1077,9 +1140,9 @@ impl<'a> fmt::Display for Formatter<'a, Const> {
 impl<'a> fmt::Display for Formatter<'a, Var> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self.explicate.var_data(*self.node) {
-            var::Data::User {
-                ref source_name
-            } => write!(f, "{}.{}", source_name, self.node.inner()),
+            var::Data::User { ref source_name } => {
+                write!(f, "{}.{}", source_name, self.node.inner())
+            }
             var::Data::Temp => write!(f, "%{}", self.node.inner()),
         }
     }
@@ -1190,9 +1253,9 @@ impl<'a> TypeEnv<'a> {
         match self.type_map.get(&target) {
             Some(&ty) => Ok(ty),
             //None => bail!("Type env doesn't contain {}",
-                          //Formatter::new(self.explicate, &target)),
+            //Formatter::new(self.explicate, &target)),
             // Allow names that get defined later to happen
-            None => Ok(None)
+            None => Ok(None),
         }
     }
 
@@ -1220,23 +1283,27 @@ impl TypeCheck for Stmt {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         use self::Stmt::*;
         match *self {
-            Printnl(ref inner) => inner.type_check(env)
-                .chain_err(|| {
+            Printnl(ref inner) => {
+                inner.type_check(env).chain_err(|| {
                     format!("Error type checking printnl: {}", env.fmt(inner))
-                }),
-            Assign(ref inner) => inner.type_check(env)
-                .chain_err(|| {
+                })
+            }
+            Assign(ref inner) => {
+                inner.type_check(env).chain_err(|| {
                     format!("Error type checking assign: {}", env.fmt(inner))
-                }),
+                })
+            }
 
-            Expr(ref inner) => inner.type_check(env)
-                .chain_err(|| {
+            Expr(ref inner) => {
+                inner.type_check(env).chain_err(|| {
                     format!("Error type checking expr: {}", env.fmt(inner))
-                }),
-            Return(ref inner) => inner.type_check(env)
-                .chain_err(|| {
+                })
+            }
+            Return(ref inner) => {
+                inner.type_check(env).chain_err(|| {
                     format!("Error type checking return: {}", env.fmt(inner))
-                }),
+                })
+            }
         }
     }
 }
@@ -1270,84 +1337,97 @@ impl TypeCheck for Expr {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         use self::Expr::*;
         match *self {
-            Let(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
+            Let(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
                     format!("Error type checking let: {}", env.fmt(inner))
-                }),
-
-            GetTag(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking get tag: {}", env.fmt(inner))
-                }),
-
-            ProjectTo(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking project to: {}", env.fmt(inner))
-                }),
-
-            InjectFrom(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking inject from: {}", env.fmt(inner))
-                }),
-
-            CallFunc(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking call func: {}", env.fmt(inner))
-                }),
-
-            CallRuntime(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking call runtime: {}", env.fmt(inner))
-                }),
-
-            Binary(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking binary: {}", env.fmt(inner))
-                }),
-
-            Unary(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking unary: {}", env.fmt(inner))
-                }),
-
-            Subscript(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking subscript: {}", env.fmt(inner))
-                }),
-
-            List(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking list: {}", env.fmt(inner))
-                }),
-
-            Dict(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking dict: {}", env.fmt(inner))
-                }),
-
-            IfExp(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking ifexp: {}", env.fmt(inner))
-                }),
-
-            Closure(box ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking closure: {}", env.fmt(inner))
-                }),
-
-            Const(ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking const: {}", env.fmt(inner))
-                }),
-
-            Var(ref inner) => inner.type_check(env)
-                .chain_err(|| {
-                    format!("Error type checking var: {}", env.fmt(inner))
-                }),
-
-            Func(ref func) => {
-                bail!("Func's shouldn't be in the AST before type checking!")
+                })
             }
+
+            GetTag(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking get tag: {}", env.fmt(inner))
+                })
+            }
+
+            ProjectTo(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking project to: {}", env.fmt(inner))
+                })
+            }
+
+            InjectFrom(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking inject from: {}", env.fmt(inner))
+                })
+            }
+
+            CallFunc(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking call func: {}", env.fmt(inner))
+                })
+            }
+
+            CallRuntime(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking call runtime: {}", env.fmt(inner))
+                })
+            }
+
+            Binary(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking binary: {}", env.fmt(inner))
+                })
+            }
+
+            Unary(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking unary: {}", env.fmt(inner))
+                })
+            }
+
+            Subscript(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking subscript: {}", env.fmt(inner))
+                })
+            }
+
+            List(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking list: {}", env.fmt(inner))
+                })
+            }
+
+            Dict(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking dict: {}", env.fmt(inner))
+                })
+            }
+
+            IfExp(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking ifexp: {}", env.fmt(inner))
+                })
+            }
+
+            Closure(box ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking closure: {}", env.fmt(inner))
+                })
+            }
+
+            Const(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking const: {}", env.fmt(inner))
+                })
+            }
+
+            Var(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking var: {}", env.fmt(inner))
+                })
+            }
+
+            Func(ref func) => bail!("Func's shouldn't be in the AST before type checking!"),
         }
     }
 }
@@ -1366,12 +1446,20 @@ impl TypeCheck for GetTag {
         match ty {
             // get tag produces an integer on success
             Some(Ty::Pyobj) => Ok(Some(Ty::Int)),
-            Some(invalid_ty) => bail!("Cannot get_tag of {} with type {}",
-                                      env.fmt(&self.expr), invalid_ty),
+            Some(invalid_ty) => {
+                bail!(
+                    "Cannot get_tag of {} with type {}",
+                    env.fmt(&self.expr),
+                    invalid_ty
+                )
+            }
             // If we don't know the type of the inner expression,
             // then just return int
             None => {
-                trace!("Calling get_tag on expr '{}' with unknown type", env.fmt(&self.expr));
+                trace!(
+                    "Calling get_tag on expr '{}' with unknown type",
+                    env.fmt(&self.expr)
+                );
                 Ok(Some(Ty::Int))
             }
         }
@@ -1387,7 +1475,7 @@ impl TypeCheck for ProjectTo {
         match ty {
             Some(ty) if ty == Ty::Pyobj => Ok(Some(self.to)),
             Some(invalid_ty) => bail!("Cannot project from {} to {}", invalid_ty, self.to),
-            None => Ok(Some(self.to))
+            None => Ok(Some(self.to)),
         }
     }
 }
@@ -1400,7 +1488,7 @@ impl TypeCheck for InjectFrom {
         let ty = match self.expr.type_check(env)? {
             Some(ty) => ty,
             // Can't do any type checking, just return output ty
-            None => return Ok(Some(Ty::Pyobj))
+            None => return Ok(Some(Ty::Pyobj)),
         };
         match (self.from, ty) {
             // let smalls work with each other
@@ -1411,7 +1499,14 @@ impl TypeCheck for InjectFrom {
             // big to big
             (Ty::Big, Ty::Big) => {}
             // don't allow any other injects
-            (from, actual) => bail!("Cannot call @inject_from::<{}> on expr {} with type {}", from, env.fmt(&self.expr), actual)
+            (from, actual) => {
+                bail!(
+                    "Cannot call @inject_from::<{}> on expr {} with type {}",
+                    from,
+                    env.fmt(&self.expr),
+                    actual
+                )
+            }
         }
         Ok(Some(Ty::Pyobj))
     }
@@ -1420,12 +1515,14 @@ impl TypeCheck for InjectFrom {
 impl TypeCheck for CallFunc {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         let expr_ty = self.expr.type_check(env)?;
-        expect_ty(expr_ty, Ty::Pyobj)
-            .chain_err(|| format!("call target {} is not a func", env.fmt(&self.expr)))?;
+        expect_ty(expr_ty, Ty::Pyobj).chain_err(|| {
+            format!("call target {} is not a func", env.fmt(&self.expr))
+        })?;
         for arg in &self.args {
             let ty = arg.type_check(env)?;
-            expect_ty(ty, Ty::Pyobj)
-                .chain_err(|| "call argument is not a pyobj")?;
+            expect_ty(ty, Ty::Pyobj).chain_err(
+                || "call argument is not a pyobj",
+            )?;
         }
         Ok(None)
     }
@@ -1437,17 +1534,16 @@ impl TypeCheck for CallRuntime {
             "add" => (Ty::Big, Ty::Big, 2),
             "equal" | "not_equal" => (Ty::Int, Ty::Big, 2),
             "is_true" => (Ty::Int, Ty::Pyobj, 1),
-            _ => {
-                 unimplemented!()
-            }
+            _ => unimplemented!(),
         };
         if self.args.len() != args_len {
             bail!("incorrect number of arguments to runtime function")
         }
         for arg in &self.args {
             let ty = arg.type_check(env)?;
-            expect_ty(ty, arg_ty)
-                .chain_err(|| format!("Invalid argument type {} to {}", ty.unwrap(), self.name))?;
+            expect_ty(ty, arg_ty).chain_err(|| {
+                format!("Invalid argument type {} to {}", ty.unwrap(), self.name)
+            })?;
         }
         Ok(Some(ret_ty))
     }
@@ -1456,10 +1552,12 @@ impl TypeCheck for CallRuntime {
 impl TypeCheck for Binary {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         let left = self.left.type_check(env)?;
-        expect_ty(left, Ty::Int)
-            .chain_err(|| "left arg to binary is not int")?;
-        let right = self.right.type_check(env)
-            .chain_err(|| "right arg to binary is not int")?;
+        expect_ty(left, Ty::Int).chain_err(
+            || "left arg to binary is not int",
+        )?;
+        let right = self.right.type_check(env).chain_err(
+            || "right arg to binary is not int",
+        )?;
         Ok(Some(Ty::Int))
     }
 }
@@ -1467,8 +1565,9 @@ impl TypeCheck for Binary {
 impl TypeCheck for Unary {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         let expr = self.expr.type_check(env)?;
-        expect_ty(expr, Ty::Int)
-            .chain_err(|| "arg to unary is not int")?;
+        expect_ty(expr, Ty::Int).chain_err(
+            || "arg to unary is not int",
+        )?;
         Ok(Some(Ty::Int))
     }
 }
@@ -1493,8 +1592,9 @@ impl TypeCheck for List {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         for expr in &self.exprs {
             let ty = expr.type_check(env)?;
-            expect_ty(ty, Ty::Pyobj)
-                .chain_err(|| "Elem of list is not a pyobj")?;
+            expect_ty(ty, Ty::Pyobj).chain_err(
+                || "Elem of list is not a pyobj",
+            )?;
         }
         // Or should this be Pyobj?
         Ok(Some(Ty::Big))
@@ -1505,7 +1605,7 @@ fn expect_ty(ty: Option<Ty>, expected: Ty) -> Result<()> {
     match ty {
         Some(ty) if ty == expected => Ok(()),
         Some(invalid_ty) => bail!("expected {}, got {}", expected, invalid_ty),
-        None => Ok(())
+        None => Ok(()),
     }
 }
 
@@ -1513,11 +1613,13 @@ impl TypeCheck for Dict {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         for &(ref k, ref v) in &self.tuples {
             let key_ty = k.type_check(env)?;
-            expect_ty(key_ty, Ty::Pyobj)
-                .chain_err(|| "key type in dict is not Pyobj")?;
+            expect_ty(key_ty, Ty::Pyobj).chain_err(
+                || "key type in dict is not Pyobj",
+            )?;
             let val_ty = v.type_check(env)?;
-            expect_ty(val_ty, Ty::Pyobj)
-                .chain_err(|| "val type in dict is not Pyobj")?;
+            expect_ty(val_ty, Ty::Pyobj).chain_err(
+                || "val type in dict is not Pyobj",
+            )?;
         }
         Ok(Some(Ty::Big))
     }
@@ -1530,8 +1632,10 @@ impl TypeCheck for IfExp {
             None => bail!("Type of condition is not known, should be impossible"),
         };
         if cond_ty != Ty::Int {
-            bail!("Type of condition in IfExp is not int: {}",
-                  Formatter::new(env.explicate, self, true))
+            bail!(
+                "Type of condition in IfExp is not int: {}",
+                Formatter::new(env.explicate, self, true)
+            )
         }
         let then_ty = self.then.type_check(env)?;
         let else_ty = self.else_.type_check(env)?;
@@ -1609,9 +1713,7 @@ mod tests {
                 target: x.into(),
                 expr: y.into(),
             }.into(),
-            Printnl {
-                expr: x.into(),
-            }.into(),
+            Printnl { expr: x.into() }.into(),
         ];
         let defs = stmts.defs();
         for def in defs {

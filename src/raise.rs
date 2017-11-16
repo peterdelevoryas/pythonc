@@ -80,13 +80,15 @@ impl<'var_data> Builder<'var_data> {
             let curr = self.curr.pop().expect("end_block with empty curr");
             let mut stmts = vec![];
             for (i, &fv) in free_vars.iter().enumerate() {
-                stmts.push(Assign {
-                    target: fv.into(),
-                    expr: Subscript {
-                        base: fvs_list.into(),
-                        elem: Const::Int(i as i32).into(),
-                    }.into()
-                }.into());
+                stmts.push(
+                    Assign {
+                        target: fv.into(),
+                        expr: Subscript {
+                            base: fvs_list.into(),
+                            elem: Const::Int(i as i32).into(),
+                        }.into(),
+                    }.into(),
+                );
             }
             stmts.extend(curr.stmts);
             stmts
@@ -96,7 +98,7 @@ impl<'var_data> Builder<'var_data> {
             closure: Closure {
                 args: params,
                 code: code,
-            }
+            },
         };
         self.funcs.insert(data)
     }
@@ -108,22 +110,15 @@ impl<'var_data> Builder<'var_data> {
 
 impl<'var_data> TransformAst for Builder<'var_data> {
     fn closure(&mut self, closure: Closure) -> Expr {
-        let fvs: Vec<Var> = ::heapify::all_free_vars(&closure)
-            .into_iter()
-            .collect();
+        let fvs: Vec<Var> = ::heapify::all_free_vars(&closure).into_iter().collect();
         self.new_func();
         self.add_to_curr_func(closure.code);
         let func = self.end_func(fvs.clone(), closure.args);
         trace!("all free vars for {}: {:?}", func, fvs);
-        let list = List {
-            exprs: fvs.into_iter().map(|v| v.into()).collect(),
-        };
+        let list = List { exprs: fvs.into_iter().map(|v| v.into()).collect() };
         CallRuntime {
             name: "create_closure".into(),
-            args: vec![
-                func.into(),
-                list.into(),
-            ],
+            args: vec![func.into(), list.into()],
         }.into()
     }
 
@@ -132,11 +127,11 @@ impl<'var_data> TransformAst for Builder<'var_data> {
         let f = self.new_temp();
         let get_fun_ptr = CallRuntime {
             name: "get_fun_ptr".into(),
-            args: vec![f.into()]
+            args: vec![f.into()],
         };
         let get_free_vars = CallRuntime {
             name: "get_free_vars".into(),
-            args: vec![f.into()]
+            args: vec![f.into()],
         };
         let_(f, self.expr(call.expr), {
             let mut args = vec![];
@@ -164,9 +159,7 @@ pub trait TransformAst {
     }
 
     fn printnl(&mut self, printnl: Printnl) -> Stmt {
-        Printnl {
-            expr: self.expr(printnl.expr),
-        }.into()
+        Printnl { expr: self.expr(printnl.expr) }.into()
     }
 
     fn assign(&mut self, assign: Assign) -> Stmt {
@@ -177,9 +170,7 @@ pub trait TransformAst {
     }
 
     fn return_(&mut self, return_: Return) -> Stmt {
-        Return {
-            expr: self.expr(return_.expr),
-        }.into()
+        Return { expr: self.expr(return_.expr) }.into()
     }
 
     fn target(&mut self, target: Target) -> Target {
@@ -242,9 +233,7 @@ pub trait TransformAst {
     }
 
     fn get_tag(&mut self, get_tag: GetTag) -> Expr {
-        GetTag {
-            expr: self.expr(get_tag.expr)
-        }.into()
+        GetTag { expr: self.expr(get_tag.expr) }.into()
     }
 
     fn project_to(&mut self, project_to: ProjectTo) -> Expr {
@@ -291,14 +280,15 @@ pub trait TransformAst {
     }
 
     fn list(&mut self, list: List) -> Expr {
-        List {
-            exprs: list.exprs.into_iter().map(|expr| self.expr(expr)).collect()
-        }.into()
+        List { exprs: list.exprs.into_iter().map(|expr| self.expr(expr)).collect() }.into()
     }
 
     fn dict(&mut self, dict: Dict) -> Expr {
         Dict {
-            tuples: dict.tuples.into_iter().map(|(l, r)| (self.expr(l), self.expr(r))).collect()
+            tuples: dict.tuples
+                .into_iter()
+                .map(|(l, r)| (self.expr(l), self.expr(r)))
+                .collect(),
         }.into()
     }
 
@@ -312,8 +302,16 @@ pub trait TransformAst {
 
     fn closure(&mut self, closure: Closure) -> Expr {
         Closure {
-            args: closure.args.into_iter().map(|var| self.closure_var(var)).collect(),
-            code: closure.code.into_iter().map(|stmt| self.stmt(stmt)).collect(),
+            args: closure
+                .args
+                .into_iter()
+                .map(|var| self.closure_var(var))
+                .collect(),
+            code: closure
+                .code
+                .into_iter()
+                .map(|stmt| self.stmt(stmt))
+                .collect(),
         }.into()
     }
 

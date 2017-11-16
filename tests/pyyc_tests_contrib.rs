@@ -59,7 +59,9 @@ where
     P: AsRef<Path>,
 {
     let dir = dir.as_ref();
-    let rd = fs::read_dir(dir).chain_err(|| format!("Error reading {}", dir.display()))?;
+    let rd = fs::read_dir(dir).chain_err(|| {
+        format!("Error reading {}", dir.display())
+    })?;
     let mut subdirs = vec![];
     for entry in rd {
         let entry = entry.chain_err(|| "reading dir entries")?;
@@ -94,7 +96,9 @@ where
 {
     let dir = dir.as_ref();
     let runtime = runtime.as_ref();
-    let rd = fs::read_dir(dir).chain_err(|| format!("Error reading dir {}", dir.display()))?;
+    let rd = fs::read_dir(dir).chain_err(|| {
+        format!("Error reading dir {}", dir.display())
+    })?;
     for entry in rd {
         let entry = entry.chain_err(|| "reading dir entries")?;
         let path = entry.path();
@@ -121,13 +125,8 @@ where
         };
 
         let result = ::std::panic::catch_unwind(|| {
-            pythonc 
-                .emit(
-                    source,
-                    stage,
-                    None,
-                    Some(runtime.into()),
-                )
+            pythonc
+                .emit(source, stage, None, Some(runtime.into()))
                 .chain_err(|| format!("Unable to compile {:?}", source_file_name))
         });
 
