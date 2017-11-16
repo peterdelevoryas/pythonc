@@ -349,6 +349,9 @@ impl Block {
             flat::Stmt::Def(lhs, flat::Expr::LoadFunctionPointer(f)) => {
                 self.mov_label(lhs, f);
             }
+            flat::Stmt::Def(lhs, flat::Expr::Copy(var)) => {
+                self.mov(lhs, var);
+            }
             flat::Stmt::Discard(expr) => {
             }
             flat::Stmt::Return(var) => {
@@ -356,7 +359,6 @@ impl Block {
             flat::Stmt::If(cond, then, else_) => {
 
             }
-            _ => {}
         }
     }
 }
