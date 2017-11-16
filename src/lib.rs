@@ -1,8 +1,12 @@
 #![feature(box_syntax, box_patterns, conservative_impl_trait)]
-#[macro_use] extern crate error_chain;
-#[macro_use] extern crate util;
-#[macro_use] extern crate clap;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate util;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate log;
 extern crate slab;
 extern crate ast;
 
@@ -77,11 +81,13 @@ impl Pythonc {
                 let mut type_env = explicate::TypeEnv::new(&explicate);
                 explicated.type_check(&mut type_env)
             };
-            result.chain_err(|| {
-                // always show casts during type checking output
-                let fmt = explicate::Formatter::new(&explicate, &explicated, true);
-                format!("{}", fmt)
-            }).chain_err(|| "Error type checking explicated ast")?;
+            result
+                .chain_err(|| {
+                    // always show casts during type checking output
+                    let fmt = explicate::Formatter::new(&explicate, &explicated, true);
+                    format!("{}", fmt)
+                })
+                .chain_err(|| "Error type checking explicated ast")?;
         }
         if stop_stage == Stage::Explicated {
             let fmt = explicate::Formatter::new(&explicate, &explicated, show_casts);
@@ -94,27 +100,27 @@ impl Pythonc {
         };
         if stop_stage == Stage::Heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
-            return write_out(fmt, out_path)
+            return write_out(fmt, out_path);
         }
 
         let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
         if stop_stage == Stage::Raised {
             let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts);
-            return write_out(fmt, out_path)
+            return write_out(fmt, out_path);
         }
 
         let mut flattener = flatten::Flattener::from(explicate);
         let flattened = trans_unit.flatten(&mut flattener);
         if stop_stage == Stage::Flattened {
             let fmt = flatten::Formatter::new(&flattener, &flattened);
-            return write_out(fmt, out_path)
+            return write_out(fmt, out_path);
         }
 
         let mut virtualizer = virtualize::Virtualizer::new(flattener.var_data);
         let virtualized = flattener.units.virtualize(&mut virtualizer);
         if stop_stage == Stage::VAsm {
             let fmt = virtualize::Formatter::new(&virtualizer);
-            return write_out(fmt, out_path)
+            return write_out(fmt, out_path);
         }
 
         Ok(())

@@ -10,7 +10,7 @@
 ///     impl_ref!(Name, "n");
 ///
 /// Results in:
-/// 
+///
 ///     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 ///     pub struct Name(usize);
 ///

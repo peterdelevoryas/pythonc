@@ -1,5 +1,7 @@
-#[macro_use] extern crate error_chain;
-#[macro_use] extern crate clap;
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate clap;
 extern crate env_logger;
 extern crate pythonc;
 
@@ -19,7 +21,7 @@ fn run() -> pythonc::Result<()> {
             Arg::with_name("INPUT")
                 .help("Input path")
                 .index(1)
-                .required(true)
+                .required(true),
         )
         .arg(
             Arg::with_name("STAGE")
@@ -28,14 +30,14 @@ fn run() -> pythonc::Result<()> {
                 .long("emit")
                 .required(false)
                 .multiple(false)
-                .possible_values(&pythonc::Stage::variants())
+                .possible_values(&pythonc::Stage::variants()),
         )
         .arg(
             Arg::with_name("FILENAME")
                 .help("Out file")
                 .takes_value(true)
                 .short("o")
-                .required(false)
+                .required(false),
         )
         .arg(
             Arg::with_name("stdout")
@@ -43,21 +45,21 @@ fn run() -> pythonc::Result<()> {
                 .takes_value(false)
                 .long("stdout")
                 .required(false)
-                .conflicts_with("FILENAME")
+                .conflicts_with("FILENAME"),
         )
         .arg(
             Arg::with_name("LIB")
                 .help("Runtime library path (for linking)")
                 .takes_value(true)
                 .long("runtime")
-                .required(false)
+                .required(false),
         )
         .arg(
             Arg::with_name("show_casts")
                 .help("Show casts (inject and project) in explicated stages")
                 .takes_value(false)
                 .long("show-casts")
-                .required(false)
+                .required(false),
         )
         .get_matches();
 
@@ -70,7 +72,7 @@ fn run() -> pythonc::Result<()> {
 
     let in_path: PathBuf = match m.value_of("INPUT") {
         Some(s) => s.into(),
-        None => bail!("Missing input argument")
+        None => bail!("Missing input argument"),
     };
     let out_path = if m.is_present("stdout") {
         Some(PathBuf::from("/dev/stdout"))

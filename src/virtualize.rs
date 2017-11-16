@@ -18,7 +18,7 @@ pub enum VirtInstr {
     JNZ(Src),
     JZ(Src),
     SETE(Dst),
-    SETNE(Dst)
+    SETNE(Dst),
 }
 
 pub enum Src {
@@ -50,7 +50,7 @@ impl convert::From<Var> for Dst {
     }
 }
 
-pub fn Param(index : i32) -> Src {
+pub fn Param(index: i32) -> Src {
     Src::Dst(Dst::Stack(index))
 }
 
@@ -68,19 +68,19 @@ pub enum Register {
 pub struct Virtualizer {
     pub var_data: ex::var::Slab<ex::var::Data>,
     pub units: HashMap<raise::Func, Vec<VirtInstr>>,
-    contexts: Vec<Vec<VirtInstr>>
+    contexts: Vec<Vec<VirtInstr>>,
 }
 
 impl Virtualizer {
-    pub fn new(data : ex::var::Slab<ex::var::Data>) -> Virtualizer {
+    pub fn new(data: ex::var::Slab<ex::var::Data>) -> Virtualizer {
         Virtualizer {
-            var_data : data,
-            units : HashMap::new(),
-            contexts : vec![]
+            var_data: data,
+            units: HashMap::new(),
+            contexts: vec![],
         }
     }
-    
-    pub fn push(&mut self, instr : VirtInstr) {
+
+    pub fn push(&mut self, instr: VirtInstr) {
         if let Some(top) = self.contexts.last_mut() {
             top.push(instr);
         } else {
@@ -129,25 +129,31 @@ fn expr_as(e: flat::Expr, alias: Var) -> Vec<VirtInstr> {
             }
             instrs
         }
-        _ => unimplemented!()
+        _ => unimplemented!(),
     }
 }
 
 fn binop_as(bop: flat::BinOp, v1: Var, v2: Var, alias: Var) -> Vec<VirtInstr> {
     use self::flat::BinOp;
     match bop {
-        BinOp::ADD => vec![
-            VirtInstr::MOV(v2.into(), alias.into()),
-            VirtInstr::ADD(v1.into(), alias.into())
-        ],
-        BinOp::EQ => vec![
-            VirtInstr::CMP(v1.into(), v2.into()),
-            VirtInstr::SETE(alias.into())
-        ],
-        BinOp::NOTEQ => vec![
-            VirtInstr::CMP(v1.into(), v2.into()),
-            VirtInstr::SETNE(alias.into())
-        ]
+        BinOp::ADD => {
+            vec![
+                VirtInstr::MOV(v2.into(), alias.into()),
+                VirtInstr::ADD(v1.into(), alias.into()),
+            ]
+        }
+        BinOp::EQ => {
+            vec![
+                VirtInstr::CMP(v1.into(), v2.into()),
+                VirtInstr::SETE(alias.into()),
+            ]
+        }
+        BinOp::NOTEQ => {
+            vec![
+                VirtInstr::CMP(v1.into(), v2.into()),
+                VirtInstr::SETNE(alias.into()),
+            ]
+        }
     }
 }
 
@@ -185,7 +191,7 @@ impl Virtualize for flat::Stmt {
                 for instr in expr_as(expr, v) {
                     builder.push(instr);
                 }
-            },
+            }
             Stmt::Discard(expr) => {
                 () // TODO
             }
