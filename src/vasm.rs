@@ -14,7 +14,8 @@ pub enum Instr {
     Neg(Lval),
     Push(Rval),
     Pop(Lval),
-    Call(Rval),
+    CallIndirect(Rval),
+    Call(String),
     If(Rval, Block, Block),
 }
 
@@ -76,10 +77,75 @@ pub struct Func {
 impl Func {
     pub fn from(f: flat::Function) -> Func {
         Func {
-            block: Block {
-                instrs: vec![]
-            }
+            block: Block::from(f.body),
         }
+    }
+}
+
+impl Block {
+    fn empty() -> Block {
+        Block { instrs: vec![] }
+    }
+
+    pub fn from(stmts: Vec<flat::Stmt>) -> Block {
+        let mut block = Block::empty();
+
+        for stmt in stmts {
+            block.stmt(stmt);
+        }
+
+        block
+    }
+
+    fn push_instr(&mut self, instr: Instr) {
+        self.instrs.push(instr);
+    }
+
+    fn mov<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Mov(lval, rval));
+    }
+
+    fn add<L, R>(&mut self, lval: L, rval: R)
+    where
+        L: Into<Lval>,
+        R: Into<Rval>,
+    {
+        let lval = lval.into();
+        let rval = rval.into();
+        self.push_instr(Instr::Add(lval, rval));
+    }
+
+    fn neg<L>(&mut self, lval: L)
+    where
+        L: Into<Lval>,
+    {
+        let lval = lval.into();
+        self.push_instr(Instr::Neg(lval));
+    }
+
+    fn push<R>(&mut self, rval: R)
+    where
+        R: Into<Rval>,
+    {
+        let rval = rval.into();
+        self.push_instr(Instr::Push(rval));
+    }
+
+    fn call(&mut self, name: String) {
+        self.push_instr(Instr::Call(name));
+    }
+
+    fn call_indirect<R>(&mut self, rval: R)
+    where
+        R: Into<Rval>,
+    {
+        self.push_instr(Instr::CallIndirect(rval.into()));
     }
 
     fn stmt(&mut self, stmt: flat::Stmt) {
@@ -87,45 +153,10 @@ impl Func {
             flat::Stmt::Def(var, expr) => {
             }
             flat::Stmt::Discard(expr) => {
-                self.expr(expr)
             }
             flat::Stmt::Return(var) => {
-
             }
             flat::Stmt::If(cond, then, else_) => {
-
-            }
-        }
-    }
-
-    fn expr(&mut self, expr: flat::Expr) {
-        match expr {
-            flat::Expr::UnaryOp(op, var) => {
-
-            }
-            flat::Expr::BinOp(op, left, right) => {
-            }
-            flat::Expr::CallFunc(f, args) => {
-
-            }
-            flat::Expr::RuntimeFunc(name, args) => {
-            }
-            flat::Expr::GetTag(var) => {
-
-            }
-            flat::Expr::ProjectTo(var, ty) => {
-
-            }
-            flat::Expr::InjectFrom(var, ty) => {
-
-            }
-            flat::Expr::Const(i) => {
-
-            }
-            flat::Expr::LoadFunctionPointer(func) => {
-
-            }
-            flat::Expr::Copy(var) => {
 
             }
         }
