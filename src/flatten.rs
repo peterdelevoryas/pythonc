@@ -26,6 +26,7 @@ pub enum Expr {
     CallFunc(Loc, Vec<Loc>),
     RuntimeFunc(String, Vec<Loc>),
     If(Loc, Loc, Loc, Vec<Stmt>, Vec<Stmt>),
+    GetTag(Loc),
     ProjectTo(Loc, ex::Ty),
     InjectFrom(Loc, ex::Ty),
     Const(i32),
@@ -248,6 +249,7 @@ impl Flatten for ex::Expr {
     fn flatten(self, builder: &mut Flattener) -> Loc {
         match self {
             ex::Expr::Let(v) =>v.flatten(builder),
+            ex::Expr::GetTag(v) => v.flatten(builder),
             ex::Expr::ProjectTo(v) => v.flatten(builder),
             ex::Expr::InjectFrom(v) => v.flatten(builder),
             ex::Expr::CallFunc(v) => v.flatten(builder),
@@ -272,6 +274,14 @@ impl Flatten for ex::Let {
         let rhs = self.rhs.flatten(builder);
         builder.name(self.var, rhs);
         self.body.flatten(builder)
+    }
+}
+
+impl Flatten for ex::GetTag {
+    type Output = Loc;
+    fn flatten(self, builder: &mut Flattener) -> Loc {
+        let e = self.expr.flatten(builder);
+        builder.def(Expr::GetTag(e))
     }
 }
 
@@ -576,6 +586,9 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 writeln!(f, "{block}", block=self.indented(e_block.as_slice()))?;
                 write!(f, "{indent}}}", indent=self.indent())?;
                 Ok(())
+            }
+            Expr::GetTag(loc) => {
+                write!(f, "get_tag {}", loc)
             }
             Expr::ProjectTo(loc, ty) => {
                 write!(f, "project {} to {}", loc, ty)

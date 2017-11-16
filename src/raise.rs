@@ -211,6 +211,7 @@ pub trait TransformAst {
     fn expr(&mut self, e: Expr) -> Expr {
         match e {
             Expr::Let(box l) => self.let_(l),
+            Expr::GetTag(box g) => self.get_tag(g),
             Expr::ProjectTo(box p) => self.project_to(p),
             Expr::InjectFrom(box x) => self.inject_from(x),
             Expr::CallFunc(box x) => self.call_func(x),
@@ -238,6 +239,12 @@ pub trait TransformAst {
 
     fn let_var(&mut self, var: Var) -> Var {
         var
+    }
+
+    fn get_tag(&mut self, get_tag: GetTag) -> Expr {
+        GetTag {
+            expr: self.expr(get_tag.expr)
+        }.into()
     }
 
     fn project_to(&mut self, project_to: ProjectTo) -> Expr {
@@ -379,6 +386,7 @@ pub trait VisitAst {
     fn expr(&mut self, e: &Expr) {
         match *e {
             Expr::Let(box ref l) => self.let_(l),
+            Expr::GetTag(box ref g) => self.get_tag(g),
             Expr::ProjectTo(box ref p) => self.project_to(p),
             Expr::InjectFrom(box ref x) => self.inject_from(x),
             Expr::CallFunc(box ref x) => self.call_func(x),
@@ -404,6 +412,10 @@ pub trait VisitAst {
 
     fn let_var(&mut self, var: &Var) {
         // nothing to do by default
+    }
+
+    fn get_tag(&mut self, get_tag: &GetTag) {
+        self.expr(&get_tag.expr);
     }
 
     fn project_to(&mut self, project_to: &ProjectTo) {

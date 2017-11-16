@@ -65,6 +65,7 @@ impl_wrapper_enum! {
             Let,
             ProjectTo,
             InjectFrom,
+            GetTag,
             CallFunc,
             CallRuntime,
             Binary,
@@ -112,6 +113,11 @@ pub struct Let {
     pub var: Var,
     pub rhs: Expr,
     pub body: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GetTag {
+    pub expr: Expr,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -326,6 +332,15 @@ where
 {
     Assign {
         target: target.into(),
+        expr: expr.into(),
+    }
+}
+
+pub fn get_tag<E>(expr: E) -> GetTag
+where
+    E: Into<Expr>
+{
+    GetTag {
         expr: expr.into(),
     }
 }
@@ -577,11 +592,8 @@ impl Explicate {
             let_(right, right_expr, {
                 IfExp {
                     cond: binary(Binop::Eq,
-                           CallRuntime {
-                               name: "get_tag".into(),
-                               args: vec![left.into()]
-                           },
-                           Const::Int(BIG_TAG)
+                        get_tag(left),
+                        Const::Int(BIG_TAG),
                     ).into(),
                     then: big_result.into(),
                     else_: small_result.into(),
@@ -863,6 +875,7 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
         use self::Expr::*;
         match *self.node {
             Let(box ref e) => write!(f, "{}", self.fmt(e)),
+            GetTag(box ref g) => write!(f, "{}", self.fmt(g)),
             ProjectTo(box ref p) => write!(f, "{}", self.fmt(p)),
             InjectFrom(box ref i) => write!(f, "{}", self.fmt(i)),
             CallFunc(box ref c) => write!(f, "{}", self.fmt(c)),
@@ -928,6 +941,13 @@ impl<'a> fmt::Display for Formatter<'a, Let> {
                  indented=self.indented(&self.node.var).indent(),
                  expr=self.indented(&self.node.body))?;
         writeln!(f, "{indent}}}", indent=self.indent())?;
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, GetTag> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "@get_tag({})", self.fmt(&self.node.expr))?;
         Ok(())
     }
 }
@@ -1255,6 +1275,11 @@ impl TypeCheck for Expr {
                     format!("Error type checking let: {}", env.fmt(inner))
                 }),
 
+            GetTag(box ref inner) => inner.type_check(env)
+                .chain_err(|| {
+                    format!("Error type checking get tag: {}", env.fmt(inner))
+                }),
+
             ProjectTo(box ref inner) => inner.type_check(env)
                 .chain_err(|| {
                     format!("Error type checking project to: {}", env.fmt(inner))
@@ -1335,6 +1360,24 @@ impl TypeCheck for Let {
     }
 }
 
+impl TypeCheck for GetTag {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        let ty = self.expr.type_check(env)?;
+        match ty {
+            // get tag produces an integer on success
+            Some(Ty::Pyobj) => Ok(Some(Ty::Int)),
+            Some(invalid_ty) => bail!("Cannot get_tag of {} with type {}",
+                                      env.fmt(&self.expr), invalid_ty),
+            // If we don't know the type of the inner expression,
+            // then just return int
+            None => {
+                trace!("Calling get_tag on expr '{}' with unknown type", env.fmt(&self.expr));
+                Ok(Some(Ty::Int))
+            }
+        }
+    }
+}
+
 impl TypeCheck for ProjectTo {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         if self.to == Ty::Pyobj {
@@ -1393,7 +1436,7 @@ impl TypeCheck for CallRuntime {
         let (ret_ty, arg_ty, args_len) = match self.name.as_str() {
             "add" => (Ty::Big, Ty::Big, 2),
             "equal" | "not_equal" => (Ty::Int, Ty::Big, 2),
-            "is_true" | "get_tag" => (Ty::Int, Ty::Pyobj, 1),
+            "is_true" => (Ty::Int, Ty::Pyobj, 1),
             _ => {
                  unimplemented!()
             }
