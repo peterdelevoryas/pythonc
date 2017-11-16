@@ -7,6 +7,8 @@ use explicate::Var;
 
 use std::collections::HashMap;
 
+pub const WORD_SIZE: Imm = 4;
+
 #[derive(Debug, Clone, Hash)]
 pub enum Instr {
     Mov(Lval, Rval),
@@ -240,10 +242,12 @@ impl Block {
     /// push arg[1]
     /// push arg[0]
     /// ```
-    fn push_args_in_reverse(&mut self, args: Vec<Var>) {
+    fn push_args_in_reverse(&mut self, args: Vec<Var>) -> Imm {
+        let alloca_len = args.len() as Imm * WORD_SIZE;
         for arg in args.into_iter().rev() {
             self.push(arg);
         }
+        alloca_len
     }
 
     fn call_indirect<L>(&mut self, lval: L)
@@ -323,14 +327,16 @@ impl Block {
                 }
             }
             flat::Stmt::Def(lhs, flat::Expr::CallFunc(f, args)) => {
-                self.push_args_in_reverse(args);
+                let alloca_len = self.push_args_in_reverse(args);
                 self.call_indirect(f);
                 self.mov(lhs, Reg::EAX);
+                self.add(Reg::ESP, alloca_len);
             }
             flat::Stmt::Def(lhs, flat::Expr::RuntimeFunc(name, args)) => {
-                self.push_args_in_reverse(args);
+                let alloca_len = self.push_args_in_reverse(args);
                 self.call_direct(name);
                 self.mov(lhs, Reg::EAX);
+                self.add(Reg::ESP, alloca_len);
             }
             flat::Stmt::Def(lhs, flat::Expr::GetTag(var)) => {
                 self.mov(lhs, var);
@@ -373,13 +379,15 @@ impl Block {
                 self.mov(lhs, var);
             }
             flat::Stmt::Discard(flat::Expr::CallFunc(f, args)) => {
-                self.push_args_in_reverse(args);
+                let alloca_len = self.push_args_in_reverse(args);
                 self.call_indirect(f);
+                self.add(Reg::ESP, alloca_len);
             }
             flat::Stmt::Discard(flat::Expr::RuntimeFunc(name, args)) => {
-                self.push_args_in_reverse(args);
+                let alloca_len = self.push_args_in_reverse(args);
                 self.call_direct(name);
                 // no return value handling
+                self.add(Reg::ESP, alloca_len);
             }
             flat::Stmt::Discard(_expr) => {
                 // skip over all the other kinds of exprs in a discard
@@ -388,7 +396,7 @@ impl Block {
                 if let Some(var) = var {
                     self.mov(Reg::EAX, var);
                 }
-                self.mov(Reg::EBP, Reg::ESP);
+                self.mov(Reg::ESP, Reg::EBP);
                 self.pop(Reg::EBP);
                 self.ret();
             }
@@ -405,9 +413,9 @@ impl fmt::Fmt for Module {
     fn fmt<W: ::std::io::Write>(&self, out: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
 
-        writeln!(out, "vasm {{")?;
         for (f, func) in &self.funcs {
             if f.is_main_func() {
+                writeln!(out, ".global main")?;
                 writeln!(out, "main:")?;
             } else {
                 writeln!(out, "{}:", f)?;
@@ -416,13 +424,17 @@ impl fmt::Fmt for Module {
             out.fmt(func)?;
             out.dedent();
         }
-        writeln!(out, "}}")?;
         Ok(())
     }
 }
 
 impl fmt::Fmt for Func {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        use std::io::Write;
+
+        writeln!(f, "push %ebp")?;
+        writeln!(f, "mov %esp, %ebp")?;
+        writeln!(f, "sub ${}, %esp", self.num_stack_slots as Imm * WORD_SIZE)?;
         f.fmt(&self.block)?;
         Ok(())
     }
