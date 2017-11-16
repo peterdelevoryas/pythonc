@@ -352,7 +352,17 @@ impl Block {
             flat::Stmt::Def(lhs, flat::Expr::Copy(var)) => {
                 self.mov(lhs, var);
             }
-            flat::Stmt::Discard(expr) => {
+            flat::Stmt::Discard(flat::Expr::CallFunc(f, args)) => {
+                self.push_args_in_reverse(args);
+                self.call_indirect(f);
+            }
+            flat::Stmt::Discard(flat::Expr::RuntimeFunc(name, args)) => {
+                self.push_args_in_reverse(args);
+                self.call_direct(name);
+                // no return value handling
+            }
+            flat::Stmt::Discard(_expr) => {
+                // skip over all the other kinds of exprs in a discard
             }
             flat::Stmt::Return(var) => {
             }
