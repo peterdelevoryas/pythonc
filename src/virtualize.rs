@@ -117,7 +117,7 @@ impl Virtualize for () {
 fn expr_as(e: flat::Expr, alias: Var) -> Vec<VirtInstr> {
     use self::flat::Expr;
     match e {
-        Expr::Alias(v) => vec![VirtInstr::MOV(v.into(), alias.into())],
+        Expr::Copy(v) => vec![VirtInstr::MOV(v.into(), alias.into())],
         Expr::BinOp(bop, v1, v2) => binop_as(bop, v1, v2, alias),
         Expr::CallFunc(f, args) => {
             let mut ac = args.clone();

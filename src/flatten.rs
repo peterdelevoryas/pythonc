@@ -33,7 +33,7 @@ pub enum Expr {
     InjectFrom(Var, ex::Ty),
     Const(i32),
     LoadFunctionPointer(raise::Func), // Is this necessary? -- who cares, should produce the fnptr for the given unit
-    Alias(Var),
+    Copy(Var),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -187,7 +187,7 @@ impl Flatten for ex::Assign {
 
         match self.target {
             ex::Target::Var(var) => {
-                builder.push(Stmt::Def(var, Expr::Alias(val)));
+                builder.push(Stmt::Def(var, Expr::Copy(val)));
             }
             ex::Target::Subscript(subs) => {
                 let base = subs.base.flatten(builder);
@@ -250,7 +250,7 @@ impl Flatten for ex::Let {
     type Output = Var;
     fn flatten(self, builder: &mut Flattener) -> Var {
         let rhs = self.rhs.flatten(builder);
-        builder.push(Stmt::Def(self.var, Expr::Alias(rhs)));
+        builder.push(Stmt::Def(self.var, Expr::Copy(rhs)));
         self.body.flatten(builder)
     }
 }
@@ -401,12 +401,12 @@ impl Flatten for ex::IfExp {
         builder.enter_context();
         let flatt = self.then.flatten(builder);
         let mut t_code = builder.clear();
-        t_code.push(Stmt::Def(rloc, Expr::Alias(flatt)));
+        t_code.push(Stmt::Def(rloc, Expr::Copy(flatt)));
 
         builder.enter_context();
         let flate = self.else_.flatten(builder);
         let mut e_code = builder.clear();
-        e_code.push(Stmt::Def(rloc, Expr::Alias(flate)));
+        e_code.push(Stmt::Def(rloc, Expr::Copy(flate)));
 
         builder.push(Stmt::If(flatc, t_code, e_code));
 
@@ -522,7 +522,7 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             Expr::InjectFrom(loc, ty) => write!(f, "inject {} from {}", loc, ty),
             Expr::Const(i) => write!(f, "const i32 {}", i),
             Expr::LoadFunctionPointer(ref name) => write!(f, "const fn {}", name),
-            Expr::Alias(v) => write!(f, "{}", v),
+            Expr::Copy(v) => write!(f, "copy {}", v),
         }
     }
 }
