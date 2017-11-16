@@ -17,6 +17,9 @@ pub enum Instr {
     CallIndirect(Rval),
     Call(String),
     If(Rval, Block, Block),
+    Cmp(Lval, Imm),
+    Sete(Lval, Imm),
+    Setne(Lval, Imm),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -27,7 +30,7 @@ pub struct Block {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Rval {
     Lval(Lval),
-    Const(i32),
+    Imm(Imm),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -36,6 +39,8 @@ pub enum Lval {
     StackSlot(StackSlot),
     Var(Var),
 }
+
+pub type Imm = i32;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Reg {
@@ -148,9 +153,24 @@ impl Block {
         self.push_instr(Instr::CallIndirect(rval.into()));
     }
 
+    fn not<L>(&mut self, lval: L)
+    where
+        L: Into<Lval>,
+    {
+        let lval = lval.into();
+        self.push_instr(Instr::Cmp(lval, 0));
+        self.push_instr(Instr::Sete(lval, 1));
+        self.push_instr(Instr::Setne(lval, 0));
+    }
+
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
-            flat::Stmt::Def(var, expr) => {
+            flat::Stmt::Def(lhs, flat::Expr::UnaryOp(op, rhs)) => {
+                self.mov(lhs, rhs);
+                match op {
+                    flat::UnaryOp::NEGATE => self.neg(lhs),
+                    flat::UnaryOp::NOT => self.not(lhs),
+                }
             }
             flat::Stmt::Discard(expr) => {
             }
@@ -159,6 +179,7 @@ impl Block {
             flat::Stmt::If(cond, then, else_) => {
 
             }
+            _ => unimplemented!()
         }
     }
 }
@@ -170,5 +191,39 @@ impl fmt::Fmt for Module {
         writeln!(f, "vasm {{")?;
         writeln!(f, "}}")?;
         Ok(())
+    }
+}
+
+impl From<Reg> for Lval {
+    fn from(r: Reg) -> Self {
+        Lval::Reg(r)
+    }
+}
+
+impl From<StackSlot> for Lval {
+    fn from(s: StackSlot) -> Self {
+        Lval::StackSlot(s)
+    }
+}
+
+impl From<Var> for Lval {
+    fn from(v: Var) -> Self {
+        Lval::Var(v)
+    }
+}
+
+impl<L> From<L> for Rval
+where
+    L: Into<Lval>
+{
+    fn from(l: L) -> Self {
+        let lval = l.into();
+        Rval::Lval(lval)
+    }
+}
+
+impl From<Imm> for Rval {
+    fn from(i: Imm) -> Self {
+        Rval::Imm(i)
     }
 }
