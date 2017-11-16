@@ -54,6 +54,7 @@ pub struct Function {
 pub struct Flattener {
     pub var_data: ex::var::Slab<ex::var::Data>,
     pub units: HashMap<raise::Func, Function>,
+    pub main: raise::Func,
     contexts: Vec<Vec<Stmt>>,
 }
 
@@ -131,12 +132,13 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
     }
 }
 
-impl convert::From<ex::Explicate> for Flattener {
-    fn from(explicate: ex::Explicate) -> Flattener {
+impl Flattener {
+    pub fn from(explicate: ex::Explicate, main: raise::Func) -> Flattener {
         Flattener {
             var_data: explicate.var_data,
             units: HashMap::new(),
             contexts: vec![],
+            main: main,
         }
     }
 }

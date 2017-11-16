@@ -79,6 +79,7 @@ pub struct StackSlot {
 }
 
 pub struct Module {
+    main: raise::Func,
     funcs: HashMap<raise::Func, Func>,
 }
 
@@ -90,7 +91,10 @@ impl Module {
             funcs.insert(func, Func::from(function));
         }
 
-        Module { funcs }
+        Module {
+            main: f.main,
+            funcs
+        }
     }
 }
 
@@ -413,8 +417,8 @@ impl fmt::Fmt for Module {
     fn fmt<W: ::std::io::Write>(&self, out: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
 
-        for (f, func) in &self.funcs {
-            if f.is_main_func() {
+        for (&f, func) in &self.funcs {
+            if f == self.main {
                 writeln!(out, ".global main")?;
                 writeln!(out, "main:")?;
             } else {

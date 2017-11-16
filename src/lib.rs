@@ -109,7 +109,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let mut flattener = flatten::Flattener::from(explicate);
+        let mut flattener = flatten::Flattener::from(explicate, trans_unit.main);
         let flattened = trans_unit.flatten(&mut flattener);
         if stop_stage == Stage::Flattened {
             let fmt = flatten::Formatter::new(&flattener, &flattened);
