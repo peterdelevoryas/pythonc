@@ -80,19 +80,6 @@ impl Func {
         }
     }
 
-    fn function(&mut self, function: flat::Function) {
-        for arg in function.args {
-            self.function_arg(arg);
-        }
-        for stmt in function.body {
-            self.stmt(stmt);
-        }
-    }
-
-    fn function_arg(&mut self, var: Var) {
-        // do nothing by default
-    }
-
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
             flat::Stmt::Def(var, expr) => {
@@ -136,7 +123,7 @@ impl Func {
             flat::Expr::LoadFunctionPointer(func) => {
 
             }
-            flat::Expr::Copy(Var) => {
+            flat::Expr::Copy(var) => {
 
             }
         }

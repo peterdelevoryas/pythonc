@@ -16,7 +16,7 @@ pub mod heapify;
 pub mod raise;
 pub mod flatten;
 pub mod free_vars;
-pub mod virtualize;
+pub mod vasm;
 
 use flatten::Flatten;
 
@@ -24,6 +24,7 @@ pub use error::*;
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::fs::File;
 use std::fmt;
 
 #[derive(Debug)]
@@ -115,6 +116,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
+        let vasm_module = vasm::Module::from(flattener);
         if stop_stage == Stage::VAsm {
             unimplemented!()
         }
@@ -158,26 +160,6 @@ where
     Ok(s)
 }
 
-fn write_file<P, D>(data: D, path: P, create_new: bool) -> Result<()>
-where
-    P: AsRef<Path>,
-    D: ::std::fmt::Display,
-{
-    use std::fs::OpenOptions;
-    use std::io::Write;
-
-    let path = path.as_ref();
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .create_new(create_new)
-        .truncate(true)
-        .open(path)
-        .chain_err(|| format!("creating file {:?}", path.display()))?;
-    write!(f, "{}", data).chain_err(|| "writing data")?;
-    Ok(())
-}
-
 pub fn link<P1, P2, P3>(asm: P1, runtime: P2, output: P3) -> Result<()>
 where
     P1: AsRef<Path>,
@@ -204,7 +186,29 @@ where
 }
 
 fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
-    write_file(data, out_path, false).chain_err(|| {
-        format!("Could not write output to {:?}", out_path.display())
-    })
+    use std::io::Write;
+
+    let mut f = open_out_file(out_path, false)?;
+    write!(f, "{}", data).chain_err(|| "writing data")?;
+    Ok(())
+}
+
+fn open_out_file<P>(path: P, create_new: bool) -> Result<File>
+where
+    P: AsRef<Path>
+{
+    use std::fs::OpenOptions;
+    let path = path.as_ref();
+
+    OpenOptions::new()
+        .write(true)
+        .create(true)
+        .create_new(create_new)
+        .truncate(true)
+        .open(path)
+        .chain_err(|| format!("creating file {:?}", path.display()))
+}
+
+fn fmt_out<F: util::fmt::Fmt>(data: F, out_path: &Path) -> Result<()> {
+    unimplemented!()
 }
