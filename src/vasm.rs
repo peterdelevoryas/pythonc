@@ -9,8 +9,35 @@ use std::collections::HashMap;
 
 pub const WORD_SIZE: Imm = 4;
 
+pub struct Module {
+    main: raise::Func,
+    funcs: HashMap<raise::Func, Function>,
+    vars: ex::var::Slab<ex::var::Data>,
+}
+
+pub struct Function {
+    args: Vec<Var>,
+    stack_slots: u32,
+    block: Block,
+}
+
+pub struct FunctionBuilder {
+    args: Vec<Var>,
+    stack_slots: u32,
+}
+
 #[derive(Debug, Clone, Hash)]
-pub enum Instr {
+pub struct Block {
+    insts: Vec<Inst>,
+}
+
+pub struct BlockBuilder<'a> {
+    func: &'a mut FunctionBuilder,
+    insts: Vec<Inst>,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub enum Inst {
     Mov(Lval, Rval),
     Add(Lval, Rval),
     Neg(Lval),
@@ -28,7 +55,7 @@ pub enum Instr {
     Or(Lval, Rval),
     And(Lval, Rval),
     /// I think `shr` requires arg to be
-    /// in CL, which complicates instruction
+    /// in CL, which complicates instuction
     /// selection, so for now this only allows
     /// `Imm`'s, which is all we need
     Shr(Lval, Imm),
@@ -39,11 +66,6 @@ pub enum Instr {
     MovLabel(Lval, raise::Func),
     /// Just `ret`, nothing else
     Ret,
-}
-
-#[derive(Debug, Clone, Hash)]
-pub struct Block {
-    instrs: Vec<Instr>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -57,9 +79,13 @@ pub enum Lval {
     Reg(Reg),
     StackSlot(StackSlot),
     Var(Var),
+    Param(Param),
 }
 
 pub type Imm = i32;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Param(u32);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Reg {
@@ -74,78 +100,115 @@ pub enum Reg {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct StackSlot {
-    ebp_offset: i32,
-}
-
-pub struct Module {
-    main: raise::Func,
-    funcs: HashMap<raise::Func, Func>,
-}
+pub struct StackSlot(u32);
 
 impl Module {
-    pub fn from(f: flat::Flattener) -> Module {
-        let mut funcs = HashMap::new();
+    pub fn from(flattener: flat::Flattener) -> Module {
+        let main = flattener.main;
+        let vars = flattener.var_data;
 
-        for (func, function) in f.units {
-            funcs.insert(func, Func::from(function));
+        let mut funcs = HashMap::new();
+        for (func, function) in flattener.units {
+            let function = Function::from(function);
+            funcs.insert(func, function);
         }
 
         Module {
-            main: f.main,
-            funcs
+            main,
+            funcs,
+            vars,
         }
     }
 }
 
-/// Does not contain the EBP ESP
-/// frame pointer storage shim at the top
-/// or stack allocation sub instr,
-/// must be added when finally formatting to x86
-pub struct Func {
-    // increases with spillage
-    num_stack_slots: u32,
-    block: Block,
-}
+impl Function {
+    pub fn from(function: flat::Function) -> Function {
+        let mut func = FunctionBuilder {
+            args: function.args,
+            stack_slots: 0,
+        };
 
-impl Func {
-    pub fn from(f: flat::Function) -> Func {
-        let mut block = Block::from(f.body);
-        match block.instrs.last() {
-            Some(&Instr::Ret) => {
-                // If there is a return already,
-                // don't insert another one
-            }
+        let block = {
+            let mut block = func.block();
+            block.stmts(function.body);
+            block.complete()
+        };
+
+        let mut block = ReplaceParamVars::new(func.args.clone()).block(block);
+
+        match block.insts.last() {
+            Some(&Inst::Ret) => {}
             Some(_) | None => {
-                block.mov(Reg::ESP, Reg::EBP);
-                block.pop(Reg::EBP);
-                block.ret();
+                block.insts.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
+                block.insts.push(Inst::Pop(Reg::EBP.into()));
+                block.insts.push(Inst::Ret.into());
             }
         }
-        Func {
-            num_stack_slots: 0,
+
+        Function {
+            args: func.args,
+            stack_slots: func.stack_slots,
             block: block,
         }
     }
 }
 
-impl Block {
-    fn empty() -> Block {
-        Block { instrs: vec![] }
-    }
-
-    pub fn from(stmts: Vec<flat::Stmt>) -> Block {
-        let mut block = Block::empty();
-
-        for stmt in stmts {
-            block.stmt(stmt);
+impl FunctionBuilder {
+    pub fn block<'a>(&'a mut self) -> BlockBuilder<'a> {
+        BlockBuilder {
+            func: self,
+            insts: vec![],
         }
+    }
+}
 
-        block
+pub struct ReplaceParamVars {
+    params: Vec<Var>,
+}
+
+impl ReplaceParamVars {
+    pub fn new(params: Vec<Var>) -> ReplaceParamVars {
+        ReplaceParamVars { params }
+    }
+}
+
+impl TransformBlock for ReplaceParamVars {
+    fn lval(&mut self, lval: Lval) -> Lval {
+        match lval {
+            Lval::Reg(reg) => Lval::Reg(reg),
+            Lval::StackSlot(slot) => Lval::StackSlot(slot),
+            Lval::Var(var) if self.params.contains(&var) => {
+                let pos = self.params.iter().position(|&v| v == var).unwrap();
+                Lval::Param(Param(pos as u32))
+            }
+            Lval::Var(var) => Lval::Var(var),
+            Lval::Param(p) => Lval::Param(p),
+        }
+    }
+}
+
+impl<'a> BlockBuilder<'a> {
+    fn nested<'b>(&'b mut self) -> BlockBuilder<'b> {
+        BlockBuilder {
+            func: self.func,
+            insts: vec![],
+        }
     }
 
-    fn push_instr(&mut self, instr: Instr) {
-        self.instrs.push(instr);
+    fn stmts(&mut self, stmts: Vec<flat::Stmt>) {
+        for stmt in stmts {
+            self.stmt(stmt);
+        }
+    }
+
+    fn complete(self) -> Block {
+        Block {
+            insts: self.insts,
+        }
+    }
+
+    fn push_inst(&mut self, inst: Inst) {
+        self.insts.push(inst);
     }
 
     fn mov<L, R>(&mut self, lval: L, rval: R)
@@ -155,7 +218,7 @@ impl Block {
     {
         let lval = lval.into();
         let rval = rval.into();
-        self.push_instr(Instr::Mov(lval, rval));
+        self.push_inst(Inst::Mov(lval, rval));
     }
 
     fn neg<L>(&mut self, lval: L)
@@ -163,7 +226,7 @@ impl Block {
         L: Into<Lval>,
     {
         let lval = lval.into();
-        self.push_instr(Instr::Neg(lval));
+        self.push_inst(Inst::Neg(lval));
     }
 
     fn push<R>(&mut self, rval: R)
@@ -171,7 +234,7 @@ impl Block {
         R: Into<Rval>,
     {
         let rval = rval.into();
-        self.push_instr(Instr::Push(rval));
+        self.push_inst(Inst::Push(rval));
     }
 
     /// ```
@@ -186,8 +249,8 @@ impl Block {
         L: Into<Lval>,
     {
         let lval = lval.into();
-        self.push_instr(Instr::Cmp(lval, 0.into()));
-        self.push_instr(Instr::Sete(lval));
+        self.push_inst(Inst::Cmp(lval, 0.into()));
+        self.push_inst(Inst::Sete(lval));
     }
 
     /// ```
@@ -200,7 +263,7 @@ impl Block {
     {
         let lval = lval.into();
         let rval = rval.into();
-        self.push_instr(Instr::Add(lval, rval));
+        self.push_inst(Inst::Add(lval, rval));
     }
 
     /// ```
@@ -217,8 +280,8 @@ impl Block {
     {
         let lval = lval.into();
         let rval = rval.into();
-        self.push_instr(Instr::Cmp(lval, rval));
-        self.push_instr(Instr::Sete(lval));
+        self.push_inst(Inst::Cmp(lval, rval));
+        self.push_inst(Inst::Sete(lval));
     }
 
     /// ```
@@ -235,8 +298,8 @@ impl Block {
     {
         let lval = lval.into();
         let rval = rval.into();
-        self.push_instr(Instr::Cmp(lval, rval));
-        self.push_instr(Instr::Setne(lval));
+        self.push_inst(Inst::Cmp(lval, rval));
+        self.push_inst(Inst::Setne(lval));
     }
 
     /// Sets compare flags like EQ and NE
@@ -248,7 +311,7 @@ impl Block {
     {
         let lval = lval.into();
         let rval = rval.into();
-        self.push_instr(Instr::Cmp(lval, rval));
+        self.push_inst(Inst::Cmp(lval, rval));
     }
 
     /// ```
@@ -270,11 +333,11 @@ impl Block {
     where
         L: Into<Lval>,
     {
-        self.push_instr(Instr::CallIndirect(lval.into()));
+        self.push_inst(Inst::CallIndirect(lval.into()));
     }
 
     fn call_direct(&mut self, name: String) {
-        self.push_instr(Instr::Call(name));
+        self.push_inst(Inst::Call(name));
     }
 
     fn and<L, R>(&mut self, lval: L, rval: R)
@@ -282,7 +345,7 @@ impl Block {
         L: Into<Lval>,
         R: Into<Rval>,
     {
-        self.push_instr(Instr::And(lval.into(), rval.into()));
+        self.push_inst(Inst::And(lval.into(), rval.into()));
     }
 
     fn or<L, R>(&mut self, lval: L, rval: R)
@@ -290,39 +353,39 @@ impl Block {
         L: Into<Lval>,
         R: Into<Rval>,
     {
-        self.push_instr(Instr::Or(lval.into(), rval.into()));
+        self.push_inst(Inst::Or(lval.into(), rval.into()));
     }
 
     fn shr<L>(&mut self, lval: L, imm: Imm)
     where
         L: Into<Lval>,
     {
-        self.push_instr(Instr::Shr(lval.into(), imm));
+        self.push_inst(Inst::Shr(lval.into(), imm));
     }
 
     fn shl<L>(&mut self, lval: L, imm: Imm)
     where
         L: Into<Lval>,
     {
-        self.push_instr(Instr::Shl(lval.into(), imm));
+        self.push_inst(Inst::Shl(lval.into(), imm));
     }
 
     fn mov_label<L>(&mut self, lval: L, func: raise::Func)
     where
         L: Into<Lval>,
     {
-        self.push_instr(Instr::MovLabel(lval.into(), func));
+        self.push_inst(Inst::MovLabel(lval.into(), func));
     }
 
     fn pop<L>(&mut self, lval: L)
     where
         L: Into<Lval>,
     {
-        self.push_instr(Instr::Pop(lval.into()));
+        self.push_inst(Inst::Pop(lval.into()));
     }
 
     fn ret(&mut self) {
-        self.push_instr(Instr::Ret);
+        self.push_inst(Inst::Ret);
     }
 
     fn stmt(&mut self, stmt: flat::Stmt) {
@@ -417,9 +480,17 @@ impl Block {
                 self.ret();
             }
             flat::Stmt::If(cond, then, else_) => {
-                let then = Block::from(then);
-                let else_ = Block::from(else_);
-                self.push_instr(Instr::If(cond.into(), then, else_));
+                let then = {
+                    let mut block = self.nested();
+                    block.stmts(then);
+                    block.complete()
+                };
+                let else_ = {
+                    let mut block = self.nested();
+                    block.stmts(else_);
+                    block.complete()
+                };
+                self.push_inst(Inst::If(cond.into(), then, else_));
             }
         }
     }
@@ -444,13 +515,13 @@ impl fmt::Fmt for Module {
     }
 }
 
-impl fmt::Fmt for Func {
+impl fmt::Fmt for Function {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
-
+        // write shim first
         writeln!(f, "push %ebp")?;
         writeln!(f, "mov %esp, %ebp")?;
-        writeln!(f, "sub ${}, %esp", self.num_stack_slots as Imm * WORD_SIZE)?;
+        writeln!(f, "sub ${}, %esp", self.stack_slots as Imm * WORD_SIZE)?;
         f.fmt(&self.block)?;
         Ok(())
     }
@@ -458,26 +529,26 @@ impl fmt::Fmt for Func {
 
 impl fmt::Fmt for Block {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
-        for instr in &self.instrs {
-            f.fmt(instr)?;
+        for inst in &self.insts {
+            f.fmt(inst)?;
         }
         Ok(())
     }
 }
 
-impl fmt::Fmt for Instr {
+impl fmt::Fmt for Inst {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
 
         match *self {
-            Instr::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
-            Instr::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
-            Instr::Neg(lval) => writeln!(f, "neg {}", lval),
-            Instr::Push(rval) => writeln!(f, "push {}", rval),
-            Instr::Pop(lval) => writeln!(f, "pop {}", lval),
-            Instr::CallIndirect(lval) => writeln!(f, "call *{}", lval),
-            Instr::Call(ref name) => writeln!(f, "call {}", name),
-            Instr::If(cond, ref then, ref else_) => {
+            Inst::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
+            Inst::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
+            Inst::Neg(lval) => writeln!(f, "neg {}", lval),
+            Inst::Push(rval) => writeln!(f, "push {}", rval),
+            Inst::Pop(lval) => writeln!(f, "pop {}", lval),
+            Inst::CallIndirect(lval) => writeln!(f, "call *{}", lval),
+            Inst::Call(ref name) => writeln!(f, "call {}", name),
+            Inst::If(cond, ref then, ref else_) => {
                 writeln!(f, "if {} {{", cond)?;
                 f.indent();
                 f.fmt(then)?;
@@ -489,15 +560,15 @@ impl fmt::Fmt for Instr {
                 writeln!(f, "}}")?;
                 Ok(())
             }
-            Instr::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
-            Instr::Sete(lval) => writeln!(f, "sete {}", lval),
-            Instr::Setne(lval) => writeln!(f, "setne {}", lval),
-            Instr::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
-            Instr::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
-            Instr::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
-            Instr::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
-            Instr::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
-            Instr::Ret => writeln!(f, "ret"),
+            Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
+            Inst::Sete(lval) => writeln!(f, "sete {}", lval),
+            Inst::Setne(lval) => writeln!(f, "setne {}", lval),
+            Inst::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
+            Inst::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
+            Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
+            Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
+            Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
+            Inst::Ret => writeln!(f, "ret"),
         }
     }
 }
@@ -517,6 +588,12 @@ impl From<StackSlot> for Lval {
 impl From<Var> for Lval {
     fn from(v: Var) -> Self {
         Lval::Var(v)
+    }
+}
+
+impl From<Param> for Lval {
+    fn from(p: Param) -> Self {
+        Lval::Param(p)
     }
 }
 
@@ -552,8 +629,9 @@ impl ::std::fmt::Display for Lval {
                 };
                 write!(f, "%{}", reg)
             }
-            Lval::StackSlot(slot) => write!(f, "stack {}", slot.ebp_offset),
+            Lval::StackSlot(slot) => write!(f, "stack {}", slot.0),
             Lval::Var(var) => write!(f, "{}", var),
+            Lval::Param(p) => write!(f, "param {}", p.0),
         }
     }
 }
@@ -563,6 +641,50 @@ impl ::std::fmt::Display for Rval {
         match *self {
             Rval::Lval(lval) => write!(f, "{}", lval),
             Rval::Imm(imm) => write!(f, "${}", imm),
+        }
+    }
+}
+
+pub trait TransformBlock {
+    fn block(&mut self, block: Block) -> Block {
+        Block {
+            insts: block.insts.into_iter().map(|inst| {
+                self.inst(inst)
+            }).collect()
+        }
+    }
+
+    fn inst(&mut self, inst: Inst) -> Inst {
+        use self::Inst::*;
+        match inst {
+            Mov(l, r) => Mov(self.lval(l), self.rval(r)),
+            Add(l, r) => Add(self.lval(l), self.rval(r)),
+            Neg(l) => Neg(self.lval(l)),
+            Push(r) => Push(self.rval(r)),
+            Pop(l) => Pop(self.lval(l)),
+            CallIndirect(l) => CallIndirect(self.lval(l)),
+            Call(name) => Call(name),
+            If(rval, then, else_) => If(self.rval(rval), self.block(then), self.block(else_)),
+            Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
+            Sete(l) => Sete(self.lval(l)),
+            Setne(l) => Setne(self.lval(l)),
+            Or(l, r) => Or(self.lval(l), self.rval(r)),
+            And(l, r) => And(self.lval(l), self.rval(r)),
+            Shr(l, imm) => Shr(self.lval(l), imm),
+            Shl(l, imm) => Shl(self.lval(l), imm),
+            MovLabel(l, func) => MovLabel(self.lval(l), func),
+            Ret => Ret,
+        }
+    }
+
+    fn lval(&mut self, lval: Lval) -> Lval {
+        lval
+    }
+
+    fn rval(&mut self, rval: Rval) -> Rval {
+        match rval {
+            Rval::Imm(imm) => Rval::Imm(imm),
+            Rval::Lval(lval) => Rval::Lval(self.lval(lval))
         }
     }
 }
