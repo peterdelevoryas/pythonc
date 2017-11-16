@@ -3,6 +3,8 @@ pub mod impl_wrapper_enum;
 #[macro_use]
 pub mod impl_ref;
 
+pub mod fmt;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Either<L, R> {
     Left(L),
