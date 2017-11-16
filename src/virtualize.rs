@@ -7,32 +7,36 @@ use explicate::Var;
 use std::collections::HashMap;
 use std::convert;
 
-pub enum VirtInstr {
-    MOV(Src, Dst),
-    ADD(Src, Dst),
-    PUSH(Src),
-    POP(Dst),
-    CALL(Src),
-    VirtualIf(Src, Vec<VirtInstr>, Vec<VirtInstr>),
-    CMP(Src, Src),
-    JNZ(Src),
-    JZ(Src),
-    SETE(Dst),
-    SETNE(Dst),
+#[derive(Debug, Clone, Hash)]
+pub enum Instr {
+    Mov(Lval, Rval),
+    Add(Lval, Rval),
+    Push(Rval),
+    Pop(Lval),
+    Call(Rval),
+    If(Rval, Block, Block),
 }
 
-pub enum Src {
-    Dst(Dst),
+#[derive(Debug, Clone, Hash)]
+pub struct Block {
+    instrs: Vec<Instr>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Rval {
+    Lval(Lval),
     Const(i32),
 }
 
-pub enum Dst {
-    Reg(Register),
-    Stack(i32),
-    Tmp(Var),
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Lval {
+    Reg(Reg),
+    StackSlot(StackSlot),
+    Var(Var),
 }
 
-pub enum Register {
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Reg {
     EAX,
     EBX,
     ECX,
@@ -43,3 +47,11 @@ pub enum Register {
     EBP,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct StackSlot {
+    ebp_offset: i32,
+}
+
+pub struct Builder {
+    
+}

@@ -19,7 +19,6 @@ pub mod free_vars;
 pub mod virtualize;
 
 use flatten::Flatten;
-use virtualize::Virtualize;
 
 pub use error::*;
 
