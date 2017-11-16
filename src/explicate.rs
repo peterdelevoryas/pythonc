@@ -653,19 +653,18 @@ impl Explicate {
         pyobj
     }
 
-    pub fn list(&mut self, list: ast::List) -> InjectFrom {
-        let list = List { exprs: list.exprs.into_iter().map(|e| self.expr(e)).collect() };
-        inject_from(list, Ty::Big)
+    pub fn list(&mut self, list: ast::List) -> List {
+        List { exprs: list.exprs.into_iter().map(|e| self.expr(e)).collect() }
     }
 
-    pub fn dict(&mut self, dict: ast::Dict) -> InjectFrom {
+    pub fn dict(&mut self, dict: ast::Dict) -> Dict {
         let dict = Dict {
             tuples: dict.tuples
                 .into_iter()
                 .map(|(l, r)| (self.expr(l), self.expr(r)))
                 .collect(),
         };
-        inject_from(dict, Ty::Big)
+        dict
     }
 
     pub fn subscript(&mut self, s: ast::Subscript) -> Subscript {

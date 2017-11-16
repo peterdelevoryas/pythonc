@@ -355,6 +355,7 @@ impl Flatten for ex::List {
             "create_list".into(),
             vec![new_l_size_injected],
         ));
+        let new_l = builder.def(Expr::InjectFrom(new_l, ex::Ty::Big));
 
         for (i, expr) in self.exprs.iter().enumerate() {
             // Ugh, have to inject and store twice each index, but constant prop should remove this.
@@ -377,6 +378,7 @@ impl Flatten for ex::Dict {
     type Output = Var;
     fn flatten(self, builder: &mut Flattener) -> Var {
         let new_d = builder.def(Expr::RuntimeFunc("create_dict".into(), vec![]));
+        let new_d = builder.def(Expr::InjectFrom(new_d, ex::Ty::Big));
 
         for (k, v) in self.tuples {
             let k_l = k.clone().flatten(builder);

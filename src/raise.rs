@@ -116,7 +116,6 @@ impl<'var_data> TransformAst for Builder<'var_data> {
         let func = self.end_func(fvs.clone(), closure.args);
         trace!("all free vars for {}: {:?}", func, fvs);
         let list = List { exprs: fvs.into_iter().map(|v| v.into()).collect() };
-        let list = InjectFrom { from: Ty::Big, expr: list.into() };
         CallRuntime {
             name: "create_closure".into(),
             args: vec![func.into(), list.into()],
