@@ -23,6 +23,7 @@ pub enum Instr {
     Sete(Lval),
     /// `Lval = NE ? 1 : 0;`
     Setne(Lval),
+    And(Lval, Rval),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -236,6 +237,10 @@ impl Block {
         self.push_instr(Instr::Call(name));
     }
 
+    fn and<L, R>(&mut self, lval: L, rval: R) {
+        self.push_instr(Instr::And(lval.into(), rval.into()));
+    }
+
     fn stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
             flat::Stmt::Def(lhs, flat::Expr::UnaryOp(op, rhs)) => {
@@ -262,6 +267,11 @@ impl Block {
                 self.push_args_in_reverse(args);
                 self.call_direct(name);
                 self.mov(lhs, Reg::EAX);
+            }
+            flat::Stmt::Def(lhs, flat::Expr::GetTag(var)) => {
+                self.mov(lhs, var);
+                // MASK = 3
+                self.and(lhs, 0b11);
             }
             flat::Stmt::Discard(expr) => {
             }
