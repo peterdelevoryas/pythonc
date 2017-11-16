@@ -92,13 +92,20 @@ impl Module {
     }
 }
 
+/// Does not contain the EBP ESP
+/// frame pointer storage shim at the top
+/// or stack allocation sub instr,
+/// must be added when finally formatting to x86
 pub struct Func {
+    // increases with spillage
+    num_stack_slots: u32,
     block: Block,
 }
 
 impl Func {
     pub fn from(f: flat::Function) -> Func {
         Func {
+            num_stack_slots: 0,
             block: Block::from(f.body),
         }
     }
