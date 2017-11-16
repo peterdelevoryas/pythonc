@@ -28,7 +28,6 @@ pub enum Expr {
     BinOp(BinOp, Var, Var),
     CallFunc(Var, Vec<Var>),
     RuntimeFunc(String, Vec<Var>),
-    If(Var, Vec<Stmt>, Vec<Stmt>),
     ProjectTo(Var, ex::Ty),
     InjectFrom(Var, ex::Ty),
     Const(i32),
@@ -38,17 +37,23 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
-    Print(Var),
     Def(Var, Expr),
     Discard(Expr),
-    Return(Option<Var>)
+    Return(Option<Var>),
+    If(Var, Vec<Stmt>, Vec<Stmt>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Function {
+    pub args: Vec<Var>,
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Debug)]
 pub struct Flattener {
-    var_data: ex::var::Slab<ex::var::Data>,
-    pub units: HashMap<String, Vec<Stmt>>,
-    context: String,
+    pub var_data: ex::var::Slab<ex::var::Data>,
+    pub units: HashMap<raise::Func, Function>,
+    contexts: Vec<Vec<Stmt>>
 }
 
 #[derive(Debug)]
@@ -59,37 +64,35 @@ pub struct Formatter<'a, N: 'a + ?Sized> {
 }
 
 impl Flattener {
-    pub fn enter_fn(&mut self, name: String) -> String {
-        self.context = name;
-        self.context.clone()
-    }
-    pub fn enter_recoverable_block(&mut self) -> String{
-        self.context = self.context.clone() + "+r";
-        self.context.clone()
-    }
-    pub fn leave_recoverable_block(&mut self, restorecon : String) {
-        if self.context == String::from("main") {
-            panic!("Attempted to restorecon from main: that's pretty bad.");
-        }
-        self.units.remove(&self.context);
-        self.context = restorecon
+    pub fn enter_context(&mut self) {
+        self.contexts.push(vec![]);
     }
     pub fn push(&mut self, ir: Stmt) {
-
-        if self.units.contains_key(&self.context) {
-            self.units.get_mut(&self.context).unwrap().push(ir);
+        if let Some(top) = self.contexts.last_mut() {
+            top.push(ir);
         } else {
-            self.units.insert(self.context.clone(), vec![ir]);
+            panic!("Tried to push with no context.");
         }
     }
-    pub fn get_context(&self) -> String {
-        self.context.clone()
+    pub fn commit_fn(&mut self, func: raise::Func, args: Vec<Var>) {
+        if let Some(top) = self.contexts.pop() {
+            let f = Function {
+                args: args,
+                body: top,
+            };
+            self.units.insert(func, f);
+        } else {
+            panic!("Tried to commit with no context.");
+        }
     }
-    pub fn restore_context(&mut self, new: String) {
-        self.context = new;
+    pub fn clear(&mut self) -> Vec<Stmt> {
+        self.contexts.pop().expect("Tried to clear with no context.")
+    }
+    pub fn mk_tmp_var(&mut self) -> Var {
+        self.var_data.insert(ex::var::Data::Temp)
     }
     pub fn def(&mut self, e: Expr) -> Var {
-        let tmp = self.var_data.insert(ex::var::Data::Temp);
+        let tmp = self.mk_tmp_var();
         self.push(Stmt::Def(tmp, e));
         tmp
     }
@@ -130,7 +133,7 @@ impl convert::From<ex::Explicate> for Flattener {
         Flattener {
             var_data: explicate.var_data,
             units: HashMap::new(),
-            context: "main".into(),
+            contexts: vec![],
         }
     }
 }
@@ -140,10 +143,14 @@ pub trait Flatten {
     fn flatten(self, builder: &mut Flattener) -> Self::Output;
 }
 
-impl Flatten for ex::Module {
+impl Flatten for raise::TransUnit {
     type Output = ();
     fn flatten(self, builder: &mut Flattener) {
-        self.stmts.flatten(builder);
+        for (func, data) in self.funcs.into_iter() {
+            builder.enter_context();
+            data.clone().body.stmts.flatten(builder);
+            builder.commit_fn(func, data.clone().args);
+        }
     }
 }
 
@@ -386,22 +393,24 @@ impl Flatten for ex::Dict {
 impl Flatten for ex::IfExp {
     type Output = Var;
     fn flatten(self, builder: &mut Flattener) -> Var {
+
+        let rloc = builder.mk_tmp_var();
+
         let flatc = self.cond.flatten(builder);
 
-        let saved_tmp = builder.get_tmp_index();
-        let saved_context = builder.get_context();
-
-        let then_context = builder.enter_recoverable_block();
+        builder.enter_context();
         let flatt = self.then.flatten(builder);
-        let t_code = builder.units.get(&then_context).unwrap().clone();
-        builder.leave_recoverable_block(saved_context.clone());
+        let mut t_code = builder.clear();
+        t_code.push(Stmt::Def(rloc, Expr::Alias(flatt)));
 
-        let else_context = builder.enter_recoverable_block();
+        builder.enter_context();
         let flate = self.else_.flatten(builder);
-        let e_code = builder.units.get(&else_context).unwrap().clone();
-        builder.leave_recoverable_block(saved_context);
+        let mut e_code = builder.clear();
+        e_code.push(Stmt::Def(rloc, Expr::Alias(flate)));
 
-        builder.def(Expr::If(flatc, flatt, flate, t_code, e_code))
+        builder.push(Stmt::If(flatc, t_code, e_code));
+
+        rloc
     }
 }
 
@@ -435,9 +444,9 @@ impl Flatten for raise::Func {
 
 impl<'a> fmt::Display for Formatter<'a, ()> {
     fn fmt(&self, f : &mut fmt::Formatter) -> fmt::Result {
-        for (label, stmts) in &self.flattener.units {
+        for (label, func) in &self.flattener.units {
             writeln!(f, "{indent}{label}:", indent=self.indent(), label=label)?;
-            writeln!(f, "{indent}{stmts}", indent=self.indent(), stmts=self.indented(stmts.as_slice()))?;
+            writeln!(f, "{indent}{stmts}", indent=self.indent(), stmts=self.indented(func.body.as_slice()))?;
         }
         Ok(())
     }
@@ -455,13 +464,21 @@ impl<'a> fmt::Display for Formatter<'a, [Stmt]> {
 impl<'a> fmt::Display for Formatter<'a, Stmt> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self.node {
-            Stmt::Print(loc) => write!(f, "print {}", loc),
             Stmt::Def(tmp, ref expr) => write!(f, "{} = {}", tmp, self.fmt(expr)),
             Stmt::Discard(ref expr) => write!(f, "{}", self.fmt(expr)),
             Stmt::Return(ref loc) => match *loc {
                 Some(loc) => write!(f, "return {}", loc),
                 None => write!(f, "return"),
             },
+            Stmt::If(c, ref t_block, ref e_block) => {
+                writeln!(f, "if {} {{", c)?;
+                writeln!(f, "{indent}then: ", indent=self.indent())?;
+                writeln!(f, "{block}", block=self.indented(t_block.as_slice()))?;
+                writeln!(f, "{indent}else: ", indent=self.indent())?;
+                writeln!(f, "{block}", block=self.indented(e_block.as_slice()))?;
+                write!(f, "{indent}}}", indent=self.indent())?;
+                Ok(())
+            }
         }
     }
 }
@@ -490,15 +507,6 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
                 write_args_list(f, args)?;
                 write!(f, ")")
             }
-            Expr::If(c, ref t_block, ref e_block) => {
-                writeln!(f, "if {} then {} else {} where {{", c, t, e)?;
-                writeln!(f, "{indent}then: ", indent=self.indent())?;
-                writeln!(f, "{block}", block=self.indented(t_block.as_slice()))?;
-                writeln!(f, "{indent}else: ", indent=self.indent())?;
-                writeln!(f, "{block}", block=self.indented(e_block.as_slice()))?;
-                write!(f, "{indent}}}", indent=self.indent())?;
-                Ok(())
-            }
             Expr::ProjectTo(loc, ty) => {
                 write!(f, "project {} to {}", loc, ty)
             }
@@ -510,6 +518,9 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
             }
             Expr::LoadFunctionPointer(ref name) => {
                 write!(f, "const fn {}", name)
+            }
+            Expr::Alias(v) => {
+                write!(f, "{}", v)
             }
         }
     }
@@ -533,12 +544,5 @@ impl fmt::Display for BinOp {
             BinOp::NOTEQ => "!=",
         };
         write!(f, "{}", s)
-    }
-}
-
-
-impl fmt::Display for Var {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self)
     }
 }
