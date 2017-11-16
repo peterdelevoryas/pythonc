@@ -148,8 +148,8 @@ impl Flatten for raise::TransUnit {
     fn flatten(self, builder: &mut Flattener) {
         for (func, data) in self.funcs.into_iter() {
             builder.enter_context();
-            data.clone().body.stmts.flatten(builder);
-            builder.commit_fn(func, data.clone().args);
+            data.clone().closure.code.flatten(builder);
+            builder.commit_fn(func, data.clone().closure.args);
         }
     }
 }
