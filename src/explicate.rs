@@ -1011,9 +1011,9 @@ impl<'a> fmt::Display for Formatter<'a, Binary> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}({}, {})",
-            self.fmt(&self.node.op),
+            "{} {} {}",
             self.fmt(&self.node.left),
+            self.fmt(&self.node.op),
             self.fmt(&self.node.right)
         )
     }
@@ -1022,9 +1022,9 @@ impl<'a> fmt::Display for Formatter<'a, Binary> {
 impl<'a> fmt::Display for Formatter<'a, Binop> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self.node {
-            Binop::Add => write!(f, "add"),
-            Binop::Eq => write!(f, "eq"),
-            Binop::NotEq => write!(f, "not_eq"),
+            Binop::Add => write!(f, "+"),
+            Binop::Eq => write!(f, "=="),
+            Binop::NotEq => write!(f, "!="),
         }
     }
 }
@@ -1033,7 +1033,7 @@ impl<'a> fmt::Display for Formatter<'a, Unary> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}({})",
+            "{}{}",
             self.fmt(&self.node.op),
             self.fmt(&self.node.expr)
         )
@@ -1043,8 +1043,8 @@ impl<'a> fmt::Display for Formatter<'a, Unary> {
 impl<'a> fmt::Display for Formatter<'a, Unop> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self.node {
-            Unop::Neg => write!(f, "neg"),
-            Unop::Not => write!(f, "not"),
+            Unop::Neg => write!(f, "-"),
+            Unop::Not => write!(f, "!"),
         }
     }
 }
