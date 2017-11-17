@@ -989,7 +989,7 @@ impl<'a> fmt::Display for Formatter<'a, CallFunc> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "call_func({}, {})",
+            "{}({})",
             self.fmt(&self.node.expr),
             self.fmt(self.node.args.as_slice())
         )
@@ -1000,7 +1000,7 @@ impl<'a> fmt::Display for Formatter<'a, CallRuntime> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "call_runtime({}, {})",
+            "@{}({})",
             self.node.name,
             self.fmt(self.node.args.as_slice())
         )
@@ -1062,13 +1062,13 @@ impl<'a> fmt::Display for Formatter<'a, Subscript> {
 
 impl<'a> fmt::Display for Formatter<'a, List> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.fmt(self.node.exprs.as_slice()))
+        write!(f, "[{}]", self.fmt(self.node.exprs.as_slice()))
     }
 }
 
 impl<'a> fmt::Display for Formatter<'a, Dict> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.fmt(self.node.tuples.as_slice()))
+        write!(f, "{{{}}}", self.fmt(self.node.tuples.as_slice()))
     }
 }
 
@@ -1141,20 +1141,18 @@ impl<'a> fmt::Display for Formatter<'a, Ty> {
 
 impl<'a> fmt::Display for Formatter<'a, [Expr]> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[")?;
         if !self.node.is_empty() {
             write!(f, "{}", self.fmt(&self.node[0]))?;
             for expr in &self.node[1..] {
                 write!(f, ", {}", self.fmt(expr))?;
             }
         }
-        write!(f, "]")
+        Ok(())
     }
 }
 
 impl<'a> fmt::Display for Formatter<'a, [(Expr, Expr)]> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{")?;
         if !self.node.is_empty() {
             write!(f, "{}: {}",
                 self.fmt(&self.node[0].0),
@@ -1167,7 +1165,7 @@ impl<'a> fmt::Display for Formatter<'a, [(Expr, Expr)]> {
                 )?;
             }
         }
-        write!(f, "}}")
+        Ok(())
     }
 }
 
