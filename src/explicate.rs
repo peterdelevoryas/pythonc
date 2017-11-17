@@ -794,7 +794,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
         };
 
         //use explicate::FreeVars;
-        writeln!(f, "func main() -> i32 {{")?;
+        writeln!(f, "func main() {{")?;
         write!(
             f,
             "{}{}",
@@ -820,7 +820,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 });
             writeln!(
                 f,
-                "{indent}func {func}({params}) -> i32 {{",
+                "{indent}func {func}({params}) -> pyobj {{",
                 indent = self.indent(),
                 func = func,
                 params = params
