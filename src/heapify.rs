@@ -5,6 +5,23 @@ use raise::TransformAst;
 use raise::VisitAst;
 use std::collections::HashSet;
 
+pub fn heapify(var_data: &mut var::Slab<var::Data>, module: Module) -> Module {
+    let all_free_vars = all_free_vars(&module);
+    let main = Closure {
+        args: vec![],
+        code: module.stmts,
+    };
+    let mut builder = Builder {
+        var_data: var_data,
+        all_free_vars: all_free_vars,
+        heapified: HashSet::new(),
+    };
+    let main = builder.heapify_closure(main);
+    Module {
+        stmts: main.code,
+    }
+}
+
 #[derive(Debug)]
 pub struct Builder<'var_data> {
     var_data: &'var_data mut var::Slab<var::Data>,
@@ -13,22 +30,6 @@ pub struct Builder<'var_data> {
 }
 
 impl<'var_data> Builder<'var_data> {
-    pub fn new(var_data: &'var_data mut var::Slab<var::Data>) -> Builder<'var_data> {
-        Builder {
-            var_data,
-            all_free_vars: HashSet::new(),
-            heapified: HashSet::new(),
-        }
-    }
-
-    pub fn heapify_module(&mut self, module: Module) -> Module {
-        self.all_free_vars = all_free_vars(&module);
-        debug!("all free vars: {:?}", self.all_free_vars);
-        let heapified = self.heapify_stmts(module.stmts);
-
-        Module { stmts: heapified }
-    }
-
     fn heapify_stmts(&mut self, stmts: Vec<Stmt>) -> Vec<Stmt> {
         stmts.into_iter().map(|stmt| self.stmt(stmt)).collect()
     }
@@ -50,6 +51,48 @@ impl<'var_data> Builder<'var_data> {
             expr: source.into(),
         }
     }
+
+    /// This is the main closure heapification function,
+    /// pretty much everything important happens here.
+    fn heapify_closure(&mut self, closure: Closure) -> Closure {
+        let locals = locals(&closure);
+        trace!("locals: {:?}", locals);
+        // make call on body recursively
+        let heapified_body: Vec<Stmt> = closure.code.into_iter()
+            .map(|stmt| self.stmt(stmt))
+            .collect();
+
+        // for all the arguments that are in the free vars
+        // set, rename them, and then make a param init
+        // statement that assigns the heapified (list_1)
+        // renamed param
+        let mut param_inits: Vec<Stmt> = vec![];
+        let mut args = closure.args;
+        for arg in &mut args {
+            if self.all_free_vars.contains(arg) {
+                let renamed_param = self.new_temp();
+                let arg = ::std::mem::replace(arg, renamed_param);
+                param_inits.push(assign(arg, list_1(renamed_param)).into());
+            }
+        }
+
+        let mut local_inits: Vec<Stmt> = vec![];
+        for local in locals {
+            if self.all_free_vars.contains(&local) {
+                local_inits.push(assign(local, list_1(Const::Int(-1))).into());
+            }
+        }
+
+        let mut code = vec![];
+        code.extend(param_inits);
+        code.extend(local_inits);
+        code.extend(heapified_body);
+
+        Closure {
+            args: args,
+            code: code,
+        }
+    }
 }
 
 fn subscript_0(var: Var) -> Subscript {
@@ -69,17 +112,6 @@ impl<'var_data> TransformAst for Builder<'var_data> {
         // the lhs might actually get heapified
         // during this step.
         let rhs = self.expr(assign.expr);
-
-        if let Target::Var(var) = assign.target {
-            // if free var and not heapified yet
-            if self.all_free_vars.contains(&var) && !self.heapified.contains(&var) {
-                // turn rhs into [rhs] (list of 1 expr)
-                let heapified = ::explicate::assign(var, List { exprs: vec![rhs] });
-                // record as heapified
-                self.heapified.insert(var);
-                return heapified.into();
-            }
-        }
 
         // otherwise, do default behavior
         let target = self.target(assign.target);
@@ -110,65 +142,7 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     }
 
     fn closure(&mut self, closure: Closure) -> Expr {
-
-        // need to rename parameters to be heapified,
-        // and move heapified parameters into body
-        let heapified_params: Vec<Var> = closure
-            .args
-            .iter()
-            .map(|&var| var)
-            .filter(|var| self.all_free_vars.contains(var))
-            .collect();
-        let heapified_params_inits: Vec<Stmt> = heapified_params
-            .iter()
-            .map(|&var| self.assign_list_0(var).into())
-            .collect();
-
-        let mut heapified_params_assigns: Vec<Stmt> = vec![];
-        let renamed_args: Vec<Var> = closure
-            .args
-            .iter()
-            .map(|&var| if heapified_params.contains(&var) {
-                let renamed = self.new_temp();
-                heapified_params_assigns.push(self.assign_to(var, renamed).into());
-                renamed
-            } else {
-                var
-            })
-            .collect();
-
-        let needs_heapifying_outside: HashSet<Var> = all_free_vars(&closure)
-            .into_iter()
-            .filter(|var| !self.heapified.contains(var))
-            .collect();
-
-        /*
-        trace!("needs heapifying outside: {:?}", needs_heapifying_outside);
-        for &var in &needs_heapifying_outside {
-            self.heapified.insert(var);
-        }
-        */
-
-        let code = {
-            let mut code = vec![];
-            code.extend(heapified_params_inits);
-            code.extend(heapified_params_assigns);
-            code.extend(self.heapify_stmts(closure.code));
-            code
-        };
-
-        let mut ret: Expr = Closure {
-            args: renamed_args,
-            code: code,
-        }.into();
-
-        /*
-        for &var in &needs_heapifying_outside {
-            ret = let_(var, list_0(), ret).into();
-        }
-        */
-
-        ret
+        self.heapify_closure(closure).into()
     }
 }
 
@@ -220,5 +194,47 @@ impl ::raise::VisitAst for Collector {
         trace!("nested free vars: {:?}", nested_free_vars);
         self.vars.extend(nested_free_vars);
         self.stmts(closure.code.as_slice());
+    }
+}
+
+struct NestedFreeVars(HashSet<Var>);
+
+impl ::raise::VisitAst for NestedFreeVars {
+    fn closure(&mut self, closure: &Closure) {
+        let locals = locals(closure);
+        let all = all_free_vars(closure);
+        for free_var in all {
+            if !locals.contains(&free_var) {
+                self.0.insert(free_var);
+            }
+        }
+    }
+}
+
+pub fn nested_free_vars(closure: &Closure) -> HashSet<Var> {
+    let mut nfvs = NestedFreeVars(HashSet::new());
+    nfvs.closure(closure);
+    nfvs.0
+}
+
+pub struct Locals {
+    vars: HashSet<Var>,
+}
+
+pub fn locals(closure: &Closure) -> HashSet<Var> {
+    let mut locals = Locals { vars: HashSet::new() };
+    for stmt in &closure.code {
+        locals.stmt(stmt);
+    }
+    locals.vars
+}
+
+impl ::raise::VisitAst for Locals {
+    fn target_var(&mut self, &var: &Var) {
+        self.vars.insert(var);
+    }
+
+    fn closure(&mut self, closure: &Closure) {
+        // don't traverse into nested scope
     }
 }
