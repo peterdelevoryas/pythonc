@@ -46,14 +46,28 @@ impl<'var_data> Builder<'var_data> {
             funcs: func::Slab::new(),
             var_data: var_data,
         };
+
         builder.new_func();
         builder.add_to_curr_func(heapified.stmts);
-        // no params for main function
         let main = builder.end_func(vec![], vec![]);
+
         TransUnit {
             main,
             funcs: builder.funcs,
         }
+    }
+
+    pub fn raise_closure(&mut self, closure: Closure) -> Func {
+        let free_vars: Vec<Var> = ::heapify::nested_free_vars(&closure)
+        //let free_vars: Vec<Var> = ::heapify::all_free_vars(&closure)
+        //let free_vars: Vec<Var> = ::free_vars::free_vars(&closure)
+            .into_iter()
+            .collect();
+        self.new_func();
+        self.add_to_curr_func(closure.code);
+        let func = self.end_func(free_vars.clone(), closure.args);
+        trace!("free vars for {}: {:?}", func, free_vars);
+        func
     }
 
     pub fn new_func(&mut self) {
@@ -108,15 +122,9 @@ impl<'var_data> Builder<'var_data> {
 
 impl<'var_data> TransformAst for Builder<'var_data> {
     fn closure(&mut self, closure: Closure) -> Expr {
-        let fvs: Vec<Var> = ::heapify::all_free_vars(&closure)
-            .into_iter()
-            .collect();
-        self.new_func();
-        self.add_to_curr_func(closure.code);
-        let func = self.end_func(fvs.clone(), closure.args);
-        trace!("all free vars for {}: {:?}", func, fvs);
+        let func = self.raise_closure(closure);
         let list = List {
-            exprs: fvs.into_iter().map(|v| v.into()).collect(),
+            exprs: self.funcs[func].free_vars.clone().into_iter().map(|v| v.into()).collect(),
         };
         CallRuntime {
             name: "create_closure".into(),
