@@ -345,6 +345,15 @@ where
     }
 }
 
+pub fn list_1<E>(expr: E) -> List
+where
+    E: Into<Expr>
+{
+    List {
+        exprs: vec![expr.into()]
+    }
+}
+
 impl Binop {
     pub fn ret_ty(self) -> Ty {
         match self {

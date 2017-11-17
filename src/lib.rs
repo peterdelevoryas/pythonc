@@ -86,10 +86,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let heapified = {
-            let mut builder = heapify::Builder::new(&mut explicate.var_data);
-            builder.heapify_module(explicated)
-        };
+        let heapified = heapify::heapify(&mut explicate.var_data, explicated);
         if stop_stage == Stage::Heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
             return write_out(fmt, out_path)
