@@ -688,3 +688,114 @@ pub trait TransformBlock {
         }
     }
 }
+
+pub trait VisitBlock {
+    fn block(&mut self, block: &Block) {
+        for inst in &block.insts {
+            self.inst(inst);
+        }
+    }
+
+    fn inst(&mut self, inst: &Inst) {
+        use self::Inst::*;
+        match *inst {
+            Mov(l, r) => self.mov(l, r),
+            Add(l, r) => self.add(l, r),
+            Neg(l) => self.neg(l),
+            Push(r) => self.push(r),
+            Pop(l) => self.pop(l),
+            CallIndirect(l) => self.call_indirect(l),
+            Call(ref name) => self.call(name),
+            If(rval, ref then, ref else_) => self.if_(rval, then, else_),
+            Cmp(l, r) => self.cmp(l, r),
+            Sete(l) => self.sete(l),
+            Setne(l) => self.setne(l),
+            Or(l, r) => self.or(l, r),
+            And(l, r) => self.and(l, r),
+            Shr(l, imm) => self.shr(l, imm),
+            Shl(l, imm) => self.shl(l, imm),
+            MovLabel(l, func) => self.mov_label(l, func),
+            Ret => self.ret(),
+        }
+    }
+
+    fn mov(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn add(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn neg(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn push(&mut self, r: Rval) {
+        self.rval(r);
+    }
+
+    fn pop(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn call_indirect(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn call(&mut self, name: &str) {}
+
+    fn if_(&mut self, cond: Rval, then: &Block, else_: &Block) {
+        self.rval(cond);
+        self.block(then);
+        self.block(else_);
+    }
+
+    fn cmp(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn sete(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn setne(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn or(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn and(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn shr(&mut self, l: Lval, i: Imm) {
+        self.lval(l);
+    }
+
+    fn shl(&mut self, l: Lval, i: Imm) {
+        self.lval(l);
+    }
+
+    fn mov_label(&mut self, l: Lval, label: raise::Func) {
+        self.lval(l);
+    }
+
+    fn ret(&mut self) {}
+
+    fn lval(&mut self, lval: Lval) {}
+
+    fn rval(&mut self, rval: Rval) {
+        match rval {
+            Rval::Imm(imm) => {}
+            Rval::Lval(lval) => self.lval(lval),
+        }
+    }
+}
