@@ -58,6 +58,7 @@ impl<'var_data> Builder<'var_data> {
     /// pretty much everything important happens here.
     fn heapify_closure(&mut self, closure: Closure) -> Closure {
         let locals = locals(&closure);
+        trace!("locals: {:?}", locals);
         // make call on body recursively
         let heapified_body: Vec<Stmt> = closure.code.into_iter()
             .map(|stmt| self.stmt(stmt))
@@ -205,18 +206,44 @@ impl ::raise::VisitAst for Collector {
     }
 }
 
+struct NestedFreeVars(HashSet<Var>);
+
+impl ::raise::VisitAst for NestedFreeVars {
+    fn closure(&mut self, closure: &Closure) {
+        let locals = locals(closure);
+        let all = all_free_vars(closure);
+        for free_var in all {
+            if !locals.contains(&free_var) {
+                self.0.insert(free_var);
+            }
+        }
+    }
+}
+
+pub fn nested_free_vars(closure: &Closure) -> HashSet<Var> {
+    let mut nfvs = NestedFreeVars(HashSet::new());
+    nfvs.closure(closure);
+    nfvs.0
+}
+
 pub struct Locals {
     vars: HashSet<Var>,
 }
 
 pub fn locals(closure: &Closure) -> HashSet<Var> {
     let mut locals = Locals { vars: HashSet::new() };
-    locals.closure(closure);
+    for stmt in &closure.code {
+        locals.stmt(stmt);
+    }
     locals.vars
 }
 
 impl ::raise::VisitAst for Locals {
     fn target_var(&mut self, &var: &Var) {
         self.vars.insert(var);
+    }
+
+    fn closure(&mut self, closure: &Closure) {
+        // don't traverse into nested scope
     }
 }
