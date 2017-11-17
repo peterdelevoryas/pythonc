@@ -953,7 +953,7 @@ impl<'a> fmt::Display for Formatter<'a, Let> {
             indented = self.indented(&self.node.var).indent(),
             expr = self.indented(&self.node.body)
         )?;
-        writeln!(f, "{indent}}}", indent = self.indent())?;
+        write!(f, "{indent}}}", indent = self.indent())?;
         Ok(())
     }
 }
