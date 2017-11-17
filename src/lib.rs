@@ -58,6 +58,7 @@ impl Pythonc {
         out_path: Option<PathBuf>,
         runtime: Option<PathBuf>,
         show_casts: bool,
+        show_nums: bool,
     ) -> Result<()> {
         let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
         let out_path = &out_path;
@@ -84,25 +85,25 @@ impl Pythonc {
             result
                 .chain_err(|| {
                     // always show casts during type checking output
-                    let fmt = explicate::Formatter::new(&explicate, &explicated, true);
+                    let fmt = explicate::Formatter::new(&explicate, &explicated, true, true);
                     format!("{}", fmt)
                 })
                 .chain_err(|| "Error type checking explicated ast")?;
         }
         if stop_stage == Stage::Explicated {
-            let fmt = explicate::Formatter::new(&explicate, &explicated, show_casts);
+            let fmt = explicate::Formatter::new(&explicate, &explicated, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 
         let heapified = heapify::heapify(&mut explicate.var_data, explicated);
         if stop_stage == Stage::Heapified {
-            let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts);
+            let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 
         let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
         if stop_stage == Stage::Raised {
-            let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts);
+            let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 

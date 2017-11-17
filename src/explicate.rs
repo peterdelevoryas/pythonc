@@ -721,8 +721,9 @@ impl Explicate {
         &'a self,
         node: &'a N,
         show_casts: bool,
+        show_nums: bool,
     ) -> Formatter<'a, N> {
-        Formatter::new(self, node, show_casts)
+        Formatter::new(self, node, show_casts, show_nums)
     }
 }
 
@@ -732,15 +733,17 @@ pub struct Formatter<'a, N: 'a + ?Sized> {
     node: &'a N,
     indent: usize,
     show_casts: bool,
+    show_nums: bool,
 }
 
 impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
-    pub fn new(explicate: &'a Explicate, node: &'a N, show_casts: bool) -> Formatter<'a, N> {
+    pub fn new(explicate: &'a Explicate, node: &'a N, show_casts: bool, show_nums: bool) -> Formatter<'a, N> {
         Formatter {
             explicate,
             node,
             indent: 0,
             show_casts,
+            show_nums,
         }
     }
 
@@ -750,6 +753,7 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
             node,
             indent: self.indent,
             show_casts: self.show_casts,
+            show_nums: self.show_nums,
         }
     }
 
@@ -759,6 +763,7 @@ impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
             node,
             indent: self.indent + 1,
             show_casts: self.show_casts,
+            show_nums: self.show_nums,
         }
     }
 
@@ -1118,11 +1123,20 @@ impl<'a> fmt::Display for Formatter<'a, Const> {
 
 impl<'a> fmt::Display for Formatter<'a, Var> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self.explicate.var_data(*self.node) {
-            var::Data::User { ref source_name } => {
-                write!(f, "{}.{}", source_name, self.node.inner())
+        if self.show_nums {
+            match *self.explicate.var_data(*self.node) {
+                var::Data::User { ref source_name } => {
+                    write!(f, "{}.{}", source_name, self.node.inner())
+                }
+                var::Data::Temp => write!(f, "%{}", self.node.inner()),
             }
-            var::Data::Temp => write!(f, "%{}", self.node.inner()),
+        } else {
+            match *self.explicate.var_data(*self.node) {
+                var::Data::User { ref source_name } => {
+                    write!(f, "{}", source_name)
+                }
+                var::Data::Temp => write!(f, "%{}", self.node.inner()),
+            }
         }
     }
 }
@@ -1237,7 +1251,7 @@ impl<'a> TypeEnv<'a> {
     }
 
     pub fn fmt<M: 'a + ?Sized>(&self, node: &'a M) -> Formatter<'a, M> {
-        Formatter::new(self.explicate, node, true)
+        Formatter::new(self.explicate, node, true, true)
     }
 }
 
@@ -1611,7 +1625,7 @@ impl TypeCheck for IfExp {
         if cond_ty != Ty::Int {
             bail!(
                 "Type of condition in IfExp is not int: {}",
-                Formatter::new(env.explicate, self, true)
+                Formatter::new(env.explicate, self, true, true)
             )
         }
         let then_ty = self.then.type_check(env)?;

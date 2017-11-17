@@ -61,6 +61,13 @@ fn run() -> pythonc::Result<()> {
                 .long("show-casts")
                 .required(false),
         )
+        .arg(
+            Arg::with_name("show_nums")
+                .help("Show global var numbering when formatting vars")
+                .takes_value(false)
+                .long("show-nums")
+                .required(false),
+        )
         .get_matches();
 
     let emit: pythonc::Stage = match m.value_of("STAGE") {
@@ -88,8 +95,9 @@ fn run() -> pythonc::Result<()> {
     }
 
     let show_casts = m.is_present("show_casts");
+    let show_nums = m.is_present("show_nums");
 
     pythonc
-        .emit(&in_path, emit, out_path, runtime, show_casts)
+        .emit(&in_path, emit, out_path, runtime, show_casts, show_nums)
         .chain_err(|| format!("Could not compile {:?}", in_path.display()))
 }
