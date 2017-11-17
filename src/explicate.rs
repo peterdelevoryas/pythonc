@@ -968,14 +968,7 @@ impl<'a> fmt::Display for Formatter<'a, GetTag> {
 impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
-            writeln!(f, "@project_to::<{}>(", self.fmt(&self.node.to))?;
-            writeln!(
-                f,
-                "{}{}",
-                self.indented(&self.node.expr).indent(),
-                self.indented(&self.node.expr)
-            )?;
-            write!(f, "{})", self.indent())
+            write!(f, "@project_to<{}>({})", self.fmt(&self.node.to), self.fmt(&self.node.expr))
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
         }
@@ -985,14 +978,7 @@ impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
 impl<'a> fmt::Display for Formatter<'a, InjectFrom> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
-            writeln!(f, "@inject_from::<{}>(", self.fmt(&self.node.from))?;
-            writeln!(
-                f,
-                "{}{}",
-                self.indented(&self.node.expr).indent(),
-                self.indented(&self.node.expr)
-            )?;
-            write!(f, "{})", self.indent())
+            write!(f, "@inject_from<{}>({})", self.fmt(&self.node.from), self.fmt(&self.node.expr))
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
         }
