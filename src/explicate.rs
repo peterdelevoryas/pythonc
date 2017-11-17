@@ -795,7 +795,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
 
         //use explicate::FreeVars;
         writeln!(f, "func main() -> i32 {{")?;
-        writeln!(
+        write!(
             f,
             "{}{}",
             self.indent(),
@@ -825,7 +825,7 @@ impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
                 func = func,
                 params = params
             )?;
-            writeln!(
+            write!(
                 f,
                 "{}{}",
                 self.indent(),
