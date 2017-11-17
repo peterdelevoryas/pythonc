@@ -649,7 +649,7 @@ impl Explicate {
         })
     }
 
-    pub fn not(&mut self, not: ast::Not) -> ProjectTo {
+    pub fn not(&mut self, not: ast::Not) -> InjectFrom {
         let is_true = CallRuntime {
             name: "is_true".into(),
             args: vec![self.expr(not.expr)],
@@ -658,7 +658,7 @@ impl Explicate {
             op: Unop::Not,
             expr: is_true.into(),
         };
-        let pyobj = project_to(logical_not, Ty::Bool);
+        let pyobj = inject_from(logical_not, Ty::Bool);
         pyobj
     }
 
