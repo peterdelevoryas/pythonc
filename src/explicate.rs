@@ -918,7 +918,7 @@ impl<'a> fmt::Display for Formatter<'a, Assign> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} = {}",
+            "{} = {};",
             self.fmt(&self.node.target),
             self.fmt(&self.node.expr)
         )
