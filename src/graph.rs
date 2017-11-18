@@ -2,6 +2,7 @@ use vasm;
 use vasm::Reg;
 use vasm::Lval;
 use vasm::Rval;
+use vasm::Inst;
 use liveness;
 use liveness::LiveSet;
 use explicate::Var;
@@ -44,6 +45,16 @@ impl From<Var> for Node {
     }
 }
 
+impl From<Lval> for Node {
+    fn from(l: Lval) -> Node {
+        match l {
+            Lval::Reg(reg) => Node::Forced(reg),
+            Lval::Var(var) => Node::Var(var),
+            _ => panic!("cannot convert {:?} into Node", l)
+        }
+    }
+}
+
 impl Graph {
     pub fn build(vasm: &vasm::Function) -> Graph {
         let mut graph = Self::new();
@@ -66,10 +77,6 @@ impl Graph {
             unspillable: HashSet::new(),
             colors: HashMap::new(),
         }
-    }
-
-    fn add_edges(&mut self, live_set: LiveSet) {
-        unimplemented!()
     }
 
     fn add_referenced_variables(&mut self, inst: &vasm::Inst) {
@@ -143,4 +150,79 @@ impl Graph {
             Rval::Lval(lval) => self.add_lval(lval),
         }
     }
+
+    fn add_edges(&mut self, live_set: LiveSet) {
+        use self::Inst::*;
+        use self::Rval::*;
+        use self::Lval::*;
+
+        match live_set {
+            LiveSet::Inst {
+                inst,
+                live_after
+            } => {
+                match *inst {
+                    Mov(StackSlot(_), _)
+                        | Neg(StackSlot(_))
+                        | Add(StackSlot(_), _)
+                        | Push(Lval(StackSlot(_)))
+                        | Push(Imm(_))
+                        => {}
+                    Mov(Var(var), _) | Neg(Var(var)) | Add(Var(var), _) | Push(Lval(Var(var))) => {
+                        self.add_interference(Var(var), &live_after);
+                    }
+                    Mov(Reg(reg), _) | Neg(Reg(reg)) | Add(Reg(reg), _) | Push(Lval(Reg(reg))) => {
+                        self.add_interference(Reg(reg), &live_after);
+                    }
+                    Call(_) => {
+                        let caller_save_registers = &[
+                            ::vasm::Reg::EAX,
+                            ::vasm::Reg::ECX,
+                            ::vasm::Reg::EDX,
+                        ];
+
+                        for &live in &live_after {
+                            for &r in caller_save_registers {
+                                if ::vasm::Lval::Reg(r) == live {
+                                    assert_eq!(r, ::vasm::Reg::EAX, "expected eax");
+                                    continue
+                                }
+                                self.add_edge(::vasm::Lval::Reg(r), live);
+                            }
+                        }
+                    }
+
+                    _ => unimplemented!()
+                }
+            }
+            LiveSet::If {
+                inst,
+                then_before,
+                else_before,
+                live_after,
+                then,
+                else_,
+            } => {
+                unimplemented!()
+            }
+        }
+
+    }
+
+    fn add_interference(&mut self, lval: Lval, interfering: &HashSet<::vasm::Lval>) {
+        for &interfering in interfering {
+            if lval == interfering {
+                continue
+            }
+            self.add_edge(lval, interfering);
+        }
+    }
+
+    fn add_edge<L: Into<Node>, R: Into<Node>>(&mut self, l: L, r: R) {
+        let l = l.into();
+        let r = r.into();
+        assert_ne!(l, r, "trying to add an edge from a node to itself");
+        self.graph.add_edge(l, r, ());
+    }
+
 }
