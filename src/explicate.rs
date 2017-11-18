@@ -89,6 +89,8 @@ impl_wrapper_enum! {
         simple: [
             Printnl,
             Assign,
+            If,
+            While,
             Expr,
             Return
         ];
@@ -202,6 +204,19 @@ pub struct Printnl {
 pub struct Assign {
     pub target: Target,
     pub expr: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct If {
+    pub cond: Expr,
+    pub then: Vec<Stmt>,
+    pub else_: Option<Vec<Stmt>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct While {
+    pub test: Expr,
+    pub body: Vec<Stmt>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -459,6 +474,9 @@ impl Explicate {
             ast::Stmt::Assign(a) => self.assign(a).into(),
             ast::Stmt::Expr(e) => self.expr(e).into(),
             ast::Stmt::Return(r) => self.return_(r).into(),
+            ast::Stmt::Class(_) => unimplemented!(),
+            ast::Stmt::If(i) => self.if_(i).into(),
+            ast::Stmt::While(w) => self.while_(w).into(),
         }
     }
 
@@ -517,6 +535,24 @@ impl Explicate {
         Assign {
             target: self.target(assign.target),
             expr: self.expr(assign.expr),
+        }
+    }
+
+    pub fn while_(&mut self, while_: ast::While) -> While {
+        While {
+            test: self.expr(while_.test),
+            body: while_.body.into_iter().map(|s| self.stmt(s)).collect()
+        }
+    }
+
+    pub fn if_(&mut self, if_: ast::If) -> If {
+        If {
+            cond: self.expr(if_.cond),
+            then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
+            else_: match if_.else_ {
+                Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
+                None => None
+            }
         }
     }
 
@@ -896,6 +932,8 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
             Assign(ref a) => write!(f, "{}", self.fmt(a)),
             Expr(ref e) => write!(f, "{}", self.fmt(e)),
             Return(ref r) => write!(f, "{}", self.fmt(r)),
+            If(ref i) => write!(f, "{}", self.fmt(i)),
+            While(ref w) => write!(f, "{}", self.fmt(w)),
         }
     }
 }
@@ -948,6 +986,39 @@ impl<'a> fmt::Display for Formatter<'a, Assign> {
             self.fmt(&self.node.target),
             self.fmt(&self.node.expr)
         )
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, If> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            "if {}:",
+            self.fmt(&self.node.cond)
+        )?;
+        for stmt in &self.node.then {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
+        if let Some(ref else_) = self.node.else_ {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "else:")?;
+            for stmt in else_ {
+                write!(f, "{}", self.indent())?;
+                writeln!(f, "{}", self.indented(stmt))?;
+            }
+        }
+        Ok(())
+    }
+}
+impl<'a> fmt::Display for Formatter<'a, While> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "while {}:", self.fmt(&self.node.test))?;
+        for stmt in &self.node.body {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
+        Ok(())
     }
 }
 
@@ -1274,7 +1345,13 @@ pub trait TypeCheck {
 
 impl TypeCheck for Module {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        for stmt in &self.stmts {
+        self.stmts.type_check(env)
+    }
+}
+
+impl TypeCheck for Vec<Stmt> {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        for stmt in self {
             let _ = stmt.type_check(env).chain_err(|| {
                 format!("Error type checking stmt: {}", env.fmt(stmt))
             })?;
@@ -1308,6 +1385,16 @@ impl TypeCheck for Stmt {
                     format!("Error type checking return: {}", env.fmt(inner))
                 })
             }
+            If(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking if: {}", env.fmt(inner))
+                })
+            }
+            While(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking while: {}", env.fmt(inner))
+                })
+            }
         }
     }
 }
@@ -1334,6 +1421,25 @@ impl TypeCheck for Assign {
 impl TypeCheck for Return {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         self.expr.type_check(env)
+    }
+}
+
+impl TypeCheck for If {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        self.cond.type_check(env);
+        self.then.type_check(env);
+        if let Some(ref else_) = self.else_ {
+            else_.type_check(env);
+        }
+        Ok(None)
+    }
+}
+
+impl TypeCheck for While {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        self.test.type_check(env);
+        self.body.type_check(env);
+        Ok(None)
     }
 }
 

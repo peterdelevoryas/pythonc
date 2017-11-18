@@ -167,6 +167,8 @@ pub trait TransformAst {
             Stmt::Assign(a) => self.assign(a),
             Stmt::Expr(e) => self.expr(e).into(),
             Stmt::Return(r) => self.return_(r),
+            Stmt::If(i) => self.if_(i),
+            Stmt::While(w) => self.while_(w),
         }
     }
 
@@ -183,6 +185,24 @@ pub trait TransformAst {
 
     fn return_(&mut self, return_: Return) -> Stmt {
         Return { expr: self.expr(return_.expr) }.into()
+    }
+
+    fn if_(&mut self, if_: If) -> Stmt {
+        If {
+            cond: self.expr(if_.cond),
+            then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
+            else_: match if_.else_ {
+                Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
+                None => None
+            }
+        }.into()
+    }
+
+    fn while_(&mut self, while_: While) -> Stmt {
+        While {
+            test: self.expr(while_.test),
+            body: while_.body.into_iter().map(|s| self.stmt(s)).collect(),
+        }.into()
     }
 
     fn target(&mut self, target: Target) -> Target {
@@ -353,6 +373,8 @@ pub trait VisitAst {
             Stmt::Assign(ref a) => self.assign(a),
             Stmt::Expr(ref e) => self.expr(e).into(),
             Stmt::Return(ref r) => self.return_(r),
+            Stmt::If(ref i) => self.if_(i),
+            Stmt::While(ref w) => self.while_(w),
         }
     }
 
@@ -367,6 +389,19 @@ pub trait VisitAst {
 
     fn return_(&mut self, return_: &Return) {
         self.expr(&return_.expr);
+    }
+
+    fn if_(&mut self, if_: &If) {
+        self.expr(&if_.cond);
+        self.stmts(&if_.then);
+        if let Some(ref else_) = if_.else_ {
+            self.stmts(else_);
+        }
+    }
+
+    fn while_(&mut self, while_: &While) {
+        self.expr(&while_.test);
+        self.stmts(&while_.body);
     }
 
     fn target(&mut self, target: &Target) {
