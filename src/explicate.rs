@@ -1687,28 +1687,3 @@ use std::collections::HashSet;
 pub struct Defs {
     defs: HashSet<Var>,
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use super::Defs;
-    use ast;
-
-    #[test]
-    fn defs() {
-        let mut explicate = Explicate::new();
-        let x = explicate.name(ast::Name("x".into()));
-        let y = explicate.name(ast::Name("y".into()));
-        let stmts: Vec<Stmt> = vec![
-            Assign {
-                target: x.into(),
-                expr: y.into(),
-            }.into(),
-            Printnl { expr: x.into() }.into(),
-        ];
-        let defs = stmts.defs();
-        for def in defs {
-            println!("def for {}", explicate.formatter(&def));
-        }
-    }
-}
