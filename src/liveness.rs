@@ -37,9 +37,13 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
         use self::Inst::*;
 
         if let If(cond, ref then, ref else_) = *inst {
+            let cond = match cond {
+                vasm::Rval::Lval(lval) => hash_set!(lval),
+                vasm::Rval::Imm(_) => HashSet::new(),
+            };
             let (then_before, then_live_sets) = block_liveness(then, live_after.clone());
             let (else_before, else_live_sets) = block_liveness(else_, live_after.clone());
-            live_before = &then_before | &else_before;
+            live_before = &(&then_before | &else_before) | &cond;
             live_sets.push(LiveSet::If {
                 inst: inst,
                 then_before: then_before,
