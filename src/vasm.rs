@@ -911,6 +911,22 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
                     Mov(StackSlot(dst).into(), var.into()),
                 ]
             }
+            Or(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    Or(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+            And(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    And(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
 
             Mov(l, r) => Mov(self.lval(l), self.rval(r)),
             Add(l, r) => Add(self.lval(l), self.rval(r)),
