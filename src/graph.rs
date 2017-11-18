@@ -112,15 +112,20 @@ impl Graph {
     }
 
     fn add_unspillable(&mut self, var: Var) {
-        unimplemented!()
+        self.add_node(Node::Var(var));
+        self.unspillable.insert(var);
     }
 
     fn add_spillable(&mut self, var: Var) {
-        unimplemented!()
+        self.add_node(Node::Var(var));
     }
 
     fn add_forced(&mut self, reg: Reg) {
-        unimplemented!()
+        self.add_node(Node::Forced(reg));
+    }
+
+    fn add_node(&mut self, node: Node) {
+        self.graph.add_node(node);
     }
 
     fn add_lval(&mut self, lval: Lval) {
