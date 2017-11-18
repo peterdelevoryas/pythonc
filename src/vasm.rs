@@ -46,6 +46,7 @@ pub enum Inst {
     CallIndirect(Lval),
     Call(String),
     If(Rval, Block, Block),
+    While(Rval, Block),
     /// `Lval - Rval, sets EQ and NE (and other) flags`
     Cmp(Lval, Rval),
     /// `Lval = EQ ? 1 : 0;`
@@ -492,6 +493,14 @@ impl<'a> BlockBuilder<'a> {
                 };
                 self.push_inst(Inst::If(cond.into(), then, else_));
             }
+            flat::Stmt::While(cond, body) => {
+                let i_body = {
+                    let mut block = self.nested();
+                    block.stmts(body);
+                    block.complete()
+                };
+                self.push_inst(Inst::While(cond.into(), i_body))
+            }
         }
     }
 }
@@ -559,6 +568,13 @@ impl fmt::Fmt for Inst {
                 f.dedent();
                 writeln!(f, "}}")?;
                 Ok(())
+            }
+            Inst::While(cond, ref body) => {
+                writeln!(f, "while {} {{", cond)?;
+                f.indent();
+                f.fmt(body)?;
+                f.dedent();
+                writeln!(f, "}}")
             }
             Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
             Inst::Sete(lval) => writeln!(f, "sete {}", lval),
@@ -673,6 +689,7 @@ pub trait TransformBlock {
             Shr(l, imm) => Shr(self.lval(l), imm),
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
+            While(r, body) => While(self.rval(r), self.block(body)),
             Ret => Ret,
         }
     }

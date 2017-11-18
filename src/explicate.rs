@@ -89,6 +89,8 @@ impl_wrapper_enum! {
         simple: [
             Printnl,
             Assign,
+            If,
+            While,
             Expr,
             Return
         ];
@@ -202,6 +204,19 @@ pub struct Printnl {
 pub struct Assign {
     pub target: Target,
     pub expr: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct If {
+    pub cond: Expr,
+    pub then: Vec<Stmt>,
+    pub else_: Option<Vec<Stmt>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct While {
+    pub test: Expr,
+    pub body: Vec<Stmt>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -373,22 +388,12 @@ pub struct Explicate {
     names: HashMap<ast::Name, Var>,
 }
 
-const INTRINSICS: &[(&str, Ty)] = &[
-    ("True", Ty::Pyobj),
-    ("False", Ty::Pyobj),
-    ("input", Ty::Pyobj),
-];
-
 impl Explicate {
     pub fn new() -> Explicate {
         let mut b = Explicate {
             var_data: var::Slab::new(),
             names: HashMap::new(),
         };
-        // All the pre-defined intrinsics
-        for &(name, _) in INTRINSICS {
-            b.name(ast::Name(name.into()));
-        }
 
         return b;
     }
@@ -434,12 +439,31 @@ impl Explicate {
     }
 
     pub fn module(&mut self, module: ast::Module) -> Module {
+        //self.force_insert_name(&ast::Name("True".into()));
+        //self.force_insert_name(&ast::Name("False".into()));
         self.add_names_in_module(&module);
-        let stmts = module
-            .stmts
-            .into_iter()
-            .map(|stmt| self.stmt(stmt))
-            .collect();
+        let mut stmts : Vec<Stmt> = vec![
+            Stmt::Assign(Assign {
+                target : Target::Var(self.name(ast::Name("True".into()))),
+                expr : Expr::InjectFrom(InjectFrom {
+                    from : Ty::Bool,
+                    expr : Expr::Const(Const::Bool(true)),
+                }.into())
+            }),
+            Stmt::Assign(Assign {
+                target : Target::Var(self.name(ast::Name("False".into()))),
+                expr : Expr::InjectFrom(InjectFrom {
+                    from : Ty::Bool,
+                    expr : Expr::Const(Const::Bool(false)),
+                }.into())
+            }),
+        ];
+        stmts.extend(
+            module
+                .stmts
+                .into_iter()
+                .map(|stmt| self.stmt(stmt))
+        );
         Module { stmts }
     }
 
@@ -450,6 +474,9 @@ impl Explicate {
             ast::Stmt::Assign(a) => self.assign(a).into(),
             ast::Stmt::Expr(e) => self.expr(e).into(),
             ast::Stmt::Return(r) => self.return_(r).into(),
+            ast::Stmt::Class(_) => unimplemented!(),
+            ast::Stmt::If(i) => self.if_(i).into(),
+            ast::Stmt::While(w) => self.while_(w).into(),
         }
     }
 
@@ -511,6 +538,24 @@ impl Explicate {
         }
     }
 
+    pub fn while_(&mut self, while_: ast::While) -> While {
+        While {
+            test: self.expr(while_.test),
+            body: while_.body.into_iter().map(|s| self.stmt(s)).collect()
+        }
+    }
+
+    pub fn if_(&mut self, if_: ast::If) -> If {
+        If {
+            cond: self.expr(if_.cond),
+            then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
+            else_: match if_.else_ {
+                Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
+                None => None
+            }
+        }
+    }
+
     pub fn return_(&mut self, assign: ast::Return) -> Return {
         Return { expr: self.expr(assign.expr) }
     }
@@ -543,11 +588,23 @@ impl Explicate {
         )
     }
 
-    pub fn call_func(&mut self, c: ast::CallFunc) -> CallFunc {
-        CallFunc {
-            expr: self.expr(c.expr),
-            args: c.args.into_iter().map(|e| self.expr(e)).collect(),
+    pub fn call_func(&mut self, c: ast::CallFunc) -> Expr {
+
+        let eargs = c.args.into_iter().map(|e| self.expr(e)).collect();
+        
+        if let ast::Expr::Name(ast::Name(ref fn_name)) = c.expr {
+            if fn_name == "input" {
+                return Expr::CallRuntime(CallRuntime {
+                    name : "input".into(),
+                    args : eargs,
+                }.into());
+            }
         }
+
+        Expr::CallFunc(CallFunc {
+            expr: self.expr(c.expr),
+            args: eargs,
+        }.into())
     }
 
     pub fn binop(&mut self, left: ast::Expr, right: ast::Expr, binop: Binop) -> Let {
@@ -875,6 +932,8 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
             Assign(ref a) => write!(f, "{}", self.fmt(a)),
             Expr(ref e) => write!(f, "{}", self.fmt(e)),
             Return(ref r) => write!(f, "{}", self.fmt(r)),
+            If(ref i) => write!(f, "{}", self.fmt(i)),
+            While(ref w) => write!(f, "{}", self.fmt(w)),
         }
     }
 }
@@ -927,6 +986,39 @@ impl<'a> fmt::Display for Formatter<'a, Assign> {
             self.fmt(&self.node.target),
             self.fmt(&self.node.expr)
         )
+    }
+}
+
+impl<'a> fmt::Display for Formatter<'a, If> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(
+            f,
+            "if {}:",
+            self.fmt(&self.node.cond)
+        )?;
+        for stmt in &self.node.then {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
+        if let Some(ref else_) = self.node.else_ {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "else:")?;
+            for stmt in else_ {
+                write!(f, "{}", self.indent())?;
+                writeln!(f, "{}", self.indented(stmt))?;
+            }
+        }
+        Ok(())
+    }
+}
+impl<'a> fmt::Display for Formatter<'a, While> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "while {}:", self.fmt(&self.node.test))?;
+        for stmt in &self.node.body {
+            write!(f, "{}", self.indent())?;
+            writeln!(f, "{}", self.indented(stmt))?;
+        }
+        Ok(())
     }
 }
 
@@ -1221,15 +1313,7 @@ pub struct TypeEnv<'a> {
 
 impl<'a> TypeEnv<'a> {
     pub fn new(explicate: &'a Explicate) -> Self {
-        let type_map = {
-            let mut map = HashMap::new();
-            // initialize intrinsics with types
-            for &(name, ty) in INTRINSICS {
-                let var = explicate.lookup_var(&ast::Name(name.into()));
-                map.insert(var.into(), Some(ty));
-            }
-            map
-        };
+        let type_map = HashMap::new();
         TypeEnv {
             explicate,
             type_map,
@@ -1261,7 +1345,13 @@ pub trait TypeCheck {
 
 impl TypeCheck for Module {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        for stmt in &self.stmts {
+        self.stmts.type_check(env)
+    }
+}
+
+impl TypeCheck for Vec<Stmt> {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        for stmt in self {
             let _ = stmt.type_check(env).chain_err(|| {
                 format!("Error type checking stmt: {}", env.fmt(stmt))
             })?;
@@ -1295,6 +1385,16 @@ impl TypeCheck for Stmt {
                     format!("Error type checking return: {}", env.fmt(inner))
                 })
             }
+            If(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking if: {}", env.fmt(inner))
+                })
+            }
+            While(ref inner) => {
+                inner.type_check(env).chain_err(|| {
+                    format!("Error type checking while: {}", env.fmt(inner))
+                })
+            }
         }
     }
 }
@@ -1321,6 +1421,25 @@ impl TypeCheck for Assign {
 impl TypeCheck for Return {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
         self.expr.type_check(env)
+    }
+}
+
+impl TypeCheck for If {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        self.cond.type_check(env);
+        self.then.type_check(env);
+        if let Some(ref else_) = self.else_ {
+            else_.type_check(env);
+        }
+        Ok(None)
+    }
+}
+
+impl TypeCheck for While {
+    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+        self.test.type_check(env);
+        self.body.type_check(env);
+        Ok(None)
     }
 }
 
@@ -1521,18 +1640,19 @@ impl TypeCheck for CallFunc {
 
 impl TypeCheck for CallRuntime {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        let (ret_ty, arg_ty, args_len) = match self.name.as_str() {
-            "add" => (Ty::Big, Ty::Big, 2),
-            "equal" | "not_equal" => (Ty::Int, Ty::Big, 2),
-            "is_true" => (Ty::Int, Ty::Pyobj, 1),
+        let (ret_ty, arg_types) = match self.name.as_str() {
+            "add" => (Ty::Big, vec![Ty::Big, Ty::Big]),
+            "equal" | "not_equal" => (Ty::Int, vec![Ty::Big, Ty::Big]),
+            "is_true" => (Ty::Int, vec![Ty::Pyobj]),
+            "input" => (Ty::Pyobj, vec![]),
             _ => unimplemented!(),
         };
-        if self.args.len() != args_len {
+        if self.args.len() != arg_types.len() {
             bail!("incorrect number of arguments to runtime function")
         }
-        for arg in &self.args {
+        for (i, arg) in self.args.iter().enumerate() {
             let ty = arg.type_check(env)?;
-            expect_ty(ty, arg_ty).chain_err(|| {
+            expect_ty(ty, arg_types[i]).chain_err(|| {
                 format!("Invalid argument type {} to {}", ty.unwrap(), self.name)
             })?;
         }

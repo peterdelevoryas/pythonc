@@ -39,6 +39,9 @@ impl_wrapper_enum! {
         boxed: [];
         simple: [
             Function,
+            Class,
+            If,
+            While,
             Printnl,
             Assign,
             Expr,
@@ -143,6 +146,26 @@ pub struct Dict {
 pub struct Subscript {
     pub base: Expr,
     pub elem: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Class {
+    pub name: String,
+    pub bases: Vec<Name>,
+    pub code: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct While {
+    pub test: Expr,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct If {
+    pub cond: Expr,
+    pub then: Vec<Stmt>,
+    pub else_: Option<Vec<Stmt>>
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
