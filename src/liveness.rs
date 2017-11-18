@@ -48,6 +48,15 @@ pub struct LiveSet<'inst> {
 
 impl<'inst> fmt::Display for LiveSet<'inst> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+        write!(f, "{inst} // liveset: (", inst=self.inst)?;
+        let live_after: Vec<Lval> = self.live_after.iter().map(|&lval| lval).collect();
+        if !live_after.is_empty() {
+            write!(f, "{}", live_after[0])?;
+            for lval in &live_after[1..] {
+                write!(f, ", {}", lval)?;
+            }
+        }
+        write!(f, ")")?;
+        Ok(())
     }
 }
