@@ -373,22 +373,12 @@ pub struct Explicate {
     names: HashMap<ast::Name, Var>,
 }
 
-const INTRINSICS: &[(&str, Ty)] = &[
-    ("True", Ty::Pyobj),
-    ("False", Ty::Pyobj),
-    ("input", Ty::Pyobj),
-];
-
 impl Explicate {
     pub fn new() -> Explicate {
         let mut b = Explicate {
             var_data: var::Slab::new(),
             names: HashMap::new(),
         };
-        // All the pre-defined intrinsics
-        for &(name, _) in INTRINSICS {
-            b.name(ast::Name(name.into()));
-        }
 
         return b;
     }
@@ -434,12 +424,31 @@ impl Explicate {
     }
 
     pub fn module(&mut self, module: ast::Module) -> Module {
+        //self.force_insert_name(&ast::Name("True".into()));
+        //self.force_insert_name(&ast::Name("False".into()));
         self.add_names_in_module(&module);
-        let stmts = module
-            .stmts
-            .into_iter()
-            .map(|stmt| self.stmt(stmt))
-            .collect();
+        let mut stmts : Vec<Stmt> = vec![
+            Stmt::Assign(Assign {
+                target : Target::Var(self.name(ast::Name("True".into()))),
+                expr : Expr::InjectFrom(InjectFrom {
+                    from : Ty::Bool,
+                    expr : Expr::Const(Const::Bool(true)),
+                }.into())
+            }),
+            Stmt::Assign(Assign {
+                target : Target::Var(self.name(ast::Name("False".into()))),
+                expr : Expr::InjectFrom(InjectFrom {
+                    from : Ty::Bool,
+                    expr : Expr::Const(Const::Bool(false)),
+                }.into())
+            }),
+        ];
+        stmts.extend(
+            module
+                .stmts
+                .into_iter()
+                .map(|stmt| self.stmt(stmt))
+        );
         Module { stmts }
     }
 
@@ -543,11 +552,23 @@ impl Explicate {
         )
     }
 
-    pub fn call_func(&mut self, c: ast::CallFunc) -> CallFunc {
-        CallFunc {
-            expr: self.expr(c.expr),
-            args: c.args.into_iter().map(|e| self.expr(e)).collect(),
+    pub fn call_func(&mut self, c: ast::CallFunc) -> Expr {
+
+        let eargs = c.args.into_iter().map(|e| self.expr(e)).collect();
+        
+        if let ast::Expr::Name(ast::Name(ref fn_name)) = c.expr {
+            if fn_name == "input" {
+                return Expr::CallRuntime(CallRuntime {
+                    name : "input".into(),
+                    args : eargs,
+                }.into());
+            }
         }
+
+        Expr::CallFunc(CallFunc {
+            expr: self.expr(c.expr),
+            args: eargs,
+        }.into())
     }
 
     pub fn binop(&mut self, left: ast::Expr, right: ast::Expr, binop: Binop) -> Let {
@@ -1221,15 +1242,7 @@ pub struct TypeEnv<'a> {
 
 impl<'a> TypeEnv<'a> {
     pub fn new(explicate: &'a Explicate) -> Self {
-        let type_map = {
-            let mut map = HashMap::new();
-            // initialize intrinsics with types
-            for &(name, ty) in INTRINSICS {
-                let var = explicate.lookup_var(&ast::Name(name.into()));
-                map.insert(var.into(), Some(ty));
-            }
-            map
-        };
+        let type_map = HashMap::new();
         TypeEnv {
             explicate,
             type_map,
@@ -1521,18 +1534,19 @@ impl TypeCheck for CallFunc {
 
 impl TypeCheck for CallRuntime {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        let (ret_ty, arg_ty, args_len) = match self.name.as_str() {
-            "add" => (Ty::Big, Ty::Big, 2),
-            "equal" | "not_equal" => (Ty::Int, Ty::Big, 2),
-            "is_true" => (Ty::Int, Ty::Pyobj, 1),
+        let (ret_ty, arg_types) = match self.name.as_str() {
+            "add" => (Ty::Big, vec![Ty::Big, Ty::Big]),
+            "equal" | "not_equal" => (Ty::Int, vec![Ty::Big, Ty::Big]),
+            "is_true" => (Ty::Int, vec![Ty::Pyobj]),
+            "input" => (Ty::Pyobj, vec![]),
             _ => unimplemented!(),
         };
-        if self.args.len() != args_len {
+        if self.args.len() != arg_types.len() {
             bail!("incorrect number of arguments to runtime function")
         }
-        for arg in &self.args {
+        for (i, arg) in self.args.iter().enumerate() {
             let ty = arg.type_check(env)?;
-            expect_ty(ty, arg_ty).chain_err(|| {
+            expect_ty(ty, arg_types[i]).chain_err(|| {
                 format!("Invalid argument type {} to {}", ty.unwrap(), self.name)
             })?;
         }
