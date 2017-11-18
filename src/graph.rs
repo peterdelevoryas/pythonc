@@ -84,12 +84,30 @@ impl Graph {
             Mov(StackSlot(_), Lval(StackSlot(_))) => {
                 panic!("mov stack -> stack encountered in vasm!")
             }
-            Mov(lval, rval) => {
+            Mov(lval, rval) | Add(lval, rval) | Cmp(lval, rval)
+                | Or(lval, rval) | And(lval, rval) => {
                 self.add_lval(lval);
                 self.add_rval(rval);
             }
-            Neg(lval) => self.add_lval(lval),
-            _ => unimplemented!()
+            Neg(lval) | Pop(lval) | CallIndirect(lval)
+                | Sete(lval) | Setne(lval)
+                | Shr(lval, _) | Shl(lval, _)
+                | MovLabel(lval, _) => {
+                self.add_lval(lval);
+            }
+            Push(rval) => {
+                self.add_rval(rval);
+            }
+            Call(_) | Ret => {}
+            If(rval, ref then, ref else_) => {
+                self.add_rval(rval);
+                for inst in &then.insts { self.add_referenced_variables(inst) }
+                for inst in &else_.insts { self.add_referenced_variables(inst) }
+            }
+            While(rval, ref body) => {
+                self.add_rval(rval);
+                for inst in &body.insts { self.add_referenced_variables(inst) }
+            }
         }
     }
 
