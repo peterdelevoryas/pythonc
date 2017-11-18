@@ -27,7 +27,7 @@ pub struct FunctionBuilder {
     stack_slots: u32,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Block {
     pub insts: Vec<Inst>,
 }
@@ -37,7 +37,7 @@ pub struct BlockBuilder<'a> {
     insts: Vec<Inst>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Inst {
     Mov(Lval, Rval),
     Add(Lval, Rval),
@@ -857,5 +857,21 @@ impl Inst {
                 => hash_set!(),
             If(_, _, _) => panic!("read_set called on Inst::If"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use explicate::var;
+    #[test]
+    fn write_set() {
+        let mut vars: var::Slab<()> = var::Slab::new();
+        let x: Lval = vars.insert(()).into();
+        let y: Lval = vars.insert(()).into();
+        let z: Rval = vars.insert(()).into();
+        use self::Inst::*;
+
+        assert_eq!(Mov(x, z).write_set(), hash_set!(x));
     }
 }
