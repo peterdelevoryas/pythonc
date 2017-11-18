@@ -138,7 +138,7 @@ impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
                 inst,
                 ref live_after,
             } => {
-                writeln!(f, "{}", inst)?;
+                f.fmt(inst)?;
                 write_live_set(f, live_after)?;
             }
             LiveSet::If {

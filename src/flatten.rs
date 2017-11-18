@@ -41,6 +41,7 @@ pub enum Stmt {
     Def(Var, Expr),
     Discard(Expr),
     Return(Option<Var>),
+    While(Var, Vec<Stmt>),
     If(Var, Vec<Stmt>, Vec<Stmt>),
 }
 
@@ -178,6 +179,8 @@ impl Flatten for ex::Stmt {
                 e.flatten(builder);
             } // Discard case, need to throw away tmp, or maybe not -- who cares
             ex::Stmt::Return(r) => r.flatten(builder),
+            ex::Stmt::If(i) => i.flatten(builder),
+            ex::Stmt::While(w) => w.flatten(builder),
         }
     }
 }
@@ -221,6 +224,40 @@ impl Flatten for ex::Return {
     fn flatten(self, builder: &mut Flattener) {
         let loc = self.expr.flatten(builder);
         builder.push(Stmt::Return(Some(loc)));
+    }
+}
+
+impl Flatten for ex::While {
+    type Output = ();
+    fn flatten(self, builder: &mut Flattener) {
+        let loc = self.test.flatten(builder);
+
+        builder.enter_context();
+        self.body.flatten(builder);
+        let x_body = builder.clear();
+
+        builder.push(Stmt::While(loc, x_body));
+    }
+}
+
+impl Flatten for ex::If {
+    type Output = ();
+    fn flatten(self, builder: &mut Flattener) {
+        let cl = self.cond.flatten(builder);
+
+        builder.enter_context();
+        self.then.flatten(builder);
+        let x_then = builder.clear();
+
+        let mut x_else = vec![];
+
+        if let Some(else_) = self.else_ {
+            builder.enter_context();
+            else_.flatten(builder);
+            x_else.extend(builder.clear());
+        }
+
+        builder.push(Stmt::If(cl, x_then, x_else))
     }
 }
 
@@ -483,6 +520,11 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
                     Some(loc) => write!(f, "return {}", loc),
                     None => write!(f, "return"),
                 }
+            }
+            Stmt::While(c, ref body) => {
+                writeln!(f, "while {} {{", c)?;
+                writeln!(f, "{block}", block = self.indented(body.as_slice()))?;
+                write!(f, "{indent}}}", indent = self.indent())
             }
             Stmt::If(c, ref t_block, ref e_block) => {
                 writeln!(f, "if {} {{", c)?;

@@ -47,6 +47,7 @@ pub enum Inst {
     CallIndirect(Lval),
     Call(String),
     If(Rval, Block, Block),
+    While(Rval, Block),
     /// `Lval - Rval, sets EQ and NE (and other) flags`
     Cmp(Lval, Rval),
     /// `Lval = EQ ? 1 : 0;`
@@ -493,6 +494,14 @@ impl<'a> BlockBuilder<'a> {
                 };
                 self.push_inst(Inst::If(cond.into(), then, else_));
             }
+            flat::Stmt::While(cond, body) => {
+                let i_body = {
+                    let mut block = self.nested();
+                    block.stmts(body);
+                    block.complete()
+                };
+                self.push_inst(Inst::While(cond.into(), i_body))
+            }
         }
     }
 }
@@ -533,47 +542,54 @@ impl fmt::Fmt for Block {
         use std::io::Write;
 
         for inst in &self.insts {
-            match *inst {
-                Inst::If(cond, ref then, ref else_) => {
-                    writeln!(f, "if {} {{", cond)?;
-                    f.indent();
-                    f.fmt(then)?;
-                    f.dedent();
-                    writeln!(f, "}} else {{")?;
-                    f.indent();
-                    f.fmt(else_)?;
-                    f.dedent();
-                    writeln!(f, "}}")?;
-                }
-                ref inst => {
-                    writeln!(f, "{}", inst)?;
-                }
-            }
+            f.fmt(inst)?;
         }
         Ok(())
     }
 }
 
-impl ::std::fmt::Display for Inst {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Fmt for Inst {
+    fn fmt<W>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
         match *self {
-            Inst::Mov(lval, rval) => write!(f, "mov {}, {}", rval, lval),
-            Inst::Add(lval, rval) => write!(f, "add {}, {}", rval, lval),
-            Inst::Neg(lval) => write!(f, "neg {}", lval),
-            Inst::Push(rval) => write!(f, "push {}", rval),
-            Inst::Pop(lval) => write!(f, "pop {}", lval),
-            Inst::CallIndirect(lval) => write!(f, "call *{}", lval),
-            Inst::Call(ref name) => write!(f, "call {}", name),
-            Inst::If(cond, ref then, ref else_) => panic!(),
-            Inst::Cmp(lval, rval) => write!(f, "cmp {}, {}", rval, lval),
-            Inst::Sete(lval) => write!(f, "sete {}", lval),
-            Inst::Setne(lval) => write!(f, "setne {}", lval),
-            Inst::Or(lval, rval) => write!(f, "or {}, {}", rval, lval),
-            Inst::And(lval, rval) => write!(f, "and {}, {}", rval, lval),
-            Inst::Shr(lval, imm) => write!(f, "shr ${}, {}", imm, lval),
-            Inst::Shl(lval, imm) => write!(f, "shl ${}, {}", imm, lval),
-            Inst::MovLabel(lval, func) => write!(f, "mov ${}, {}", func, lval),
-            Inst::Ret => write!(f, "ret"),
+            Inst::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
+            Inst::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
+            Inst::Neg(lval) => writeln!(f, "neg {}", lval),
+            Inst::Push(rval) => writeln!(f, "push {}", rval),
+            Inst::Pop(lval) => writeln!(f, "pop {}", lval),
+            Inst::CallIndirect(lval) => writeln!(f, "call *{}", lval),
+            Inst::Call(ref name) => writeln!(f, "call {}", name),
+            Inst::If(cond, ref then, ref else_) => {
+                writeln!(f, "if {} {{", cond)?;
+                f.indent();
+                f.fmt(then)?;
+                f.dedent();
+                writeln!(f, "}} else {{")?;
+                f.indent();
+                f.fmt(else_)?;
+                f.dedent();
+                writeln!(f, "}}")?;
+                Ok(())
+            }
+            Inst::While(cond, ref body) => {
+                writeln!(f, "while {} {{", cond)?;
+                f.indent();
+                f.fmt(body)?;
+                f.dedent();
+                writeln!(f, "}}")
+            }
+            Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
+            Inst::Sete(lval) => writeln!(f, "sete {}", lval),
+            Inst::Setne(lval) => writeln!(f, "setne {}", lval),
+            Inst::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
+            Inst::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
+            Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
+            Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
+            Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
+            Inst::Ret => writeln!(f, "ret"),
         }
     }
 }
@@ -678,6 +694,7 @@ pub trait TransformBlock {
             Shr(l, imm) => Shr(self.lval(l), imm),
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
+            While(r, body) => While(self.rval(r), self.block(body)),
             Ret => Ret,
         }
     }
@@ -720,6 +737,7 @@ pub trait VisitBlock {
             Shr(l, imm) => self.shr(l, imm),
             Shl(l, imm) => self.shl(l, imm),
             MovLabel(l, func) => self.mov_label(l, func),
+            While(_, _) => unimplemented!(),
             Ret => self.ret(),
         }
     }
@@ -826,6 +844,7 @@ impl Inst {
                 => hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter().map(|reg| reg.into()).collect(),
 
             If(_, _, _) => panic!("write_set called on Inst::If"),
+            While(_, _) => unimplemented!(),
         }
     }
 
@@ -862,6 +881,7 @@ impl Inst {
                 | Push(Rval::Imm(_))
                 => hash_set!(),
             If(_, _, _) => panic!("read_set called on Inst::If"),
+            While(_, _) => unimplemented!(),
         }
     }
 }

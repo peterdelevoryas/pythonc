@@ -14,8 +14,11 @@ use ::Not;
 use ::List;
 use ::Dict;
 use ::Subscript;
+use ::If;
 use ::IfExp;
+use ::While;
 use ::Function;
+use ::Class;
 use ::Lambda;
 use ::Return;
 use ::Expr;
@@ -42,30 +45,69 @@ pub lambda: Lambda = {
     "Lambda" "("
         <args:comma_list<str_literal>> ","
         <_unused:comma_list<str_literal>> ","
-        <zero:int_literal> ","
+        <_zero:int_literal> ","
         <expr:expr>
     ")" => {
-        assert_eq!(zero, 0);
+        assert_eq!(_zero, 0);
         Lambda { args, expr }
     }
 };
 
 pub function: Function = {
     "Function" "("
-        "None" ","
+        <_n:none_literal> ","
         <name:str_literal> ","
         <args:comma_list<str_literal>> ","
         <_unused:comma_list<str_literal>> ","
-        <zero:int_literal> ","
-        "None" ","
+        <_zero:int_literal> ","
+        <_n2:none_literal> ","
         <code:stmts>
     ")" => {
-        assert_eq!(zero, 0);
+        assert_eq!(_zero, 0);
         Function {
             name,
             args,
             code,
         }
+    },
+};
+
+pub class: Class = {
+    "Class" "("
+        <name:str_literal> ","
+        <bases:comma_list<name>> ","
+        <_n:none_literal> ","
+        <code:stmts> ","
+        <_n2:none_literal>
+    ")" => Class {
+        name,
+        bases,
+        code
+    },
+};
+
+pub while: While = {
+    "While" "("
+        <test:expr> ","
+        <body:stmts> ","
+        <_n:none_literal>
+    ")" => While {
+        test,
+        body,
+    },
+};
+
+pub if_stmt: If = {
+    "If" "(" 
+        "[" "("
+            <cond:expr> ","
+            <then:stmts>
+        ")" "]" ","
+        <else_:or_none<stmts>>
+    ")" => If {
+        cond,
+        then,
+        else_,
     },
 };
 
@@ -136,7 +178,7 @@ pub compare_op: CompareOp = {
 };
 
 pub module: Module = {
-    "Module" "(" "None" "," <stmts:stmts> ")" => {
+    "Module" "(" <_n:none_literal> "," <stmts:stmts> ")" => {
         Module {
             stmts
         }
@@ -171,7 +213,7 @@ pub target: Target = {
 };
 
 pub printnl: Printnl = {
-    "Printnl" "(" "[" <expr:expr> "]" "," "None" ")" => {
+    "Printnl" "(" "[" <expr:expr> "]" "," <_n:none_literal> ")" => {
         Printnl {
             expr
         }
@@ -181,13 +223,16 @@ pub printnl: Printnl = {
 pub stmt: Stmt = {
     <return> => (<>).into(),
     <function> => (<>).into(),
+    <class> => (<>).into(),
+    <if_stmt> => (<>).into(),
+    <while> => (<>).into(),
     <printnl> => (<>).into(),
     <assign> => (<>).into(),
     <expr> => (<>).into(),
 };
 
 pub call_func: CallFunc = {
-    "CallFunc" "(" <expr:expr> "," "[" <args:comma<expr>> "]" "," "None" "," "None" ")" => {
+    "CallFunc" "(" <expr:expr> "," "[" <args:comma<expr>> "]" "," <_n:none_literal> "," <_n2:none_literal> ")" => {
         CallFunc {
             expr,
             args,
@@ -270,6 +315,11 @@ comma<T>: Vec<T> = {
             v
         }
     }
+};
+
+or_none<T>: Option<T> = {
+    <val:T> => Some(val),
+    <_n:none_literal> => None
 };
 
 ident: String = <s:r"[_A-Za-z][_A-Za-z0-9]*"> => s.into();
