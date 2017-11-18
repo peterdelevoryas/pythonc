@@ -668,15 +668,15 @@ impl ::std::fmt::Display for Rval {
 pub trait TransformBlock {
     fn block(&mut self, block: Block) -> Block {
         Block {
-            insts: block.insts.into_iter().map(|inst| {
+            insts: block.insts.into_iter().flat_map(|inst| {
                 self.inst(inst)
             }).collect()
         }
     }
 
-    fn inst(&mut self, inst: Inst) -> Inst {
+    fn inst(&mut self, inst: Inst) -> Vec<Inst> {
         use self::Inst::*;
-        match inst {
+        let inst = match inst {
             Mov(l, r) => Mov(self.lval(l), self.rval(r)),
             Add(l, r) => Add(self.lval(l), self.rval(r)),
             Neg(l) => Neg(self.lval(l)),
@@ -695,7 +695,8 @@ pub trait TransformBlock {
             MovLabel(l, func) => MovLabel(self.lval(l), func),
             While(r, body) => While(self.rval(r), self.block(body)),
             Ret => Ret,
-        }
+        };
+        vec![inst]
     }
 
     fn lval(&mut self, lval: Lval) -> Lval {
@@ -885,18 +886,72 @@ impl Inst {
     }
 }
 
-pub struct ReplaceStackOps;
+pub struct ReplaceStackOps<'vars> {
+    vars: &'vars mut ::explicate::var::Slab<::explicate::var::Data>,
+}
 
-impl TransformBlock for ReplaceStackOps {
+impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
+    fn inst(&mut self, inst: Inst) -> Vec<Inst> {
+        use self::Inst::*;
+        let inst = match inst {
+            Mov(l, r) => Mov(self.lval(l), self.rval(r)),
+            Add(l, r) => Add(self.lval(l), self.rval(r)),
+            Neg(l) => Neg(self.lval(l)),
+            Push(r) => Push(self.rval(r)),
+            Pop(l) => Pop(self.lval(l)),
+            CallIndirect(l) => CallIndirect(self.lval(l)),
+            Call(name) => Call(name),
+            If(rval, then, else_) => If(self.rval(rval), self.block(then), self.block(else_)),
+            Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
+            Sete(l) => Sete(self.lval(l)),
+            Setne(l) => Setne(self.lval(l)),
+            Or(l, r) => Or(self.lval(l), self.rval(r)),
+            And(l, r) => And(self.lval(l), self.rval(r)),
+            Shr(l, imm) => Shr(self.lval(l), imm),
+            Shl(l, imm) => Shl(self.lval(l), imm),
+            MovLabel(l, func) => MovLabel(self.lval(l), func),
+            While(r, body) => While(self.rval(r), self.block(body)),
+            Ret => Ret,
+        };
+        vec![inst]
+    }
 }
 
 impl Function {
     pub fn replace_stack_to_stack_ops(self, vars: &mut ex::var::Slab<ex::var::Data>) -> Self {
-        unimplemented!()
+        let mut replace = ReplaceStackOps {
+            vars: vars,
+        };
+        Function {
+            args: self.args,
+            stack_slots: self.stack_slots,
+            block: replace.block(self.block),
+        }
     }
 
     pub fn spill(&mut self, var: Var) {
-        unimplemented!()
+        let mut spill = Spill {
+            var: var,
+            stack_slot: StackSlot(self.stack_slots),
+        };
+        self.block = spill.block(self.block.clone());
+        self.stack_slots += 1;
+    }
+}
+
+struct Spill {
+    var: Var,
+    stack_slot: StackSlot,
+}
+
+impl TransformBlock for Spill {
+    fn lval(&mut self, lval: Lval) -> Lval {
+        if let Lval::Var(var) = lval {
+            if var == self.var {
+                return self.stack_slot.into()
+            }
+        }
+        lval
     }
 }
 
