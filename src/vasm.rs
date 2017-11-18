@@ -893,7 +893,25 @@ pub struct ReplaceStackOps<'vars> {
 impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
     fn inst(&mut self, inst: Inst) -> Vec<Inst> {
         use self::Inst::*;
+        use self::Lval::*;
+        use self::Rval::*;
         let inst = match inst {
+            Mov(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+            Add(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    Add(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+
             Mov(l, r) => Mov(self.lval(l), self.rval(r)),
             Add(l, r) => Add(self.lval(l), self.rval(r)),
             Neg(l) => Neg(self.lval(l)),
