@@ -33,6 +33,19 @@ pub enum Node {
 
 pub type Color = Reg;
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Saturation {
+    Spillable(usize),
+    Unspillable(usize),
+    Forced,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum DSaturResult {
+    Success,
+    Spill(Var),
+}
+
 impl From<Reg> for Node {
     fn from(r: Reg) -> Node {
         Node::Forced(r)
@@ -264,4 +277,110 @@ impl Graph {
         self.graph.add_edge(l, r, ());
     }
 
+    pub fn run_dsatur(&mut self) -> DSaturResult {
+        use self::Reg::*;
+
+        let registers = hash_set!(EAX, EBX, ECX, EDX, ESI, EDI);
+
+        loop {
+            let uncolored_nodes: Vec<Var> = self.uncolored_nodes().collect();
+            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(|&var| self.saturation(*var)) {
+                let diff: HashSet<Reg> = registers.difference(&self.adjacent_colors(u)).map(|&r| r).collect();
+                let r = match diff.iter().next() {
+                    Some(&r) => r,
+                    None => return DSaturResult::Spill(u)
+                };
+                (u, r)
+            } else {
+                break;
+            };
+            self.write_color(u, r);
+        }
+        DSaturResult::Success
+    }
+
+    fn write_color(&mut self, var: Var, color: Color) {
+        assert!(
+            !self.colors.contains_key(&var),
+            "A color should only be written once"
+        );
+        self.colors.insert(var, color);
+    }
+
+    fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=Var> {
+        self.graph
+            .nodes()
+            .filter_map(|n| {
+                match n {
+                    Node::Var(var) => Some(var),
+                    Node::Forced(_) => None,
+                }
+            })
+            .filter_map(move |var| {
+                match self.var_color(var) {
+                    None => Some(var),
+                    Some(_) => None,
+                }
+            })
+    }
+
+    fn saturation<N: Into<Node>>(&self, node: N) -> Saturation {
+        let node = node.into();
+        match node {
+            Node::Var(var) => {
+                let unspillable = self.unspillable.contains(&var);
+                let count = self.count_adjacent_colored(node);
+                if unspillable {
+                    Saturation::Unspillable(count)
+                } else {
+                    Saturation::Spillable(count)
+                }
+            }
+            Node::Forced(_) => Saturation::Forced,
+        }
+    }
+
+    fn adjacent_colors<N: Into<Node>>(&self, node: N) -> HashSet<Color> {
+        let node = node.into();
+        self.graph
+            .neighbors(node)
+            .filter_map(|n| {
+                self.node_color(n)
+            })
+            .collect()
+    }
+
+    fn count_adjacent_colored<N: Into<Node>>(&self, node: N) -> usize {
+        let node = node.into();
+        self.graph
+            .neighbors(node)
+            .map(|n| if self.node_color(n).is_some() { 1 } else { 0 })
+            .sum()
+    }
+
+    fn var_color(&self, var: Var) -> Option<Color> {
+        self.colors.get(&var).map(|&c| c)
+    }
+
+    fn node_color<N: Into<Node>>(&self, node: N) -> Option<Color> {
+        let node = node.into();
+        match node {
+            Node::Var(var) => self.var_color(var),
+            Node::Forced(r) => Some(r)
+        }
+    }
+
+    /*
+    pub fn assign_homes(&self, mut vm: vm::Program) -> vm::Program {
+        for instr in vm.stack.iter_mut() {
+            let tmps = instr.tmps();
+            for &tmp in &tmps {
+                let color = self.tmp_color(tmp).expect("tmp is not colored");
+                println!("{} := {}", tmp, trans::Att(&color));
+                instr.replace_with(tmp, vm::LVal::Register(color));
+            }
+        }
+        vm
+    }
+    */
 }
