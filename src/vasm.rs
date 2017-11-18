@@ -864,14 +864,32 @@ impl Inst {
 mod tests {
     use super::*;
     use explicate::var;
+    use raise::func;
+
     #[test]
     fn write_set() {
+        let mut funcs: func::Slab<()> = func::Slab::new();
         let mut vars: var::Slab<()> = var::Slab::new();
         let x: Lval = vars.insert(()).into();
-        let y: Lval = vars.insert(()).into();
         let z: Rval = vars.insert(()).into();
+        let f = funcs.insert(());
         use self::Inst::*;
 
         assert_eq!(Mov(x, z).write_set(), hash_set!(x));
+        assert_eq!(Add(x, z).write_set(), hash_set!(x));
+        assert_eq!(Neg(x).write_set(), hash_set!(x));
+        assert_eq!(Push(z).write_set(), hash_set!());
+        assert_eq!(Pop(x).write_set(), hash_set!(x));
+        assert_eq!(CallIndirect(x).write_set(), hash_set!());
+        assert_eq!(Call("hello".into()).write_set(), hash_set!());
+        assert_eq!(Cmp(x, z).write_set(), hash_set!());
+        assert_eq!(Sete(x).write_set(), hash_set!(x));
+        assert_eq!(Setne(x).write_set(), hash_set!(x));
+        assert_eq!(Or(x, z).write_set(), hash_set!(x));
+        assert_eq!(And(x, z).write_set(), hash_set!(x));
+        assert_eq!(Shr(x, 2).write_set(), hash_set!(x));
+        assert_eq!(Shl(x, 2).write_set(), hash_set!(x));
+        assert_eq!(MovLabel(x, f).write_set(), hash_set!(x));
+        assert_eq!(Ret.write_set(), hash_set!());
     }
 }
