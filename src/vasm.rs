@@ -24,8 +24,7 @@ pub struct Function {
 
 pub struct FunctionBuilder {
     args: Vec<Var>,
-    stack_slots: u32,
-}
+    stack_slots: u32, }
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Block {
@@ -883,6 +882,21 @@ impl Inst {
             If(_, _, _) => panic!("read_set called on Inst::If"),
             While(_, _) => unimplemented!(),
         }
+    }
+}
+
+pub struct ReplaceStackOps;
+
+impl TransformBlock for ReplaceStackOps {
+}
+
+impl Function {
+    pub fn replace_stack_to_stack_ops(self, vars: &mut ex::var::Slab<ex::var::Data>) -> Self {
+        unimplemented!()
+    }
+
+    pub fn spill(&mut self, var: Var) {
+        unimplemented!()
     }
 }
 

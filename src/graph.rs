@@ -370,17 +370,18 @@ impl Graph {
         }
     }
 
-    /*
-    pub fn assign_homes(&self, mut vm: vm::Program) -> vm::Program {
-        for instr in vm.stack.iter_mut() {
-            let tmps = instr.tmps();
-            for &tmp in &tmps {
-                let color = self.tmp_color(tmp).expect("tmp is not colored");
-                println!("{} := {}", tmp, trans::Att(&color));
-                instr.replace_with(tmp, vm::LVal::Register(color));
-            }
-        }
-        vm
+    pub fn assign_homes(&self, mut function: vasm::Function) -> vasm::Function {
+        use vasm::TransformBlock;
+        let mut assign_homes = AssignHomes { graph: self };
+        function.block = assign_homes.block(function.block);
+        function
     }
-    */
+}
+
+struct AssignHomes<'graph> {
+    graph: &'graph Graph,
+}
+
+// assigns homes to registers based on coloring
+impl<'graph> ::vasm::TransformBlock for AssignHomes<'graph> {
 }
