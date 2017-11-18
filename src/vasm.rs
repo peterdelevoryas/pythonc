@@ -10,15 +10,16 @@ use std::collections::HashMap;
 pub const WORD_SIZE: Imm = 4;
 
 pub struct Module {
-    main: raise::Func,
-    funcs: HashMap<raise::Func, Function>,
+    pub main: raise::Func,
+    pub funcs: HashMap<raise::Func, Function>,
     vars: ex::var::Slab<ex::var::Data>,
 }
 
+#[derive(Clone)]
 pub struct Function {
-    args: Vec<Var>,
-    stack_slots: u32,
-    block: Block,
+    pub args: Vec<Var>,
+    pub stack_slots: u32,
+    pub block: Block,
 }
 
 pub struct FunctionBuilder {
@@ -28,7 +29,7 @@ pub struct FunctionBuilder {
 
 #[derive(Debug, Clone, Hash)]
 pub struct Block {
-    insts: Vec<Inst>,
+    pub insts: Vec<Inst>,
 }
 
 pub struct BlockBuilder<'a> {
@@ -69,6 +70,8 @@ pub enum Inst {
     JmpLabel(String),
     /// If EFLAGS has eq-bit, jump to label
     JeqLabel(String),
+    /// `sub l,r`
+    Sub(Lval, Rval),
     /// Just `ret`, nothing else
     Ret,
     /// String s -> `s:`
@@ -146,8 +149,6 @@ impl Function {
         match block.insts.last() {
             Some(&Inst::Ret) => {}
             Some(_) | None => {
-                block.insts.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
-                block.insts.push(Inst::Pop(Reg::EBP.into()));
                 block.insts.push(Inst::Ret.into());
             }
         }
@@ -482,8 +483,6 @@ impl<'a> BlockBuilder<'a> {
                 if let Some(var) = var {
                     self.mov(Reg::EAX, var);
                 }
-                self.mov(Reg::ESP, Reg::EBP);
-                self.pop(Reg::EBP);
                 self.ret();
             }
             flat::Stmt::If(cond, then, else_) => {
@@ -522,7 +521,7 @@ impl fmt::Fmt for Module {
 
         for (&f, func) in &self.funcs {
             if f == self.main {
-                writeln!(out, ".global main")?;
+                writeln!(out, ".globl main")?;
                 writeln!(out, "main:")?;
             } else {
                 writeln!(out, "{}:", f)?;
@@ -538,10 +537,6 @@ impl fmt::Fmt for Module {
 impl fmt::Fmt for Function {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
-        // write shim first
-        writeln!(f, "push %ebp")?;
-        writeln!(f, "mov %esp, %ebp")?;
-        writeln!(f, "sub ${}, %esp", self.stack_slots as Imm * WORD_SIZE)?;
         f.fmt(&self.block)?;
         Ok(())
     }
@@ -601,7 +596,13 @@ impl fmt::Fmt for Inst {
             Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
             Inst::JmpLabel(ref label) => writeln!(f, "jmp {}", label),
             Inst::JeqLabel(ref label) => writeln!(f, "jeq {}", label),
-            Inst::Label(ref label) => writeln!(f, "{}:", label),
+            Inst::Label(ref label) => {
+                f.dedent();
+                writeln!(f, "{}:", label)?;
+                f.indent();
+                Ok(())
+            },
+            Inst::Sub(lval, rval) => writeln!(f, "sub {}, {}", rval, lval),
             Inst::Ret => writeln!(f, "ret"),
         }
     }
@@ -712,6 +713,7 @@ pub trait TransformBlock {
             Label(_) => panic!("Encountered label in TransformBlock"),
             JmpLabel(_) => panic!("Encountered `jmp label` in TransformBlock"),
             JeqLabel(_) => panic!("Encountered `jeq label` in TransformBlock"),
+            Sub(_, _) => panic!("Encountered `sub` in TransformBlock"),
         }
     }
 
@@ -727,7 +729,38 @@ pub trait TransformBlock {
     }
 }
 
-pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
+pub fn render_func(label: raise::Func, f : Function) -> Vec<Inst> {
+    let mut result = vec![
+        //Inst::Label(format!("{}", label)),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::EBX))),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::EDI))),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::ESI))),
+    ];
+
+    // write shim first
+    result.push(Inst::Push(Reg::EBP.into()));
+    result.push(Inst::Mov(Reg::EBP.into(), Reg::ESP.into()));
+    result.push(Inst::Sub(Reg::ESP.into(), Rval::Imm(f.stack_slots as Imm * WORD_SIZE)));
+
+    result.extend(linearize(f.block.insts));
+
+    result.push(Inst::Label(".out".into()));
+
+    result.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
+    result.push(Inst::Pop(Reg::EBP.into()));
+
+    result.extend(vec![
+        Inst::Pop(Lval::Reg(Reg::ESI)),
+        Inst::Pop(Lval::Reg(Reg::EDI)),
+        Inst::Pop(Lval::Reg(Reg::EBX)),
+    ]);
+
+    result.push(Inst::Ret);
+
+    result
+}
+
+fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
     let mut label_index : usize = 0;
 
     let mut next_label = | | {
@@ -782,8 +815,9 @@ pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
                 // _bot:
                 v.push(Inst::Label(l_bot));
             },
+            Inst::Ret => v.push(Inst::JmpLabel(".out".into())),
             // Default case, don't modify the instruction
-            i => v.push(i)
+            i => v.push(i),
         };
     }
     v

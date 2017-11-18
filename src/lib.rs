@@ -114,8 +114,22 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let vasm_module = vasm::Module::from(flattener);
+        let mut vasm_module = vasm::Module::from(flattener);
         if stop_stage == Stage::VAsm {
+            return fmt_out(&vasm_module, out_path)
+        }
+
+        for (fname, func) in vasm_module.funcs.clone() {
+            let r = vasm::render_func(fname, func.clone());
+            vasm_module.funcs.insert(fname, vasm::Function {
+                args : func.args,
+                stack_slots : func.stack_slots,
+                block : vasm::Block {
+                    insts : r
+                },
+            });
+        }
+        if stop_stage == Stage::Asm {
             return fmt_out(&vasm_module, out_path)
         }
 
