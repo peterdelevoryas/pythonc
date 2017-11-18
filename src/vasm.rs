@@ -828,6 +828,34 @@ impl Inst {
     /// panic! Ifs should be handled manually
     pub fn read_set(&self) -> HashSet<Lval> {
         use self::Inst::*;
-        unimplemented!()
+        match *self {
+            Add(l, Rval::Lval(r))
+                | Or(l, Rval::Lval(r))
+                | And(l, Rval::Lval(r))
+                | Cmp(l, Rval::Lval(r)) => hash_set!(l, r),
+
+            Add(v, Rval::Imm(_))
+                | Or(v, Rval::Imm(_))
+                | And(v, Rval::Imm(_))
+                | Cmp(v, Rval::Imm(_)) => hash_set!(v),
+
+            Mov(_, Rval::Lval(v))
+                | Neg(v)
+                | Push(Rval::Lval(v))
+                | CallIndirect(v)
+                | Shr(v, _)
+                | Shl(v, _) => hash_set!(v),
+
+            Call(_)
+                | Sete(_)
+                | Setne(_)
+                | MovLabel(_, _)
+                | Ret
+                | Pop(_)
+                | Mov(_, Rval::Imm(_))
+                | Push(Rval::Imm(_))
+                => hash_set!(),
+            If(_, _, _) => panic!("read_set called on Inst::If"),
+        }
     }
 }
