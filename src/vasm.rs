@@ -88,7 +88,7 @@ pub type Imm = i32;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Param(u32);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Reg {
     EAX,
     EBX,

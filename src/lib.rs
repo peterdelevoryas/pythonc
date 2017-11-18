@@ -9,6 +9,7 @@ extern crate clap;
 extern crate log;
 extern crate slab;
 extern crate ast;
+extern crate petgraph;
 
 pub mod error;
 pub mod explicate;
@@ -18,6 +19,7 @@ pub mod flatten;
 pub mod free_vars;
 pub mod vasm;
 pub mod liveness;
+pub mod graph;
 
 use flatten::Flatten;
 
