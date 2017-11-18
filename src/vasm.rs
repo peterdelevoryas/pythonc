@@ -11,9 +11,9 @@ use std::collections::HashSet;
 pub const WORD_SIZE: Imm = 4;
 
 pub struct Module {
-    main: raise::Func,
-    funcs: HashMap<raise::Func, Function>,
-    vars: ex::var::Slab<ex::var::Data>,
+    pub main: raise::Func,
+    pub funcs: HashMap<raise::Func, Function>,
+    pub vars: ex::var::Slab<ex::var::Data>,
 }
 
 pub struct Function {

@@ -47,9 +47,46 @@ pub struct LiveSet<'inst> {
     pub live_after: HashSet<Lval>,
 }
 
-impl<'inst> fmt::Display for LiveSet<'inst> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{inst} // liveset: (", inst=self.inst)?;
+pub fn liveset_debug_string(vasm: &vasm::Module) -> String {
+    let formatter = Formatter { data: vasm };
+    let mut f = ::util::fmt::Formatter::new(Vec::new());
+    f.fmt(&formatter).unwrap();
+    String::from_utf8(f.into_inner()).unwrap()
+}
+
+struct Formatter<'a, T: 'a> {
+    data: &'a T,
+}
+
+impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Module> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+        for (&func, function) in &self.data.funcs {
+            if func == self.data.main {
+                writeln!(f, ".globl main")?;
+                writeln!(f, "main:")?;
+            } else {
+                writeln!(f, "{}:", func)?;
+            }
+            f.indent();
+            f.fmt(&Formatter { data: function });
+            f.dedent();
+        }
+        Ok(())
+    }
+}
+
+impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+        writeln!(f, "{}", self.inst)?;
+        write!(f, "live: (")?;
         let live_after: Vec<Lval> = self.live_after.iter().map(|&lval| lval).collect();
         if !live_after.is_empty() {
             write!(f, "{}", live_after[0])?;
@@ -57,11 +94,51 @@ impl<'inst> fmt::Display for LiveSet<'inst> {
                 write!(f, ", {}", lval)?;
             }
         }
-        write!(f, ")")?;
+        writeln!(f, ")\n")?;
         Ok(())
     }
 }
 
-pub fn liveset_debug_string(vasm: &vasm::Module) -> String {
-    unimplemented!()
+impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Function> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+        writeln!(f, "push %ebp")?;
+        writeln!(f, "mov %esp, %ebp")?;
+        writeln!(f, "sub ${}, %esp", self.data.stack_slots as vasm::Imm * vasm::WORD_SIZE)?;
+        f.fmt(&Formatter { data: &self.data.block });
+        Ok(())
+    }
+}
+
+impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Block> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+        let live_sets = liveness(self.data);
+
+        for live_set in &live_sets {
+            match *live_set.inst {
+                vasm::Inst::If(cond, ref then, ref else_) => {
+                    writeln!(f, "if {} {{", cond)?;
+                    f.indent();
+                    f.fmt(&Formatter { data: then })?;
+                    f.dedent();
+                    writeln!(f, "}} else {{")?;
+                    f.indent();
+                    f.fmt(&Formatter { data: else_ })?;
+                    f.dedent();
+                    writeln!(f, "}}")?;
+                }
+                _ => {
+                    f.fmt(live_set)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
