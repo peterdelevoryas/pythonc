@@ -20,6 +20,7 @@ pub mod free_vars;
 pub mod vasm;
 pub mod liveness;
 pub mod graph;
+pub mod regalloc;
 
 use flatten::Flatten;
 

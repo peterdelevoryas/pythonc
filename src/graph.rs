@@ -1,5 +1,7 @@
 use vasm;
 use vasm::Reg;
+use vasm::Lval;
+use vasm::Rval;
 use liveness;
 use liveness::LiveSet;
 use explicate::Var;
@@ -24,7 +26,7 @@ pub struct Graph {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Node {
-    Reg(Reg),
+    Forced(Reg),
     Var(Var),
 }
 
@@ -32,7 +34,7 @@ pub type Color = Reg;
 
 impl From<Reg> for Node {
     fn from(r: Reg) -> Node {
-        Node::Reg(r)
+        Node::Forced(r)
     }
 }
 
@@ -71,6 +73,51 @@ impl Graph {
     }
 
     fn add_referenced_variables(&mut self, inst: &vasm::Inst) {
+        use vasm::Inst::*;
+        use vasm::Lval::*;
+        use vasm::Rval::*;
+
+        match *inst {
+            Mov(Var(var), Lval(StackSlot(_))) => {
+                self.add_unspillable(var);
+            }
+            Mov(StackSlot(_), Lval(StackSlot(_))) => {
+                panic!("mov stack -> stack encountered in vasm!")
+            }
+            Mov(lval, rval) => {
+                self.add_lval(lval);
+                self.add_rval(rval);
+            }
+            Neg(lval) => self.add_lval(lval),
+            _ => unimplemented!()
+        }
+    }
+
+    fn add_unspillable(&mut self, var: Var) {
         unimplemented!()
+    }
+
+    fn add_spillable(&mut self, var: Var) {
+        unimplemented!()
+    }
+
+    fn add_forced(&mut self, reg: Reg) {
+        unimplemented!()
+    }
+
+    fn add_lval(&mut self, lval: Lval) {
+        match lval {
+            Lval::Var(var) => self.add_spillable(var),
+            Lval::Reg(reg) => self.add_forced(reg),
+            Lval::StackSlot(_) => {}
+            Lval::Param(_) => {}
+        }
+    }
+
+    fn add_rval(&mut self, rval: Rval) {
+        match rval {
+            Rval::Imm(_) => {}
+            Rval::Lval(lval) => self.add_lval(lval),
+        }
     }
 }
