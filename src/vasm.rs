@@ -6,6 +6,7 @@ use util::fmt;
 use explicate::Var;
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub const WORD_SIZE: Imm = 4;
 
@@ -16,9 +17,9 @@ pub struct Module {
 }
 
 pub struct Function {
-    args: Vec<Var>,
-    stack_slots: u32,
-    block: Block,
+    pub args: Vec<Var>,
+    pub stack_slots: u32,
+    pub block: Block,
 }
 
 pub struct FunctionBuilder {
@@ -28,7 +29,7 @@ pub struct FunctionBuilder {
 
 #[derive(Debug, Clone, Hash)]
 pub struct Block {
-    insts: Vec<Inst>,
+    pub insts: Vec<Inst>,
 }
 
 pub struct BlockBuilder<'a> {
@@ -797,5 +798,36 @@ pub trait VisitBlock {
             Rval::Imm(imm) => {}
             Rval::Lval(lval) => self.lval(lval),
         }
+    }
+}
+
+impl Inst {
+
+    /// Gives the write set for the instruction.
+    /// NOTE: if the instruction is an If, it will
+    /// panic! Ifs should be handled manually
+    pub fn write_set(&self) -> HashSet<Lval> {
+        use self::Inst::*;
+        match *self {
+            Mov(lval, _) | Add(lval, _) |
+            Neg(lval) | Pop(lval) |
+            Sete(lval) | Setne(lval) |
+            Or(lval, _) | And(lval, _) |
+            Shr(lval, _) | Shl(lval, _) |
+            MovLabel(lval, _) => hash_set!(lval),
+
+            Push(_) | CallIndirect(_) | Call(_) |
+            Cmp(_, _) | Ret => hash_set!(),
+
+            If(_, _, _) => panic!("write_set called on Inst::If"),
+        }
+    }
+
+    /// Gives the read set for the instruction.
+    /// NOTE: if the instruction is an If, it will
+    /// panic! Ifs should be handled manually
+    pub fn read_set(&self) -> HashSet<Lval> {
+        use self::Inst::*;
+        unimplemented!()
     }
 }

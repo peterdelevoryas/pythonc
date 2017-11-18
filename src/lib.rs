@@ -17,6 +17,7 @@ pub mod raise;
 pub mod flatten;
 pub mod free_vars;
 pub mod vasm;
+pub mod liveness;
 
 use flatten::Flatten;
 
