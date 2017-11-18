@@ -384,4 +384,12 @@ struct AssignHomes<'graph> {
 
 // assigns homes to registers based on coloring
 impl<'graph> ::vasm::TransformBlock for AssignHomes<'graph> {
+    fn lval(&mut self, lval: Lval) -> Lval {
+        if let Lval::Var(var) = lval {
+            let color = self.graph.var_color(var).expect("var is not colored");
+            return color.into()
+        }
+
+        lval
+    }
 }
