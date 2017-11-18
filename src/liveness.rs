@@ -3,6 +3,7 @@ use vasm::Lval;
 use vasm::Inst;
 use vasm::Function;
 use vasm::Block;
+use vasm;
 use explicate::Var;
 use std::collections::HashSet;
 use std::fmt;
@@ -59,4 +60,8 @@ impl<'inst> fmt::Display for LiveSet<'inst> {
         write!(f, ")")?;
         Ok(())
     }
+}
+
+pub fn liveset_debug_string(vasm: &vasm::Module) -> String {
+    unimplemented!()
 }

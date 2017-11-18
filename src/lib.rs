@@ -120,6 +120,10 @@ impl Pythonc {
             return fmt_out(&vasm_module, out_path)
         }
 
+        if stop_stage == Stage::Liveness {
+            return write_out(liveness::liveset_debug_string(&vasm_module), out_path)
+        }
+
         Ok(())
     }
 }
