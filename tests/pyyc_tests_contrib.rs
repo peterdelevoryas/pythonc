@@ -126,7 +126,7 @@ where
 
         let result = ::std::panic::catch_unwind(|| {
             pythonc
-                .emit(source, stage, None, Some(runtime.into()))
+                .emit(source, stage, None, Some(runtime.into()), true, true)
                 .chain_err(|| format!("Unable to compile {:?}", source_file_name))
         });
 
