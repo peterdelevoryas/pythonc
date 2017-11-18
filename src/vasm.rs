@@ -820,8 +820,10 @@ impl Inst {
             Shr(lval, _) | Shl(lval, _) |
             MovLabel(lval, _) => hash_set!(lval),
 
-            Push(_) | CallIndirect(_) | Call(_) |
-            Cmp(_, _) | Ret => hash_set!(),
+            Push(_) | Cmp(_, _) | Ret => hash_set!(),
+
+            Call(_) | CallIndirect(_)
+                => hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter().map(|reg| reg.into()).collect(),
 
             If(_, _, _) => panic!("write_set called on Inst::If"),
         }
@@ -884,8 +886,10 @@ mod tests {
         assert_eq!(Neg(x).write_set(), hash_set!(x));
         assert_eq!(Push(z).write_set(), hash_set!());
         assert_eq!(Pop(x).write_set(), hash_set!(x));
-        assert_eq!(CallIndirect(x).write_set(), hash_set!());
-        assert_eq!(Call("hello".into()).write_set(), hash_set!());
+        assert_eq!(CallIndirect(x).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
+                   .map(|reg| reg.into()).collect());
+        assert_eq!(Call("hello".into()).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
+                   .map(|reg| reg.into()).collect());
         assert_eq!(Cmp(x, z).write_set(), hash_set!());
         assert_eq!(Sete(x).write_set(), hash_set!(x));
         assert_eq!(Setne(x).write_set(), hash_set!(x));
