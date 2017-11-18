@@ -166,15 +166,45 @@ impl Graph {
                         | Neg(StackSlot(_))
                         | Add(StackSlot(_), _)
                         | Push(Lval(StackSlot(_)))
+                        | Pop(StackSlot(_))
+                        | Sete(StackSlot(_))
+                        | Setne(StackSlot(_))
+                        | Or(StackSlot(_), _)
+                        | And(StackSlot(_), _)
+                        | Shr(StackSlot(_), _)
+                        | Shl(StackSlot(_), _)
+                        | MovLabel(StackSlot(_), _)
                         | Push(Imm(_))
+                        | Mov(Param(_), _)
+                        | Neg(Param(_))
+                        | Add(Param(_), _)
+                        | Push(Lval(Param(_)))
+                        | Pop(Param(_))
+                        | Sete(Param(_))
+                        | Setne(Param(_))
+                        | Or(Param(_), _)
+                        | And(Param(_), _)
+                        | Shr(Param(_), _)
+                        | Shl(Param(_), _)
+                        | MovLabel(Param(_), _)
+                        | Cmp(_, _)
+                        | Ret
                         => {}
-                    Mov(Var(var), _) | Neg(Var(var)) | Add(Var(var), _) | Push(Lval(Var(var))) => {
+                    Mov(Var(var), _) | Neg(Var(var)) | Add(Var(var), _) | Push(Lval(Var(var)))
+                        | Pop(Var(var)) | Sete(Var(var)) | Setne(Var(var))
+                        | Or(Var(var), _) | And(Var(var), _) | Shr(Var(var), _) | Shl(Var(var), _)
+                        | MovLabel(Var(var), _) =>
+                    {
                         self.add_interference(Var(var), &live_after);
                     }
-                    Mov(Reg(reg), _) | Neg(Reg(reg)) | Add(Reg(reg), _) | Push(Lval(Reg(reg))) => {
+                    Mov(Reg(reg), _) | Neg(Reg(reg)) | Add(Reg(reg), _) | Push(Lval(Reg(reg)))
+                        | Pop(Reg(reg)) | Sete(Reg(reg)) | Setne(Reg(reg))
+                        | Or(Reg(reg), _) | And(Reg(reg), _) | Shr(Reg(reg), _) | Shl(Reg(reg), _)
+                        | MovLabel(Reg(reg), _) =>
+                    {
                         self.add_interference(Reg(reg), &live_after);
                     }
-                    Call(_) => {
+                    Call(_) | CallIndirect(_) => {
                         let caller_save_registers = &[
                             ::vasm::Reg::EAX,
                             ::vasm::Reg::ECX,
@@ -191,8 +221,8 @@ impl Graph {
                             }
                         }
                     }
-
-                    _ => unimplemented!()
+                    If(_, _, _) => panic!("encountered If in wrong place"),
+                    While(cond, ref body) => panic!("encountered While in wrong place"),
                 }
             }
             LiveSet::If {
@@ -203,7 +233,16 @@ impl Graph {
                 then,
                 else_,
             } => {
-                unimplemented!()
+                match *inst {
+                    If(_, _, _) => {}
+                    _ => panic!()
+                }
+                for live_set in then {
+                    self.add_edges(live_set);
+                }
+                for live_set in else_ {
+                    self.add_edges(live_set);
+                }
             }
         }
 
