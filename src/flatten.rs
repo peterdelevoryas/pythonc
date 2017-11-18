@@ -41,7 +41,7 @@ pub enum Stmt {
     Def(Var, Expr),
     Discard(Expr),
     Return(Option<Var>),
-    While(Var, Vec<Stmt>),
+    While(Var, Vec<Stmt>, Vec<Stmt>),
     If(Var, Vec<Stmt>, Vec<Stmt>),
 }
 
@@ -230,13 +230,15 @@ impl Flatten for ex::Return {
 impl Flatten for ex::While {
     type Output = ();
     fn flatten(self, builder: &mut Flattener) {
+        builder.enter_context();
         let loc = self.test.flatten(builder);
+        let condition_computation = builder.clear();
 
         builder.enter_context();
         self.body.flatten(builder);
         let x_body = builder.clear();
 
-        builder.push(Stmt::While(loc, x_body));
+        builder.push(Stmt::While(loc, condition_computation, x_body));
     }
 }
 
@@ -521,8 +523,10 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
                     None => write!(f, "return"),
                 }
             }
-            Stmt::While(c, ref body) => {
-                writeln!(f, "while {} {{", c)?;
+            Stmt::While(c, ref comp, ref body) => {
+                writeln!(f, "while {} via [", c)?;
+                writeln!(f, "{block}", block = self.indented(comp.as_slice()))?;
+                writeln!(f, "{indent}] {{", indent = self.indent())?;
                 writeln!(f, "{block}", block = self.indented(body.as_slice()))?;
                 write!(f, "{indent}}}", indent = self.indent())
             }

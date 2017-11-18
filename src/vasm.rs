@@ -45,8 +45,8 @@ pub enum Inst {
     Pop(Lval),
     CallIndirect(Lval),
     Call(String),
-    If(Rval, Block, Block),
-    While(Rval, Block),
+    If(Lval, Block, Block),
+    While(Lval, Block, Block),
     /// `Lval - Rval, sets EQ and NE (and other) flags`
     Cmp(Lval, Rval),
     /// `Lval = EQ ? 1 : 0;`
@@ -65,8 +65,14 @@ pub enum Inst {
     Shl(Lval, Imm),
     /// `mov lval, $func`
     MovLabel(Lval, raise::Func),
+    /// String s -> `jmp s`
+    JmpLabel(String),
+    /// If EFLAGS has zero-bit, jump to label
+    JzLabel(String),
     /// Just `ret`, nothing else
     Ret,
+    /// String s -> `s:`
+    Label(String)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -493,13 +499,18 @@ impl<'a> BlockBuilder<'a> {
                 };
                 self.push_inst(Inst::If(cond.into(), then, else_));
             }
-            flat::Stmt::While(cond, body) => {
+            flat::Stmt::While(cond, comp, body) => {
+                let compute_condition = {
+                    let mut block = self.nested();
+                    block.stmts(comp);
+                    block.complete()
+                };
                 let i_body = {
                     let mut block = self.nested();
                     block.stmts(body);
                     block.complete()
                 };
-                self.push_inst(Inst::While(cond.into(), i_body))
+                self.push_inst(Inst::While(cond.into(), compute_condition, i_body))
             }
         }
     }
@@ -569,8 +580,12 @@ impl fmt::Fmt for Inst {
                 writeln!(f, "}}")?;
                 Ok(())
             }
-            Inst::While(cond, ref body) => {
-                writeln!(f, "while {} {{", cond)?;
+            Inst::While(c, ref cond, ref body) => {
+                writeln!(f, "while {} via [", c)?;
+                f.indent();
+                f.fmt(cond)?;
+                f.dedent();
+                writeln!(f, "] {{")?;
                 f.indent();
                 f.fmt(body)?;
                 f.dedent();
@@ -680,7 +695,7 @@ pub trait TransformBlock {
             Pop(l) => Pop(self.lval(l)),
             CallIndirect(l) => CallIndirect(self.lval(l)),
             Call(name) => Call(name),
-            If(rval, then, else_) => If(self.rval(rval), self.block(then), self.block(else_)),
+            If(c, then, else_) => If(self.lval(c), self.block(then), self.block(else_)),
             Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
             Sete(l) => Sete(self.lval(l)),
             Setne(l) => Setne(self.lval(l)),
@@ -689,7 +704,7 @@ pub trait TransformBlock {
             Shr(l, imm) => Shr(self.lval(l), imm),
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
-            While(r, body) => While(self.rval(r), self.block(body)),
+            While(c, cond, body) => While(self.lval(c), self.block(cond), self.block(body)),
             Ret => Ret,
         }
     }
@@ -704,4 +719,67 @@ pub trait TransformBlock {
             Rval::Lval(lval) => Rval::Lval(self.lval(lval))
         }
     }
+}
+
+pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
+    let label_index : usize = 0;
+
+    let next_label = | | {
+        let r = label_index;
+        label_index += 1;
+        format!(".l{}", r)
+    };
+
+    let mut v = vec![];
+    for instr in instrs {
+        match instr {
+            Inst::If(c, ref then, ref else_) => {
+                let l_else = next_label();
+                let l_end = next_label();
+                label_index += 1;
+
+                //   CMP c,c
+                //   JZ _else
+                v.push(Inst::Cmp(c,Rval::Lval(c)));
+                v.push(Inst::JzLabel(l_else.clone()));
+
+                v.extend(then.insts);
+
+                //   JMP _end
+                // _else:
+                v.push(Inst::JmpLabel(l_end.clone()));
+                v.push(Inst::Label(l_else));
+
+                v.extend(else_.insts);
+
+                // _end:
+                v.push(Inst::Label(l_end));
+            },
+            Inst::While(c, ref comp, ref body) => {
+                let l_top = next_label();
+                let l_bot = next_label();
+
+                // _top:
+                v.push(Inst::Label(l_top.clone()));
+
+                v.extend(comp.insts);
+
+                //   CMP c,c
+                //   JZ _bot
+                v.push(Inst::Cmp(c, Rval::Lval(c)));
+                v.push(Inst::JzLabel(l_bot.clone()));
+
+                v.extend(body.insts);
+
+                //   JMP _top
+                v.push(Inst::JmpLabel(l_top));
+
+                // _bot:
+                v.push(Inst::Label(l_bot));
+            },
+            // Default case, don't modify the instruction
+            i => v.push(i)
+        };
+    }
+    v
 }
