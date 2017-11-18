@@ -23,3 +23,14 @@ impl<L, R> Either<L, R> {
         }
     }
 }
+
+#[macro_export]
+macro_rules! hash_set {
+    ($($e:expr),*) => ({
+        let mut set = ::std::collections::HashSet::new();
+        $(
+            set.insert($e);
+        )*
+        set
+    })
+}
