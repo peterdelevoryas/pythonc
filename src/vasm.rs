@@ -892,4 +892,53 @@ mod tests {
         assert_eq!(MovLabel(x, f).write_set(), hash_set!(x));
         assert_eq!(Ret.write_set(), hash_set!());
     }
+
+    #[test]
+    fn read_set() {
+        let mut funcs: func::Slab<()> = func::Slab::new();
+        let mut vars: var::Slab<()> = var::Slab::new();
+        let x: Lval = vars.insert(()).into();
+        let z: Lval = vars.insert(()).into();
+        let zr: Rval = z.into();
+        let i: Rval = 3.into();
+        let f = funcs.insert(());
+        use self::Inst::*;
+
+        assert_eq!(Mov(x, zr).read_set(), hash_set!(z));
+        assert_eq!(Mov(x, i).read_set(), hash_set!());
+
+        assert_eq!(Add(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Add(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Neg(x).read_set(), hash_set!(x));
+
+        assert_eq!(Push(zr).read_set(), hash_set!(z));
+        assert_eq!(Push(i).read_set(), hash_set!());
+
+        assert_eq!(Pop(x).read_set(), hash_set!());
+
+        assert_eq!(CallIndirect(x).read_set(), hash_set!(x));
+
+        assert_eq!(Call("hello".into()).read_set(), hash_set!());
+
+        assert_eq!(Cmp(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Cmp(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Sete(x).read_set(), hash_set!());
+        assert_eq!(Setne(x).read_set(), hash_set!());
+
+        assert_eq!(Or(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Or(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(And(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(And(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Shr(x, 2).read_set(), hash_set!(x));
+
+        assert_eq!(Shl(x, 2).read_set(), hash_set!(x));
+
+        assert_eq!(MovLabel(x, f).read_set(), hash_set!());
+
+        assert_eq!(Ret.read_set(), hash_set!());
+    }
 }
