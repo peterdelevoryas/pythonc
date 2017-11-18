@@ -67,8 +67,8 @@ pub enum Inst {
     MovLabel(Lval, raise::Func),
     /// String s -> `jmp s`
     JmpLabel(String),
-    /// If EFLAGS has zero-bit, jump to label
-    JzLabel(String),
+    /// If EFLAGS has eq-bit, jump to label
+    JeqLabel(String),
     /// Just `ret`, nothing else
     Ret,
     /// String s -> `s:`
@@ -599,6 +599,9 @@ impl fmt::Fmt for Inst {
             Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
             Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
             Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
+            Inst::JmpLabel(ref label) => writeln!(f, "jmp {}", label),
+            Inst::JeqLabel(ref label) => writeln!(f, "jeq {}", label),
+            Inst::Label(ref label) => writeln!(f, "{}:", label),
             Inst::Ret => writeln!(f, "ret"),
         }
     }
@@ -705,7 +708,10 @@ pub trait TransformBlock {
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
             While(c, cond, body) => While(self.lval(c), self.block(cond), self.block(body)),
-            Ret => Ret,
+                        Ret => Ret,
+            Label(_) => panic!("Encountered label in TransformBlock"),
+            JmpLabel(_) => panic!("Encountered `jmp label` in TransformBlock"),
+            JeqLabel(_) => panic!("Encountered `jeq label` in TransformBlock"),
         }
     }
 
@@ -722,9 +728,9 @@ pub trait TransformBlock {
 }
 
 pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
-    let label_index : usize = 0;
+    let mut label_index : usize = 0;
 
-    let next_label = | | {
+    let mut next_label = | | {
         let r = label_index;
         label_index += 1;
         format!(".l{}", r)
@@ -733,15 +739,14 @@ pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
     let mut v = vec![];
     for instr in instrs {
         match instr {
-            Inst::If(c, ref then, ref else_) => {
+            Inst::If(c, then, else_) => {
                 let l_else = next_label();
                 let l_end = next_label();
-                label_index += 1;
 
                 //   CMP c,c
                 //   JZ _else
-                v.push(Inst::Cmp(c,Rval::Lval(c)));
-                v.push(Inst::JzLabel(l_else.clone()));
+                v.push(Inst::Cmp(c,Rval::Imm(0)));
+                v.push(Inst::JeqLabel(l_else.clone()));
 
                 v.extend(then.insts);
 
@@ -755,7 +760,7 @@ pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
                 // _end:
                 v.push(Inst::Label(l_end));
             },
-            Inst::While(c, ref comp, ref body) => {
+            Inst::While(c, comp, body) => {
                 let l_top = next_label();
                 let l_bot = next_label();
 
@@ -766,8 +771,8 @@ pub fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
 
                 //   CMP c,c
                 //   JZ _bot
-                v.push(Inst::Cmp(c, Rval::Lval(c)));
-                v.push(Inst::JzLabel(l_bot.clone()));
+                v.push(Inst::Cmp(c, Rval::Imm(0)));
+                v.push(Inst::JeqLabel(l_bot.clone()));
 
                 v.extend(body.insts);
 
