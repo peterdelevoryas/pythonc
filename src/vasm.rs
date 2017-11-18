@@ -530,46 +530,50 @@ impl fmt::Fmt for Function {
 
 impl fmt::Fmt for Block {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        use std::io::Write;
+
         for inst in &self.insts {
-            f.fmt(inst)?;
+            match *inst {
+                Inst::If(cond, ref then, ref else_) => {
+                    writeln!(f, "if {} {{", cond)?;
+                    f.indent();
+                    f.fmt(then)?;
+                    f.dedent();
+                    writeln!(f, "}} else {{")?;
+                    f.indent();
+                    f.fmt(else_)?;
+                    f.dedent();
+                    writeln!(f, "}}")?;
+                }
+                ref inst => {
+                    writeln!(f, "{}", inst)?;
+                }
+            }
         }
         Ok(())
     }
 }
 
-impl fmt::Fmt for Inst {
-    fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
-        use std::io::Write;
-
+impl ::std::fmt::Display for Inst {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match *self {
-            Inst::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
-            Inst::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
-            Inst::Neg(lval) => writeln!(f, "neg {}", lval),
-            Inst::Push(rval) => writeln!(f, "push {}", rval),
-            Inst::Pop(lval) => writeln!(f, "pop {}", lval),
-            Inst::CallIndirect(lval) => writeln!(f, "call *{}", lval),
-            Inst::Call(ref name) => writeln!(f, "call {}", name),
-            Inst::If(cond, ref then, ref else_) => {
-                writeln!(f, "if {} {{", cond)?;
-                f.indent();
-                f.fmt(then)?;
-                f.dedent();
-                writeln!(f, "}} else {{")?;
-                f.indent();
-                f.fmt(else_)?;
-                f.dedent();
-                writeln!(f, "}}")?;
-                Ok(())
-            }
-            Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
-            Inst::Sete(lval) => writeln!(f, "sete {}", lval),
-            Inst::Setne(lval) => writeln!(f, "setne {}", lval),
-            Inst::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
-            Inst::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
-            Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
-            Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
-            Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
-            Inst::Ret => writeln!(f, "ret"),
+            Inst::Mov(lval, rval) => write!(f, "mov {}, {}", rval, lval),
+            Inst::Add(lval, rval) => write!(f, "add {}, {}", rval, lval),
+            Inst::Neg(lval) => write!(f, "neg {}", lval),
+            Inst::Push(rval) => write!(f, "push {}", rval),
+            Inst::Pop(lval) => write!(f, "pop {}", lval),
+            Inst::CallIndirect(lval) => write!(f, "call *{}", lval),
+            Inst::Call(ref name) => write!(f, "call {}", name),
+            Inst::If(cond, ref then, ref else_) => panic!(),
+            Inst::Cmp(lval, rval) => write!(f, "cmp {}, {}", rval, lval),
+            Inst::Sete(lval) => write!(f, "sete {}", lval),
+            Inst::Setne(lval) => write!(f, "setne {}", lval),
+            Inst::Or(lval, rval) => write!(f, "or {}, {}", rval, lval),
+            Inst::And(lval, rval) => write!(f, "and {}, {}", rval, lval),
+            Inst::Shr(lval, imm) => write!(f, "shr ${}, {}", imm, lval),
+            Inst::Shl(lval, imm) => write!(f, "shl ${}, {}", imm, lval),
+            Inst::MovLabel(lval, func) => write!(f, "mov ${}, {}", func, lval),
+            Inst::Ret => write!(f, "ret"),
         }
     }
 }

@@ -2,20 +2,41 @@ use vasm::Reg;
 use vasm::Lval;
 use vasm::Inst;
 use vasm::Function;
+use vasm::Block;
 use explicate::Var;
 use std::collections::HashSet;
+use std::fmt;
 
 /// Computes live sets for each instruction
 /// in a function
-pub fn liveness(f: &Function) -> Vec<LiveSet> {
+pub fn liveness(block: &Block) -> Vec<LiveSet> {
     let mut live_sets: Vec<LiveSet> = Vec::new();
     let mut live_after: HashSet<Lval> = HashSet::new();
     let mut live_before: HashSet<Lval>;
 
-    for inst in f.block.insts.iter().rev() {
-        //live_before = 
+    for inst in block.insts.iter().rev() {
+        use self::Inst::*;
+
+        if let If(cond, ref then, ref else_) = *inst {
+            unimplemented!("if statement liveness unimplemented")
+        }
+        let w = inst.write_set();
+        let r = inst.read_set();
+
+        live_before = (&live_after - &w)
+            .union(&r)
+            .map(|&lval| lval)
+            .collect();
+
+        live_sets.push(LiveSet {
+            inst: inst,
+            live_after: live_after.clone(),
+        });
+
+        live_after = live_before;
     }
 
+    live_sets.reverse();
     live_sets
 }
 
@@ -23,4 +44,10 @@ pub fn liveness(f: &Function) -> Vec<LiveSet> {
 pub struct LiveSet<'inst> {
     pub inst: &'inst Inst,
     pub live_after: HashSet<Lval>,
+}
+
+impl<'inst> fmt::Display for LiveSet<'inst> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
 }
