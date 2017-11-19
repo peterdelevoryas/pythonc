@@ -9,6 +9,7 @@ extern crate clap;
 extern crate log;
 extern crate slab;
 extern crate ast;
+extern crate petgraph;
 
 pub mod error;
 pub mod explicate;
@@ -17,6 +18,9 @@ pub mod raise;
 pub mod flatten;
 pub mod free_vars;
 pub mod vasm;
+pub mod liveness;
+pub mod graph;
+pub mod regalloc;
 
 use flatten::Flatten;
 
@@ -116,7 +120,11 @@ impl Pythonc {
 
         let mut vasm_module = vasm::Module::from(flattener);
         if stop_stage == Stage::VAsm {
-            return fmt_out(&vasm_module, out_path)
+            return fmt_out(&vasm_module, out_path);
+        }
+        
+        if stop_stage == Stage::Liveness {
+            return write_out(liveness::liveset_debug_string(&vasm_module), out_path);
         }
 
         for (fname, func) in vasm_module.funcs.clone() {

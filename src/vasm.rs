@@ -6,13 +6,14 @@ use util::fmt;
 use explicate::Var;
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub const WORD_SIZE: Imm = 4;
 
 pub struct Module {
     pub main: raise::Func,
     pub funcs: HashMap<raise::Func, Function>,
-    vars: ex::var::Slab<ex::var::Data>,
+    pub vars: ex::var::Slab<ex::var::Data>,
 }
 
 #[derive(Clone)]
@@ -24,10 +25,9 @@ pub struct Function {
 
 pub struct FunctionBuilder {
     args: Vec<Var>,
-    stack_slots: u32,
-}
+    stack_slots: u32, }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Block {
     pub insts: Vec<Inst>,
 }
@@ -37,7 +37,7 @@ pub struct BlockBuilder<'a> {
     insts: Vec<Inst>,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Inst {
     Mov(Lval, Rval),
     Add(Lval, Rval),
@@ -97,7 +97,7 @@ pub type Imm = i32;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Param(u32);
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Reg {
     EAX,
     EBX,
@@ -544,6 +544,8 @@ impl fmt::Fmt for Function {
 
 impl fmt::Fmt for Block {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+        use std::io::Write;
+
         for inst in &self.insts {
             f.fmt(inst)?;
         }
@@ -552,9 +554,11 @@ impl fmt::Fmt for Block {
 }
 
 impl fmt::Fmt for Inst {
-    fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
+    fn fmt<W>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write
+    {
         use std::io::Write;
-
         match *self {
             Inst::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
             Inst::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
@@ -683,15 +687,15 @@ impl ::std::fmt::Display for Rval {
 pub trait TransformBlock {
     fn block(&mut self, block: Block) -> Block {
         Block {
-            insts: block.insts.into_iter().map(|inst| {
+            insts: block.insts.into_iter().flat_map(|inst| {
                 self.inst(inst)
             }).collect()
         }
     }
 
-    fn inst(&mut self, inst: Inst) -> Inst {
+    fn inst(&mut self, inst: Inst) -> Vec<Inst> {
         use self::Inst::*;
-        match inst {
+        let inst = match inst {
             Mov(l, r) => Mov(self.lval(l), self.rval(r)),
             Add(l, r) => Add(self.lval(l), self.rval(r)),
             Neg(l) => Neg(self.lval(l)),
@@ -714,7 +718,8 @@ pub trait TransformBlock {
             JmpLabel(_) => panic!("Encountered `jmp label` in TransformBlock"),
             JeqLabel(_) => panic!("Encountered `jeq label` in TransformBlock"),
             Sub(_, _) => panic!("Encountered `sub` in TransformBlock"),
-        }
+        };
+        vec![inst]
     }
 
     fn lval(&mut self, lval: Lval) -> Lval {
@@ -821,4 +826,383 @@ fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
         };
     }
     v
+}
+
+pub trait VisitBlock {
+    fn block(&mut self, block: &Block) {
+        for inst in &block.insts {
+            self.inst(inst);
+        }
+    }
+
+    fn inst(&mut self, inst: &Inst) {
+        use self::Inst::*;
+        match *inst {
+            Mov(l, r) => self.mov(l, r),
+            Add(l, r) => self.add(l, r),
+            Neg(l) => self.neg(l),
+            Push(r) => self.push(r),
+            Pop(l) => self.pop(l),
+            CallIndirect(l) => self.call_indirect(l),
+            Call(ref name) => self.call(name),
+            If(lval, ref then, ref else_) => self.if_(lval, then, else_),
+            Cmp(l, r) => self.cmp(l, r),
+            Sete(l) => self.sete(l),
+            Setne(l) => self.setne(l),
+            Or(l, r) => self.or(l, r),
+            And(l, r) => self.and(l, r),
+            Shr(l, imm) => self.shr(l, imm),
+            Shl(l, imm) => self.shl(l, imm),
+            MovLabel(l, func) => self.mov_label(l, func),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
+            Ret => self.ret(),
+        }
+    }
+
+    fn mov(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn add(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn neg(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn push(&mut self, r: Rval) {
+        self.rval(r);
+    }
+
+    fn pop(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn call_indirect(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn call(&mut self, name: &str) {}
+
+    fn if_(&mut self, cond: Lval, then: &Block, else_: &Block) {
+        self.lval(cond);
+        self.block(then);
+        self.block(else_);
+    }
+
+    fn cmp(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn sete(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn setne(&mut self, l: Lval) {
+        self.lval(l);
+    }
+
+    fn or(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn and(&mut self, l: Lval, r: Rval) {
+        self.lval(l);
+        self.rval(r);
+    }
+
+    fn shr(&mut self, l: Lval, i: Imm) {
+        self.lval(l);
+    }
+
+    fn shl(&mut self, l: Lval, i: Imm) {
+        self.lval(l);
+    }
+
+    fn mov_label(&mut self, l: Lval, label: raise::Func) {
+        self.lval(l);
+    }
+
+    fn ret(&mut self) {}
+
+    fn lval(&mut self, lval: Lval) {}
+
+    fn rval(&mut self, rval: Rval) {
+        match rval {
+            Rval::Imm(imm) => {}
+            Rval::Lval(lval) => self.lval(lval),
+        }
+    }
+}
+
+impl Inst {
+
+    /// Gives the write set for the instruction.
+    /// NOTE: if the instruction is an If, it will
+    /// panic! Ifs should be handled manually
+    pub fn write_set(&self) -> HashSet<Lval> {
+        use self::Inst::*;
+        match *self {
+            Mov(lval, _) | Add(lval, _) |
+            Neg(lval) | Pop(lval) |
+            Sete(lval) | Setne(lval) |
+            Or(lval, _) | And(lval, _) |
+            Shr(lval, _) | Shl(lval, _) |
+            MovLabel(lval, _) => hash_set!(lval),
+
+            Push(_) | Cmp(_, _) | Ret => hash_set!(),
+
+            Call(_) | CallIndirect(_)
+                => hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter().map(|reg| reg.into()).collect(),
+
+            If(_, _, _) => panic!("write_set called on Inst::If"),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
+        }
+    }
+
+    /// Gives the read set for the instruction.
+    /// NOTE: if the instruction is an If, it will
+    /// panic! Ifs should be handled manually
+    pub fn read_set(&self) -> HashSet<Lval> {
+        use self::Inst::*;
+        match *self {
+            Add(l, Rval::Lval(r))
+                | Or(l, Rval::Lval(r))
+                | And(l, Rval::Lval(r))
+                | Cmp(l, Rval::Lval(r)) => hash_set!(l, r),
+
+            Add(v, Rval::Imm(_))
+                | Or(v, Rval::Imm(_))
+                | And(v, Rval::Imm(_))
+                | Cmp(v, Rval::Imm(_)) => hash_set!(v),
+
+            Mov(_, Rval::Lval(v))
+                | Neg(v)
+                | Push(Rval::Lval(v))
+                | CallIndirect(v)
+                | Shr(v, _)
+                | Shl(v, _) => hash_set!(v),
+
+            Call(_)
+                | Sete(_)
+                | Setne(_)
+                | MovLabel(_, _)
+                | Ret
+                | Pop(_)
+                | Mov(_, Rval::Imm(_))
+                | Push(Rval::Imm(_))
+                => hash_set!(),
+            If(_, _, _) => panic!("read_set called on Inst::If"),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
+        }
+    }
+}
+
+pub struct ReplaceStackOps<'vars> {
+    vars: &'vars mut ::explicate::var::Slab<::explicate::var::Data>,
+}
+
+impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
+    fn inst(&mut self, inst: Inst) -> Vec<Inst> {
+        use self::Inst::*;
+        use self::Lval::*;
+        use self::Rval::*;
+        let inst = match inst {
+            Mov(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+            Add(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    Add(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+            Or(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    Or(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+            And(StackSlot(dst), Lval(StackSlot(src))) => {
+                let var = self.vars.insert(::explicate::var::Data::Temp);
+                return vec![
+                    Mov(var.into(), StackSlot(dst).into()),
+                    And(var.into(), StackSlot(src).into()),
+                    Mov(StackSlot(dst).into(), var.into()),
+                ]
+            }
+
+            Mov(l, r) => Mov(self.lval(l), self.rval(r)),
+            Add(l, r) => Add(self.lval(l), self.rval(r)),
+            Neg(l) => Neg(self.lval(l)),
+            Push(r) => Push(self.rval(r)),
+            Pop(l) => Pop(self.lval(l)),
+            CallIndirect(l) => CallIndirect(self.lval(l)),
+            Call(name) => Call(name),
+            If(lval, then, else_) => If(self.lval(lval), self.block(then), self.block(else_)),
+            Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
+            Sete(l) => Sete(self.lval(l)),
+            Setne(l) => Setne(self.lval(l)),
+            Or(l, r) => Or(self.lval(l), self.rval(r)),
+            And(l, r) => And(self.lval(l), self.rval(r)),
+            Shr(l, imm) => Shr(self.lval(l), imm),
+            Shl(l, imm) => Shl(self.lval(l), imm),
+            MovLabel(l, func) => MovLabel(self.lval(l), func),
+            While(l, cond, body) => While(self.lval(l), self.block(cond), self.block(body)),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
+            Ret => Ret,
+        };
+        vec![inst]
+    }
+}
+
+impl Function {
+    pub fn replace_stack_to_stack_ops(self, vars: &mut ex::var::Slab<ex::var::Data>) -> Self {
+        let mut replace = ReplaceStackOps {
+            vars: vars,
+        };
+        Function {
+            args: self.args,
+            stack_slots: self.stack_slots,
+            block: replace.block(self.block),
+        }
+    }
+
+    pub fn spill(&mut self, var: Var) {
+        let mut spill = Spill {
+            var: var,
+            stack_slot: StackSlot(self.stack_slots),
+        };
+        self.block = spill.block(self.block.clone());
+        self.stack_slots += 1;
+    }
+}
+
+struct Spill {
+    var: Var,
+    stack_slot: StackSlot,
+}
+
+impl TransformBlock for Spill {
+    fn lval(&mut self, lval: Lval) -> Lval {
+        if let Lval::Var(var) = lval {
+            if var == self.var {
+                return self.stack_slot.into()
+            }
+        }
+        lval
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use explicate::var;
+    use raise::func;
+
+    #[test]
+    fn write_set() {
+        let mut funcs: func::Slab<()> = func::Slab::new();
+        let mut vars: var::Slab<()> = var::Slab::new();
+        let x: Lval = vars.insert(()).into();
+        let z: Rval = vars.insert(()).into();
+        let f = funcs.insert(());
+        use self::Inst::*;
+
+        assert_eq!(Mov(x, z).write_set(), hash_set!(x));
+        assert_eq!(Add(x, z).write_set(), hash_set!(x));
+        assert_eq!(Neg(x).write_set(), hash_set!(x));
+        assert_eq!(Push(z).write_set(), hash_set!());
+        assert_eq!(Pop(x).write_set(), hash_set!(x));
+        assert_eq!(CallIndirect(x).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
+                   .map(|reg| reg.into()).collect());
+        assert_eq!(Call("hello".into()).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
+                   .map(|reg| reg.into()).collect());
+        assert_eq!(Cmp(x, z).write_set(), hash_set!());
+        assert_eq!(Sete(x).write_set(), hash_set!(x));
+        assert_eq!(Setne(x).write_set(), hash_set!(x));
+        assert_eq!(Or(x, z).write_set(), hash_set!(x));
+        assert_eq!(And(x, z).write_set(), hash_set!(x));
+        assert_eq!(Shr(x, 2).write_set(), hash_set!(x));
+        assert_eq!(Shl(x, 2).write_set(), hash_set!(x));
+        assert_eq!(MovLabel(x, f).write_set(), hash_set!(x));
+        assert_eq!(Ret.write_set(), hash_set!());
+    }
+
+    #[test]
+    fn read_set() {
+        let mut funcs: func::Slab<()> = func::Slab::new();
+        let mut vars: var::Slab<()> = var::Slab::new();
+        let x: Lval = vars.insert(()).into();
+        let z: Lval = vars.insert(()).into();
+        let zr: Rval = z.into();
+        let i: Rval = 3.into();
+        let f = funcs.insert(());
+        use self::Inst::*;
+
+        assert_eq!(Mov(x, zr).read_set(), hash_set!(z));
+        assert_eq!(Mov(x, i).read_set(), hash_set!());
+
+        assert_eq!(Add(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Add(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Neg(x).read_set(), hash_set!(x));
+
+        assert_eq!(Push(zr).read_set(), hash_set!(z));
+        assert_eq!(Push(i).read_set(), hash_set!());
+
+        assert_eq!(Pop(x).read_set(), hash_set!());
+
+        assert_eq!(CallIndirect(x).read_set(), hash_set!(x));
+
+        assert_eq!(Call("hello".into()).read_set(), hash_set!());
+
+        assert_eq!(Cmp(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Cmp(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Sete(x).read_set(), hash_set!());
+        assert_eq!(Setne(x).read_set(), hash_set!());
+
+        assert_eq!(Or(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(Or(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(And(x, zr).read_set(), hash_set!(x, z));
+        assert_eq!(And(x, i).read_set(), hash_set!(x));
+
+        assert_eq!(Shr(x, 2).read_set(), hash_set!(x));
+
+        assert_eq!(Shl(x, 2).read_set(), hash_set!(x));
+
+        assert_eq!(MovLabel(x, f).read_set(), hash_set!());
+
+        assert_eq!(Ret.read_set(), hash_set!());
+    }
 }
