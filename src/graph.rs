@@ -209,11 +209,16 @@ impl Graph {
                         | Ret
                         => {}
                     Mov(Var(var), _) | Neg(Var(var)) | Add(Var(var), _) | Push(Lval(Var(var)))
-                        | Pop(Var(var)) | Sete(Var(var)) | Setne(Var(var))
+                        | Pop(Var(var))
                         | Or(Var(var), _) | And(Var(var), _) | Shr(Var(var), _) | Shl(Var(var), _)
                         | MovLabel(Var(var), _) =>
                     {
                         self.add_interference(Var(var), &live_after);
+                    }
+                    Sete(Var(var)) | Setne(Var(var)) => {
+                        self.add_interference(Var(var), &live_after);
+                        let edi_esi = hash_set!(::vasm::Reg::EDI.into(), ::vasm::Reg::ESI.into());
+                        self.add_interference(Var(var), &edi_esi);
                     }
                     Mov(Reg(reg), _) | Neg(Reg(reg)) | Add(Reg(reg), _) | Push(Lval(Reg(reg)))
                         | Pop(Reg(reg)) | Sete(Reg(reg)) | Setne(Reg(reg))

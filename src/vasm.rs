@@ -594,10 +594,10 @@ impl fmt::Fmt for Inst {
             Inst::Sete(lval) => {
                 let arg = match lval {
                     Lval::Reg(r) => match r {
-                        Reg::EAX => "al",
-                        Reg::EBX => "bl",
-                        Reg::ECX => "cl",
-                        Reg::EDX => "dl",
+                        Reg::EAX => "%al",
+                        Reg::EBX => "%bl",
+                        Reg::ECX => "%cl",
+                        Reg::EDX => "%dl",
                         _ => panic!("registers edi and esi do not have 8 bit versions!"),
                     }.into(),
                     lval => format!("{}", lval),
@@ -607,10 +607,10 @@ impl fmt::Fmt for Inst {
             Inst::Setne(lval) => {
                 let arg = match lval {
                     Lval::Reg(r) => match r {
-                        Reg::EAX => "al",
-                        Reg::EBX => "bl",
-                        Reg::ECX => "cl",
-                        Reg::EDX => "dl",
+                        Reg::EAX => "%al",
+                        Reg::EBX => "%bl",
+                        Reg::ECX => "%cl",
+                        Reg::EDX => "%dl",
                         _ => panic!("registers edi and esi do not have 8 bit versions!"),
                     }.into(),
                     lval => format!("{}", lval),
@@ -623,7 +623,7 @@ impl fmt::Fmt for Inst {
             Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
             Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
             Inst::JmpLabel(ref label) => writeln!(f, "jmp {}", label),
-            Inst::JeqLabel(ref label) => writeln!(f, "jeq {}", label),
+            Inst::JeqLabel(ref label) => writeln!(f, "je {}", label),
             Inst::Label(ref label) => {
                 f.dedent();
                 writeln!(f, "{}:", label)?;
