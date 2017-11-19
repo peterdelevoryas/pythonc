@@ -127,6 +127,21 @@ impl Pythonc {
             return write_out(liveness::liveset_debug_string(&vasm_module), out_path);
         }
 
+        let mut vars = vasm_module.vars;
+        let mut funcs = vasm_module.funcs;
+        let main = vasm_module.main;
+
+        let funcs = funcs.into_iter().map(|(f, function)| {
+            let function = ::regalloc::regalloc(function, &mut vars);
+            (f, function)
+        }).collect();
+
+        let mut vasm_module = vasm::Module {
+            main,
+            vars,
+            funcs,
+        };
+
         for (fname, func) in vasm_module.funcs.clone() {
             let r = vasm::render_func(fname, func.clone());
             vasm_module.funcs.insert(fname, vasm::Function {
