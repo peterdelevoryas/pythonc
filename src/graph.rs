@@ -119,15 +119,20 @@ impl Graph {
                 self.add_rval(rval);
             }
             Call(_) | Ret => {}
-            If(rval, ref then, ref else_) => {
-                self.add_rval(rval);
+            If(lval, ref then, ref else_) => {
+                self.add_lval(lval);
                 for inst in &then.insts { self.add_referenced_variables(inst) }
                 for inst in &else_.insts { self.add_referenced_variables(inst) }
             }
-            While(rval, ref body) => {
-                self.add_rval(rval);
+            While(lval, ref comp, ref body) => {
+                self.add_lval(lval);
+                for inst in &comp.insts { self.add_referenced_variables(inst) }
                 for inst in &body.insts { self.add_referenced_variables(inst) }
             }
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
         }
     }
 
@@ -235,7 +240,11 @@ impl Graph {
                         }
                     }
                     If(_, _, _) => panic!("encountered If in wrong place"),
-                    While(cond, ref body) => panic!("encountered While in wrong place"),
+                    While(cond, ref comp, ref body) => panic!("encountered While in wrong place"),
+                    JmpLabel(_) => unimplemented!(),
+                    JeqLabel(_) => unimplemented!(),
+                    Sub(_, _) => unimplemented!(),
+                    Label(_) => unimplemented!(),
                 }
             }
             LiveSet::If {

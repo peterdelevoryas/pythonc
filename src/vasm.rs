@@ -16,6 +16,7 @@ pub struct Module {
     pub vars: ex::var::Slab<ex::var::Data>,
 }
 
+#[derive(Clone)]
 pub struct Function {
     pub args: Vec<Var>,
     pub stack_slots: u32,
@@ -45,8 +46,8 @@ pub enum Inst {
     Pop(Lval),
     CallIndirect(Lval),
     Call(String),
-    If(Rval, Block, Block),
-    While(Rval, Block),
+    If(Lval, Block, Block),
+    While(Lval, Block, Block),
     /// `Lval - Rval, sets EQ and NE (and other) flags`
     Cmp(Lval, Rval),
     /// `Lval = EQ ? 1 : 0;`
@@ -65,8 +66,16 @@ pub enum Inst {
     Shl(Lval, Imm),
     /// `mov lval, $func`
     MovLabel(Lval, raise::Func),
+    /// String s -> `jmp s`
+    JmpLabel(String),
+    /// If EFLAGS has eq-bit, jump to label
+    JeqLabel(String),
+    /// `sub l,r`
+    Sub(Lval, Rval),
     /// Just `ret`, nothing else
     Ret,
+    /// String s -> `s:`
+    Label(String)
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -140,8 +149,6 @@ impl Function {
         match block.insts.last() {
             Some(&Inst::Ret) => {}
             Some(_) | None => {
-                block.insts.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
-                block.insts.push(Inst::Pop(Reg::EBP.into()));
                 block.insts.push(Inst::Ret.into());
             }
         }
@@ -476,8 +483,6 @@ impl<'a> BlockBuilder<'a> {
                 if let Some(var) = var {
                     self.mov(Reg::EAX, var);
                 }
-                self.mov(Reg::ESP, Reg::EBP);
-                self.pop(Reg::EBP);
                 self.ret();
             }
             flat::Stmt::If(cond, then, else_) => {
@@ -493,13 +498,18 @@ impl<'a> BlockBuilder<'a> {
                 };
                 self.push_inst(Inst::If(cond.into(), then, else_));
             }
-            flat::Stmt::While(cond, body) => {
+            flat::Stmt::While(cond, comp, body) => {
+                let compute_condition = {
+                    let mut block = self.nested();
+                    block.stmts(comp);
+                    block.complete()
+                };
                 let i_body = {
                     let mut block = self.nested();
                     block.stmts(body);
                     block.complete()
                 };
-                self.push_inst(Inst::While(cond.into(), i_body))
+                self.push_inst(Inst::While(cond.into(), compute_condition, i_body))
             }
         }
     }
@@ -511,7 +521,7 @@ impl fmt::Fmt for Module {
 
         for (&f, func) in &self.funcs {
             if f == self.main {
-                writeln!(out, ".global main")?;
+                writeln!(out, ".globl main")?;
                 writeln!(out, "main:")?;
             } else {
                 writeln!(out, "{}:", f)?;
@@ -527,10 +537,6 @@ impl fmt::Fmt for Module {
 impl fmt::Fmt for Function {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
         use std::io::Write;
-        // write shim first
-        writeln!(f, "push %ebp")?;
-        writeln!(f, "mov %esp, %ebp")?;
-        writeln!(f, "sub ${}, %esp", self.stack_slots as Imm * WORD_SIZE)?;
         f.fmt(&self.block)?;
         Ok(())
     }
@@ -573,8 +579,12 @@ impl fmt::Fmt for Inst {
                 writeln!(f, "}}")?;
                 Ok(())
             }
-            Inst::While(cond, ref body) => {
-                writeln!(f, "while {} {{", cond)?;
+            Inst::While(c, ref cond, ref body) => {
+                writeln!(f, "while {} via [", c)?;
+                f.indent();
+                f.fmt(cond)?;
+                f.dedent();
+                writeln!(f, "] {{")?;
                 f.indent();
                 f.fmt(body)?;
                 f.dedent();
@@ -588,6 +598,15 @@ impl fmt::Fmt for Inst {
             Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
             Inst::Shl(lval, imm) => writeln!(f, "shl ${}, {}", imm, lval),
             Inst::MovLabel(lval, func) => writeln!(f, "mov ${}, {}", func, lval),
+            Inst::JmpLabel(ref label) => writeln!(f, "jmp {}", label),
+            Inst::JeqLabel(ref label) => writeln!(f, "jeq {}", label),
+            Inst::Label(ref label) => {
+                f.dedent();
+                writeln!(f, "{}:", label)?;
+                f.indent();
+                Ok(())
+            },
+            Inst::Sub(lval, rval) => writeln!(f, "sub {}, {}", rval, lval),
             Inst::Ret => writeln!(f, "ret"),
         }
     }
@@ -684,7 +703,7 @@ pub trait TransformBlock {
             Pop(l) => Pop(self.lval(l)),
             CallIndirect(l) => CallIndirect(self.lval(l)),
             Call(name) => Call(name),
-            If(rval, then, else_) => If(self.rval(rval), self.block(then), self.block(else_)),
+            If(c, then, else_) => If(self.lval(c), self.block(then), self.block(else_)),
             Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
             Sete(l) => Sete(self.lval(l)),
             Setne(l) => Setne(self.lval(l)),
@@ -693,8 +712,12 @@ pub trait TransformBlock {
             Shr(l, imm) => Shr(self.lval(l), imm),
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
-            While(r, body) => While(self.rval(r), self.block(body)),
-            Ret => Ret,
+            While(c, cond, body) => While(self.lval(c), self.block(cond), self.block(body)),
+                        Ret => Ret,
+            Label(_) => panic!("Encountered label in TransformBlock"),
+            JmpLabel(_) => panic!("Encountered `jmp label` in TransformBlock"),
+            JeqLabel(_) => panic!("Encountered `jeq label` in TransformBlock"),
+            Sub(_, _) => panic!("Encountered `sub` in TransformBlock"),
         };
         vec![inst]
     }
@@ -709,6 +732,100 @@ pub trait TransformBlock {
             Rval::Lval(lval) => Rval::Lval(self.lval(lval))
         }
     }
+}
+
+pub fn render_func(label: raise::Func, f : Function) -> Vec<Inst> {
+    let mut result = vec![
+        //Inst::Label(format!("{}", label)),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::EBX))),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::EDI))),
+        Inst::Push(Rval::Lval(Lval::Reg(Reg::ESI))),
+    ];
+
+    // write shim first
+    result.push(Inst::Push(Reg::EBP.into()));
+    result.push(Inst::Mov(Reg::EBP.into(), Reg::ESP.into()));
+    result.push(Inst::Sub(Reg::ESP.into(), Rval::Imm(f.stack_slots as Imm * WORD_SIZE)));
+
+    result.extend(linearize(f.block.insts));
+
+    result.push(Inst::Label(".out".into()));
+
+    result.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
+    result.push(Inst::Pop(Reg::EBP.into()));
+
+    result.extend(vec![
+        Inst::Pop(Lval::Reg(Reg::ESI)),
+        Inst::Pop(Lval::Reg(Reg::EDI)),
+        Inst::Pop(Lval::Reg(Reg::EBX)),
+    ]);
+
+    result.push(Inst::Ret);
+
+    result
+}
+
+fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
+    let mut label_index : usize = 0;
+
+    let mut next_label = | | {
+        let r = label_index;
+        label_index += 1;
+        format!(".l{}", r)
+    };
+
+    let mut v = vec![];
+    for instr in instrs {
+        match instr {
+            Inst::If(c, then, else_) => {
+                let l_else = next_label();
+                let l_end = next_label();
+
+                //   CMP c,c
+                //   JZ _else
+                v.push(Inst::Cmp(c,Rval::Imm(0)));
+                v.push(Inst::JeqLabel(l_else.clone()));
+
+                v.extend(then.insts);
+
+                //   JMP _end
+                // _else:
+                v.push(Inst::JmpLabel(l_end.clone()));
+                v.push(Inst::Label(l_else));
+
+                v.extend(else_.insts);
+
+                // _end:
+                v.push(Inst::Label(l_end));
+            },
+            Inst::While(c, comp, body) => {
+                let l_top = next_label();
+                let l_bot = next_label();
+
+                // _top:
+                v.push(Inst::Label(l_top.clone()));
+
+                v.extend(comp.insts);
+
+                //   CMP c,c
+                //   JZ _bot
+                v.push(Inst::Cmp(c, Rval::Imm(0)));
+                v.push(Inst::JeqLabel(l_bot.clone()));
+
+                v.extend(body.insts);
+
+                //   JMP _top
+                v.push(Inst::JmpLabel(l_top));
+
+                // _bot:
+                v.push(Inst::Label(l_bot));
+            },
+            Inst::Ret => v.push(Inst::JmpLabel(".out".into())),
+            // Default case, don't modify the instruction
+            i => v.push(i),
+        };
+    }
+    v
 }
 
 pub trait VisitBlock {
@@ -728,7 +845,7 @@ pub trait VisitBlock {
             Pop(l) => self.pop(l),
             CallIndirect(l) => self.call_indirect(l),
             Call(ref name) => self.call(name),
-            If(rval, ref then, ref else_) => self.if_(rval, then, else_),
+            If(lval, ref then, ref else_) => self.if_(lval, then, else_),
             Cmp(l, r) => self.cmp(l, r),
             Sete(l) => self.sete(l),
             Setne(l) => self.setne(l),
@@ -737,7 +854,11 @@ pub trait VisitBlock {
             Shr(l, imm) => self.shr(l, imm),
             Shl(l, imm) => self.shl(l, imm),
             MovLabel(l, func) => self.mov_label(l, func),
-            While(_, _) => unimplemented!(),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
             Ret => self.ret(),
         }
     }
@@ -770,8 +891,8 @@ pub trait VisitBlock {
 
     fn call(&mut self, name: &str) {}
 
-    fn if_(&mut self, cond: Rval, then: &Block, else_: &Block) {
-        self.rval(cond);
+    fn if_(&mut self, cond: Lval, then: &Block, else_: &Block) {
+        self.lval(cond);
         self.block(then);
         self.block(else_);
     }
@@ -844,7 +965,11 @@ impl Inst {
                 => hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter().map(|reg| reg.into()).collect(),
 
             If(_, _, _) => panic!("write_set called on Inst::If"),
-            While(_, _) => unimplemented!(),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
         }
     }
 
@@ -881,7 +1006,11 @@ impl Inst {
                 | Push(Rval::Imm(_))
                 => hash_set!(),
             If(_, _, _) => panic!("read_set called on Inst::If"),
-            While(_, _) => unimplemented!(),
+            While(_, _, _) => unimplemented!(),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
         }
     }
 }
@@ -935,7 +1064,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
             Pop(l) => Pop(self.lval(l)),
             CallIndirect(l) => CallIndirect(self.lval(l)),
             Call(name) => Call(name),
-            If(rval, then, else_) => If(self.rval(rval), self.block(then), self.block(else_)),
+            If(lval, then, else_) => If(self.lval(lval), self.block(then), self.block(else_)),
             Cmp(l, r) => Cmp(self.lval(l), self.rval(r)),
             Sete(l) => Sete(self.lval(l)),
             Setne(l) => Setne(self.lval(l)),
@@ -944,7 +1073,11 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
             Shr(l, imm) => Shr(self.lval(l), imm),
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
-            While(r, body) => While(self.rval(r), self.block(body)),
+            While(l, cond, body) => While(self.lval(l), self.block(cond), self.block(body)),
+            JmpLabel(_) => unimplemented!(),
+            JeqLabel(_) => unimplemented!(),
+            Sub(_, _) => unimplemented!(),
+            Label(_) => unimplemented!(),
             Ret => Ret,
         };
         vec![inst]
