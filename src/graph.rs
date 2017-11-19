@@ -280,6 +280,9 @@ impl Graph {
             if lval == interfering {
                 continue
             }
+            if let Lval::Param(_) = interfering {
+                continue
+            }
             self.add_edge(lval, interfering);
         }
     }
