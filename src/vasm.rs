@@ -591,8 +591,32 @@ impl fmt::Fmt for Inst {
                 writeln!(f, "}}")
             }
             Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
-            Inst::Sete(lval) => writeln!(f, "sete {}", lval),
-            Inst::Setne(lval) => writeln!(f, "setne {}", lval),
+            Inst::Sete(lval) => {
+                let arg = match lval {
+                    Lval::Reg(r) => match r {
+                        Reg::EAX => "al",
+                        Reg::EBX => "bl",
+                        Reg::ECX => "cl",
+                        Reg::EDX => "dl",
+                        _ => panic!("registers edi and esi do not have 8 bit versions!"),
+                    }.into(),
+                    lval => format!("{}", lval),
+                };
+                writeln!(f, "sete {}", arg)
+            }
+            Inst::Setne(lval) => {
+                let arg = match lval {
+                    Lval::Reg(r) => match r {
+                        Reg::EAX => "al",
+                        Reg::EBX => "bl",
+                        Reg::ECX => "cl",
+                        Reg::EDX => "dl",
+                        _ => panic!("registers edi and esi do not have 8 bit versions!"),
+                    }.into(),
+                    lval => format!("{}", lval),
+                };
+                writeln!(f, "setne {}", arg)
+            }
             Inst::Or(lval, rval) => writeln!(f, "or {}, {}", rval, lval),
             Inst::And(lval, rval) => writeln!(f, "and {}, {}", rval, lval),
             Inst::Shr(lval, imm) => writeln!(f, "shr ${}, {}", imm, lval),
