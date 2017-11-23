@@ -758,7 +758,8 @@ pub trait TransformBlock {
     }
 }
 
-pub fn render_func(label: raise::Func, f : Function) -> Vec<Inst> {
+pub fn render_func(label: raise::Func, f : Function, is_main: bool) -> Vec<Inst> {
+    let label: String = if is_main { "main".into() } else { format!("{}", label) };
     let mut result = vec![
         //Inst::Label(format!("{}", label)),
         Inst::Push(Rval::Lval(Lval::Reg(Reg::EBX))),
@@ -771,9 +772,9 @@ pub fn render_func(label: raise::Func, f : Function) -> Vec<Inst> {
     result.push(Inst::Mov(Reg::EBP.into(), Reg::ESP.into()));
     result.push(Inst::Sub(Reg::ESP.into(), Rval::Imm(f.stack_slots as Imm * WORD_SIZE)));
 
-    result.extend(linearize(f.block.insts));
+    result.extend(linearize(label.clone(), f.block.insts));
 
-    result.push(Inst::Label(".out".into()));
+    result.push(Inst::Label(format!("{}.out", label)));
 
     result.push(Inst::Mov(Reg::ESP.into(), Reg::EBP.into()));
     result.push(Inst::Pop(Reg::EBP.into()));
@@ -789,13 +790,13 @@ pub fn render_func(label: raise::Func, f : Function) -> Vec<Inst> {
     result
 }
 
-fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
+fn linearize(label_prefix: String, instrs: Vec<Inst>) -> Vec<Inst> {
     let mut label_index : usize = 0;
 
     let mut next_label = | | {
         let r = label_index;
         label_index += 1;
-        format!(".l{}", r)
+        format!("{}.{}", label_prefix, r)
     };
 
     let mut v = vec![];
@@ -844,7 +845,7 @@ fn linearize(instrs: Vec<Inst>) -> Vec<Inst> {
                 // _bot:
                 v.push(Inst::Label(l_bot));
             },
-            Inst::Ret => v.push(Inst::JmpLabel(".out".into())),
+            Inst::Ret => v.push(Inst::JmpLabel(format!("{}.out", label_prefix))),
             // Default case, don't modify the instruction
             i => v.push(i),
         };

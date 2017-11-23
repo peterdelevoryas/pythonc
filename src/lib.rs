@@ -144,7 +144,7 @@ impl Pythonc {
         };
 
         for (fname, func) in vasm_module.funcs.clone() {
-            let r = vasm::render_func(fname, func.clone());
+            let r = vasm::render_func(fname, func.clone(), fname == main);
             vasm_module.funcs.insert(fname, vasm::Function {
                 args : func.args,
                 stack_slots : func.stack_slots,
