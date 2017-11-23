@@ -324,17 +324,13 @@ impl Flatten for ex::InjectFrom {
 impl Flatten for ex::CallFunc {
     type Output = Var;
     fn flatten(self, builder: &mut Flattener) -> Var {
-        let base = self.expr.flatten(builder);
-        let base_ptr = builder.def(Expr::RuntimeFunc("get_fun_ptr".into(), vec![base]));
-        let freelist = builder.def(Expr::RuntimeFunc("get_free_vars".into(), vec![base]));
-
-        let mut args = vec![freelist];
-
+        let f = self.expr.flatten(builder);
+        let mut args = Vec::new();
         for a in self.args {
             args.push(a.flatten(builder));
         }
 
-        builder.def(Expr::CallFunc(base_ptr, args))
+        builder.def(Expr::CallFunc(f, args))
     }
 }
 
