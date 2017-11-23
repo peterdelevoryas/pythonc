@@ -72,7 +72,7 @@ fn run() -> pythonc::Result<()> {
 
     let emit: pythonc::Stage = match m.value_of("STAGE") {
         Some(stage) => stage.parse()?,
-        None => pythonc::Stage::Asm,
+        None => pythonc::Stage::asm,
     };
 
     let pythonc = pythonc::Pythonc::new();
@@ -88,7 +88,7 @@ fn run() -> pythonc::Result<()> {
     };
     let runtime = m.value_of("LIB").map(PathBuf::from);
 
-    if emit == pythonc::Stage::Bin {
+    if emit == pythonc::Stage::bin {
         if runtime.is_none() {
             bail!("Cannot emit binary without runtime")
         }

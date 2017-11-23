@@ -10,6 +10,7 @@ extern crate log;
 extern crate slab;
 extern crate ast;
 extern crate petgraph;
+extern crate tempfile;
 
 pub mod error;
 pub mod explicate;
@@ -37,16 +38,16 @@ pub struct Pythonc {}
 arg_enum!{
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub enum Stage {
-        Ast,
-        Explicated,
-        Heapified,
-        Raised,
-        Flattened,
-        VAsm,
-        Liveness,
-        Asm,
-        Obj,
-        Bin
+        ast,
+        explicated,
+        heapified,
+        raised,
+        flattened,
+        vasm,
+        liveness,
+        asm,
+        obj,
+        bin
     }
 }
 
@@ -72,7 +73,7 @@ impl Pythonc {
 
         let parser = ast::Parser::new();
         let ast = parser.parse(&source).chain_err(|| "Unable to parse source")?;
-        if stop_stage == Stage::Ast {
+        if stop_stage == Stage::ast {
             let ast = format!("{:#?}", ast);
             return write_out(ast, out_path);
         }
@@ -94,36 +95,36 @@ impl Pythonc {
                 })
                 .chain_err(|| "Error type checking explicated ast")?;
         }
-        if stop_stage == Stage::Explicated {
+        if stop_stage == Stage::explicated {
             let fmt = explicate::Formatter::new(&explicate, &explicated, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 
         let heapified = heapify::heapify(&mut explicate.var_data, explicated);
-        if stop_stage == Stage::Heapified {
+        if stop_stage == Stage::heapified {
             let fmt = explicate::Formatter::new(&explicate, &heapified, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 
         let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
-        if stop_stage == Stage::Raised {
+        if stop_stage == Stage::raised {
             let fmt = explicate::Formatter::new(&explicate, &trans_unit, show_casts, show_nums);
             return write_out(fmt, out_path);
         }
 
         let mut flattener = flatten::Flattener::from(explicate, trans_unit.main);
         let flattened = trans_unit.flatten(&mut flattener);
-        if stop_stage == Stage::Flattened {
+        if stop_stage == Stage::flattened {
             let fmt = flatten::Formatter::new(&flattener, &flattened);
             return write_out(fmt, out_path);
         }
 
         let mut vasm_module = vasm::Module::from(flattener);
-        if stop_stage == Stage::VAsm {
+        if stop_stage == Stage::vasm {
             return fmt_out(&vasm_module, out_path);
         }
         
-        if stop_stage == Stage::Liveness {
+        if stop_stage == Stage::liveness {
             return write_out(liveness::liveset_debug_string(&vasm_module), out_path);
         }
 
@@ -152,9 +153,30 @@ impl Pythonc {
                 },
             });
         }
-        if stop_stage == Stage::Asm {
+        if stop_stage == Stage::asm {
             return fmt_out(&vasm_module, out_path)
         }
+
+        if stop_stage == Stage::obj {
+            return emit_obj(&vasm_module, out_path)
+        }
+
+        let obj_file = tempfile::NamedTempFile::new().chain_err(
+            || "Could not create temporary file for obj output"
+        )?;
+        emit_obj(&vasm_module, obj_file.path()).chain_err(
+            || "Could not create obj from assembly"
+        )?;
+
+        let runtime = match runtime {
+            Some(path) => path,
+            None => bail!("Emitting binary requires specifying runtime library path"),
+        };
+
+        assert_eq!(stop_stage, Stage::bin);
+        emit_bin(obj_file.path(), &runtime, out_path)
+            .chain_err(|| "Could not create binary from obj file")?;
+        obj_file.close().chain_err(|| "Failed to close and remove obj file")?;
 
         Ok(())
     }
@@ -164,16 +186,16 @@ impl Stage {
     pub fn file_ext(&self) -> &str {
         use self::Stage::*;
         match *self {
-            Ast => "ast",
-            Explicated => "explicated",
-            Heapified => "heapified",
-            Raised => "raised",
-            Flattened => "flattened",
-            VAsm => "vasm",
-            Liveness => "liveness",
-            Asm => "s",
-            Obj => "o",
-            Bin => "bin",
+            ast => "ast",
+            explicated => "explicated",
+            heapified => "heapified",
+            raised => "raised",
+            flattened => "flattened",
+            vasm => "vasm",
+            liveness => "liveness",
+            asm => "s",
+            obj => "o",
+            bin => "bin",
         }
     }
 }
@@ -250,5 +272,61 @@ fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
     let f = open_out_file(out_path, false)?;
     let mut f = util::fmt::Formatter::new(f);
     f.fmt(data).chain_err(|| "Error fmt'ing data")?;
+    Ok(())
+}
+
+fn emit_obj(asm: &vasm::Module, out: &Path) -> Result<()> {
+    use std::process::Stdio;
+    use std::process::Command;
+    use std::io::Write;
+
+    let asm = {
+        let mut buf = Vec::new();
+        let mut f = util::fmt::Formatter::new(buf);
+        f.fmt(asm).chain_err(|| "Error fmt'ing asm")?;
+        String::from_utf8(f.into_inner()).unwrap()
+    };
+    let mut gcc = Command::new("gcc")
+        .args(&["-m32", "-g", "-c"])
+        .arg("-o")
+        .arg(out.as_os_str())
+        .args(&["-xassembler", "-"])
+        .stdin(Stdio::piped())
+        .spawn()
+        .chain_err(|| "Could not spawn gcc assembler")?;
+    match gcc.stdin {
+        Some(ref mut stdin) => {
+            stdin.write_all(asm.as_bytes())
+                .chain_err(|| "Could not write assembly to gcc through pipe")?;
+        }
+        None => {
+            return Err(ErrorKind::Msg("Could not capture gcc stdin".into()).into())
+        }
+    }
+    gcc.wait()
+        .chain_err(|| "Error running gcc assembler")
+        .and_then(|exit_code| if !exit_code.success() {
+            bail!("Error assembling binary")
+        } else {
+            Ok(())
+        })
+}
+
+fn emit_bin(obj: &Path, runtime: &Path, out: &Path) -> Result<()> {
+    use std::process::Command;
+    let exit_code = Command::new("gcc")
+        .args(&["-m32", "-g"])
+        .arg(obj.as_os_str())
+        .arg(runtime.as_os_str())
+        .arg("-o")
+        .arg(out.as_os_str())
+        .spawn()
+        .chain_err(|| "Could not spawn gcc")?
+        .wait()
+        .chain_err(|| "Error running gcc")?;
+    if !exit_code.success() {
+        bail!("gcc returned an unsuccessful exit code")
+    }
+
     Ok(())
 }
