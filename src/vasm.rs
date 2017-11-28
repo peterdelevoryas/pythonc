@@ -776,7 +776,8 @@ pub fn render_func(label: raise::Func, f : Function, is_main: bool) -> Vec<Inst>
     result.push(Inst::Mov(Reg::EBP.into(), Reg::ESP.into()));
     result.push(Inst::Sub(Reg::ESP.into(), Rval::Imm(f.stack_slots as Imm * WORD_SIZE)));
 
-    result.extend(linearize(label.clone(), f.block.insts));
+    let mut label_index = 0;
+    result.extend(linearize(label.clone(), f.block.insts, &mut label_index));
 
     result.push(Inst::Label(format!("{}.out", label)));
 
@@ -794,54 +795,56 @@ pub fn render_func(label: raise::Func, f : Function, is_main: bool) -> Vec<Inst>
     result
 }
 
-fn linearize(label_prefix: String, instrs: Vec<Inst>) -> Vec<Inst> {
-    let mut label_index : usize = 0;
-
-    let mut next_label = | | {
-        let r = label_index;
-        label_index += 1;
-        format!("{}.{}", label_prefix, r)
-    };
+fn linearize(label_prefix: String, instrs: Vec<Inst>, label_index: &mut usize) -> Vec<Inst> {
+    fn next_label(label_prefix: &str, label_index: &mut usize) -> String {
+        let i = *label_index;
+        *label_index += 1;
+        format!("{}.{}", label_prefix, i)
+    }
 
     let mut v = vec![];
     for instr in instrs {
         match instr {
             Inst::If(c, then, else_) => {
-                let l_else = next_label();
-                let l_end = next_label();
+                let l_else = next_label(&label_prefix, label_index);
+                let l_end = next_label(&label_prefix, label_index);
 
                 //   CMP c,c
                 //   JZ _else
                 v.push(Inst::Cmp(c,Rval::Imm(0)));
                 v.push(Inst::JeqLabel(l_else.clone()));
 
-                v.extend(then.insts);
+                let then = linearize(label_prefix.clone(), then.insts, label_index);
+                v.extend(then);
 
                 //   JMP _end
                 // _else:
                 v.push(Inst::JmpLabel(l_end.clone()));
                 v.push(Inst::Label(l_else));
 
-                v.extend(else_.insts);
+                let else_ = linearize(label_prefix.clone(), else_.insts, label_index);
+                v.extend(else_);
 
                 // _end:
                 v.push(Inst::Label(l_end));
             },
             Inst::While(c, comp, body) => {
-                let l_top = next_label();
-                let l_bot = next_label();
+                let l_top = next_label(&label_prefix, label_index);
+                let l_bot = next_label(&label_prefix, label_index);
 
                 // _top:
                 v.push(Inst::Label(l_top.clone()));
 
-                v.extend(comp.insts);
+                let comp = linearize(label_prefix.clone(), comp.insts, label_index);
+                v.extend(comp);
 
                 //   CMP c,c
                 //   JZ _bot
                 v.push(Inst::Cmp(c, Rval::Imm(0)));
                 v.push(Inst::JeqLabel(l_bot.clone()));
 
-                v.extend(body.insts);
+                let body = linearize(label_prefix.clone(), body.insts, label_index);
+                v.extend(body);
 
                 //   JMP _top
                 v.push(Inst::JmpLabel(l_top));
