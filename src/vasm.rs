@@ -430,9 +430,13 @@ impl<'a> BlockBuilder<'a> {
                 // MASK = 3
                 self.and(lhs, ex::MASK);
             }
-            flat::Stmt::Def(lhs, flat::Expr::ProjectTo(var, _)) => {
+            flat::Stmt::Def(lhs, flat::Expr::ProjectTo(var, ty)) => {
                 self.mov(lhs, var);
-                self.shr(lhs, ex::SHIFT);
+                match ty {
+                    ex::Ty::Int | ex::Ty::Bool => self.shr(lhs, ex::SHIFT),
+                    ex::Ty::Big => self.and(lhs, !ex::MASK),
+                    _ => panic!("Don't know how to project {:?} to {:?}", var, ty),
+                }
             }
             flat::Stmt::Def(lhs, flat::Expr::InjectFrom(var, ty)) => {
                 self.mov(lhs, var);

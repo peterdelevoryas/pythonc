@@ -1707,8 +1707,7 @@ impl TypeCheck for List {
                 || "Elem of list is not a pyobj",
             )?;
         }
-        // Or should this be Pyobj?
-        Ok(Some(Ty::Big))
+        Ok(Some(Ty::Pyobj))
     }
 }
 
