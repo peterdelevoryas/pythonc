@@ -240,6 +240,10 @@ impl Graph {
                                     assert_eq!(r, ::vasm::Reg::EAX, "expected eax");
                                     continue
                                 }
+                                match live {
+                                    Param(_) | StackSlot(_) => continue,
+                                    _ => {}
+                                }
                                 self.add_edge(::vasm::Lval::Reg(r), live);
                             }
                         }
@@ -276,11 +280,18 @@ impl Graph {
     }
 
     fn add_interference(&mut self, lval: Lval, interfering: &HashSet<::vasm::Lval>) {
+        match lval {
+            Lval::Param(_) | Lval::StackSlot(_) => return,
+            _ => {}
+        }
         for &interfering in interfering {
             if lval == interfering {
                 continue
             }
             if let Lval::Param(_) = interfering {
+                continue
+            }
+            if let Lval::StackSlot(_) = interfering {
                 continue
             }
             self.add_edge(lval, interfering);
