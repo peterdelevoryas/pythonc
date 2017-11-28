@@ -53,6 +53,23 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
             live_after = live_before.clone();
             continue;
         }
+        if let While(cond, ref header, ref body) = *inst {
+            let (body_before, body_live_sets) = block_liveness(body, live_after.clone());
+            // live after set of the loop header is the body_before live set
+            let (header_before, header_live_sets) = block_liveness(header, body_before.clone());
+            let live_before_while = header_before.clone();
+            live_sets.push(LiveSet::While {
+                inst: inst,
+                header_before: header_before,
+                body_before: body_before,
+                live_after: live_after,
+                header: header_live_sets,
+                body: body_live_sets,
+            });
+
+            live_after = live_before_while;
+            continue;
+        }
         let w = remove_special_regs(inst.write_set());
         let r = remove_special_regs(inst.read_set());
 
@@ -88,6 +105,15 @@ pub enum LiveSet<'inst> {
         live_after: HashSet<Lval>,
         then: Vec<LiveSet<'inst>>,
         else_: Vec<LiveSet<'inst>>,
+    },
+    While {
+        // Inst::While
+        inst: &'inst Inst,
+        header_before: HashSet<Lval>,
+        body_before: HashSet<Lval>,
+        live_after: HashSet<Lval>,
+        header: Vec<LiveSet<'inst>>,
+        body: Vec<LiveSet<'inst>>,
     },
 }
 
@@ -164,6 +190,40 @@ impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
                 for live_set in else_ {
                     f.fmt(live_set)?;
                 }
+                f.dedent();
+                writeln!(f, "}}")?;
+                write_live_set(f, live_after)?;
+            }
+            LiveSet::While {
+                inst,
+                ref header_before,
+                ref body_before,
+                ref live_after,
+                ref header,
+                ref body,
+            } => {
+                let cond = if let Inst::While(cond, _, _) = *inst {
+                    cond
+                } else {
+                    panic!()
+                };
+                writeln!(f, "loop {{")?;
+                f.indent();
+                write_live_set(f, header_before)?;
+                for live_set in header {
+                    f.fmt(live_set)?;
+                }
+                writeln!(f, "if {} {{", cond)?;
+                f.indent();
+                write_live_set(f, body_before)?;
+                for live_set in body {
+                    f.fmt(live_set)?;
+                }
+                f.dedent();
+                writeln!(f, "}} else {{");
+                f.indent();
+                writeln!(f, "break;")?;
+                f.dedent();
                 f.dedent();
                 writeln!(f, "}}")?;
                 write_live_set(f, live_after)?;

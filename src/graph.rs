@@ -275,6 +275,25 @@ impl Graph {
                     self.add_edges(live_set);
                 }
             }
+            LiveSet::While {
+                inst,
+                header_before,
+                body_before,
+                live_after,
+                header,
+                body
+            } => {
+                match *inst {
+                    While(_, _, _) => {}
+                    _ => panic!(),
+                }
+                for live_set in header {
+                    self.add_edges(live_set);
+                }
+                for live_set in body {
+                    self.add_edges(live_set);
+                }
+            }
         }
 
     }

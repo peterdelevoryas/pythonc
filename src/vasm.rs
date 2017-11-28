@@ -883,7 +883,7 @@ pub trait VisitBlock {
             Shr(l, imm) => self.shr(l, imm),
             Shl(l, imm) => self.shl(l, imm),
             MovLabel(l, func) => self.mov_label(l, func),
-            While(_, _, _) => unimplemented!(),
+            While(cond, ref header, ref block) => self.while_(cond, header, block),
             JmpLabel(_) => unimplemented!(),
             JeqLabel(_) => unimplemented!(),
             Sub(_, _) => unimplemented!(),
@@ -924,6 +924,12 @@ pub trait VisitBlock {
         self.lval(cond);
         self.block(then);
         self.block(else_);
+    }
+
+    fn while_(&mut self, cond: Lval, header: &Block, body: &Block) {
+        self.lval(cond);
+        self.block(header);
+        self.block(body);
     }
 
     fn cmp(&mut self, l: Lval, r: Rval) {
