@@ -1737,7 +1737,7 @@ impl TypeCheck for Dict {
                 || "val type in dict is not Pyobj",
             )?;
         }
-        Ok(Some(Ty::Big))
+        Ok(Some(Ty::Pyobj))
     }
 }
 
