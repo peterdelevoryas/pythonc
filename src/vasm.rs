@@ -692,9 +692,9 @@ impl ::std::fmt::Display for Lval {
                 };
                 write!(f, "%{}", reg)
             }
-            Lval::StackSlot(slot) => write!(f, "stack {}", slot.0),
+            Lval::StackSlot(slot) => write!(f, "{}(%ebp)", -4 * slot.0 as i32),
             Lval::Var(var) => write!(f, "{}", var),
-            Lval::Param(p) => write!(f, "param {}", p.0),
+            Lval::Param(p) => write!(f, "{}(%ebp)", 4 * (p.0 + 5)),
         }
     }
 }
