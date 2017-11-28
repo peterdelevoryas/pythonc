@@ -540,14 +540,20 @@ impl Explicate {
 
     pub fn while_(&mut self, while_: ast::While) -> While {
         While {
-            test: self.expr(while_.test),
+            test: CallRuntime {
+                name: "is_true".into(),
+                args: vec![self.expr(while_.test)],
+            }.into(),
             body: while_.body.into_iter().map(|s| self.stmt(s)).collect()
         }
     }
 
     pub fn if_(&mut self, if_: ast::If) -> If {
         If {
-            cond: self.expr(if_.cond),
+            cond: CallRuntime {
+                name: "is_true".into(),
+                args: vec![self.expr(if_.cond)],
+            }.into(),
             then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
             else_: match if_.else_ {
                 Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
