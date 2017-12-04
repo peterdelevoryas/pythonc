@@ -53,22 +53,73 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
             live_after = live_before.clone();
             continue;
         }
-        if let While(cond, ref header, ref body) = *inst {
-            let (body_before, body_live_sets) = block_liveness(body, live_after.clone());
-            // live after set of the loop header is the body_before live set
-            let (header_before, header_live_sets) = block_liveness(header, body_before.clone());
-            let live_before_while = header_before.clone();
-            live_sets.push(LiveSet::While {
-                inst: inst,
-                header_before: header_before,
-                body_before: body_before,
-                live_after: live_after,
-                header: header_live_sets,
-                body: body_live_sets,
-            });
 
-            live_after = live_before_while;
-            continue;
+        // Computing the liveness for a while loop is a little more complicated
+        // than what has been seen before
+        //
+        //  +----------+
+        //  |          |
+        //  |   prev   |
+        //  |          |
+        //  +----------+
+        //       |
+        //       | 
+        //       | <--------------------------
+        //       |                              ^
+        //       |  LBefore(header)             |
+        //       v                              |
+        //
+        //  +----------+                   +--------+
+        //  |          |   LBefore(body)   |        |
+        //  |  header  | ----------------> |  body  |
+        //  |          |                   |        |
+        //  +----------+                   +--------+
+        //
+        //       |
+        //       |
+        //       | Lafter(header)
+        //       |
+        //       v
+        //  +----------+
+        //  |          |
+        //  |   succ   |
+        //  |          |
+        //  +----------+
+        //
+        //  fn Liveness(Stmts, LAfter) -> LBefore
+        //
+        //  LBefore(header) = Liveness(header, LBefore(body) U LAfter(header))
+        //  LBefore(body) = Liveness(body, LBefore(header))
+        //
+        if let While(cond, ref header, ref body) = *inst {
+            // live after header
+            let la_hdr = live_after.clone();
+            // live before header
+            let mut lb_hdr = HashSet::new();
+            // live before body
+            let mut lb_body = HashSet::new();
+            loop {
+                // lb_hdr'
+                let (lb_hdr_p, hdr_lvsets) = block_liveness(header, &lb_body | &la_hdr);
+                // lb_body'
+                let (lb_body_p, body_lvsets) = block_liveness(body, lb_hdr.clone());
+
+                if lb_hdr_p == lb_hdr && lb_body_p == lb_body {
+                    live_sets.push(LiveSet::While {
+                        inst: inst,
+                        header_before: lb_hdr.clone(),
+                        body_before: lb_body,
+                        live_after: la_hdr,
+                        header: hdr_lvsets,
+                        body: body_lvsets,
+                    });
+                    live_after = lb_hdr;
+                    break;
+                }
+                lb_hdr = lb_hdr_p;
+                lb_body = lb_body_p;
+            }
+            continue
         }
         let w = remove_special_regs(inst.write_set());
         let r = remove_special_regs(inst.read_set());
