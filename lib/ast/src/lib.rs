@@ -227,8 +227,11 @@ impl Parser {
         let output = String::from_utf8(output.stdout).chain_err(
             || "python stdout is not utf-8",
         )?;
+        use error::ResultExt;
         let module = parser::parse_module(&output).map_err(|e| {
-            lalrpop_parse_error_to_str(source, e)
+            Error::from(ErrorKind::Msg(lalrpop_parse_error_to_str(source, e).into()))
+        }).chain_err(|| {
+            format!("Python repr: {}", output)
         })?;
 
         Ok(module)
