@@ -65,6 +65,7 @@ impl Pythonc {
         show_casts: bool,
         show_nums: bool,
     ) -> Result<()> {
+        let asm_path = in_path.with_extension(Stage::asm.file_ext());
         let out_path = out_path.unwrap_or(in_path.with_extension(stop_stage.file_ext()));
         let out_path = &out_path;
         let source = read_file(in_path).chain_err(|| {
@@ -158,13 +159,13 @@ impl Pythonc {
         }
 
         if stop_stage == Stage::obj {
-            return emit_obj(&vasm_module, out_path)
+            return emit_obj(&vasm_module, &asm_path, out_path)
         }
 
         let obj_file = tempfile::NamedTempFile::new().chain_err(
             || "Could not create temporary file for obj output"
         )?;
-        emit_obj(&vasm_module, obj_file.path()).chain_err(
+        emit_obj(&vasm_module, &asm_path, obj_file.path()).chain_err(
             || "Could not create obj from assembly"
         )?;
 
@@ -275,7 +276,7 @@ fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn emit_obj(asm: &vasm::Module, out: &Path) -> Result<()> {
+fn emit_obj(asm: &vasm::Module, asm_path: &Path, out: &Path) -> Result<()> {
     use std::process::Stdio;
     use std::process::Command;
     use std::io::Write;
@@ -286,23 +287,20 @@ fn emit_obj(asm: &vasm::Module, out: &Path) -> Result<()> {
         f.fmt(asm).chain_err(|| "Error fmt'ing asm")?;
         String::from_utf8(f.into_inner()).unwrap()
     };
+    let asm_file = {
+        let mut file = ::std::fs::File::create(asm_path).chain_err(
+            || "Could not create temp file for asm"
+        )?;
+        write!(&mut file, "{}", asm)?;
+        file
+    };
     let mut gcc = Command::new("gcc")
         .args(&["-m32", "-g", "-c"])
         .arg("-o")
         .arg(out.as_os_str())
-        .args(&["-xassembler", "-"])
-        .stdin(Stdio::piped())
+        .arg(asm_path)
         .spawn()
         .chain_err(|| "Could not spawn gcc assembler")?;
-    match gcc.stdin {
-        Some(ref mut stdin) => {
-            stdin.write_all(asm.as_bytes())
-                .chain_err(|| "Could not write assembly to gcc through pipe")?;
-        }
-        None => {
-            return Err(ErrorKind::Msg("Could not capture gcc stdin".into()).into())
-        }
-    }
     gcc.wait()
         .chain_err(|| "Error running gcc assembler")
         .and_then(|exit_code| if !exit_code.success() {
