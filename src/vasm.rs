@@ -310,18 +310,6 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Setne(lval));
     }
 
-    /// Sets compare flags like EQ and NE
-    /// that can be read by `sete` and `setne`
-    fn cmp<L, R>(&mut self, lval: L, rval: R)
-    where
-        L: Into<Lval>,
-        R: Into<Rval>,
-    {
-        let lval = lval.into();
-        let rval = rval.into();
-        self.push_inst(Inst::Cmp(lval, rval));
-    }
-
     /// ```ignore
     /// push arg[n]
     /// push arg[n - 1]
@@ -383,13 +371,6 @@ impl<'a> BlockBuilder<'a> {
         L: Into<Lval>,
     {
         self.push_inst(Inst::MovLabel(lval.into(), func));
-    }
-
-    fn pop<L>(&mut self, lval: L)
-    where
-        L: Into<Lval>,
-    {
-        self.push_inst(Inst::Pop(lval.into()));
     }
 
     fn ret(&mut self) {
@@ -540,7 +521,6 @@ impl fmt::Fmt for Module {
 
 impl fmt::Fmt for Function {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
-        use std::io::Write;
         f.fmt(&self.block)?;
         Ok(())
     }
@@ -548,8 +528,6 @@ impl fmt::Fmt for Function {
 
 impl fmt::Fmt for Block {
     fn fmt<W: ::std::io::Write>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()> {
-        use std::io::Write;
-
         for inst in &self.insts {
             f.fmt(inst)?;
         }
@@ -921,7 +899,7 @@ pub trait VisitBlock {
         self.lval(l);
     }
 
-    fn call(&mut self, name: &str) {}
+    fn call(&mut self, _name: &str) {}
 
     fn if_(&mut self, cond: Lval, then: &Block, else_: &Block) {
         self.lval(cond);
@@ -958,25 +936,25 @@ pub trait VisitBlock {
         self.rval(r);
     }
 
-    fn shr(&mut self, l: Lval, i: Imm) {
+    fn shr(&mut self, l: Lval, _i: Imm) {
         self.lval(l);
     }
 
-    fn shl(&mut self, l: Lval, i: Imm) {
+    fn shl(&mut self, l: Lval, _i: Imm) {
         self.lval(l);
     }
 
-    fn mov_label(&mut self, l: Lval, label: raise::Func) {
+    fn mov_label(&mut self, l: Lval, _label: raise::Func) {
         self.lval(l);
     }
 
     fn ret(&mut self) {}
 
-    fn lval(&mut self, lval: Lval) {}
+    fn lval(&mut self, _lval: Lval) {}
 
     fn rval(&mut self, rval: Rval) {
         match rval {
-            Rval::Imm(imm) => {}
+            Rval::Imm(_imm) => {}
             Rval::Lval(lval) => self.lval(lval),
         }
     }

@@ -3,7 +3,6 @@
 extern crate error_chain;
 #[macro_use]
 extern crate util;
-#[macro_use]
 extern crate clap;
 #[macro_use]
 extern crate log;
@@ -36,20 +35,56 @@ use std::fmt;
 #[derive(Debug)]
 pub struct Pythonc {}
 
-arg_enum!{
-    #[allow(bad_style)]
-    #[derive(Debug, Copy, Clone, PartialEq)]
-    pub enum Stage {
-        ast,
-        explicated,
-        heapified,
-        raised,
-        flattened,
-        vasm,
-        liveness,
-        asm,
-        obj,
-        bin
+#[allow(bad_style)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Stage {
+    ast,
+    explicated,
+    heapified,
+    raised,
+    flattened,
+    vasm,
+    liveness,
+    asm,
+    obj,
+    bin
+}
+
+impl Stage {
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            "ast",
+            "explicated",
+            "heapified",
+            "raised",
+            "flattened",
+            "vasm",
+            "liveness",
+            "asm",
+            "obj",
+            "bin",
+        ]
+    }
+}
+
+impl ::std::str::FromStr for Stage {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Stage> {
+        use Stage::*;
+        let stage = match s {
+            "ast" => ast,
+            "explicated" => explicated,
+            "heapified" => heapified,
+            "raised" => raised,
+            "flattened" => flattened,
+            "vasm" => vasm,
+            "liveness" => liveness,
+            "asm" => asm,
+            "obj" => obj,
+            "bin" => bin,
+            _ => bail!("invalid stage, expected one of [ast, explicated, heapified, raised, flattened, vasm, liveness, asm, obj, bin]")
+        };
+        Ok(stage)
     }
 }
 
@@ -150,7 +185,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let mut vasm_module = vasm::Module::from(flattener);
+        let vasm_module = vasm::Module::from(flattener);
         if stop_stage == Stage::vasm {
             return fmt_out(&vasm_module, out_path);
         }
@@ -160,7 +195,7 @@ impl Pythonc {
         }
 
         let mut vars = vasm_module.vars;
-        let mut funcs = vasm_module.funcs;
+        let funcs = vasm_module.funcs;
         let main = vasm_module.main;
 
         let funcs = funcs.into_iter().map(|(f, function)| {
@@ -305,8 +340,6 @@ where
 }
 
 fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
-    use std::io::Write;
-
     let f = open_out_file(out_path, false)?;
     let mut f = util::fmt::Formatter::new(f);
     f.fmt(data).chain_err(|| "Error fmt'ing data")?;
@@ -314,7 +347,6 @@ fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
 }
 
 fn emit_obj(asm: &vasm::Module, asm_path: &Path, out: &Path) -> Result<()> {
-    use std::process::Stdio;
     use std::process::Command;
     use std::io::Write;
 
@@ -324,13 +356,12 @@ fn emit_obj(asm: &vasm::Module, asm_path: &Path, out: &Path) -> Result<()> {
         f.fmt(asm).chain_err(|| "Error fmt'ing asm")?;
         String::from_utf8(f.into_inner()).unwrap()
     };
-    let asm_file = {
+    {
         let mut file = ::std::fs::File::create(asm_path).chain_err(
             || "Could not create temp file for asm"
         )?;
         write!(&mut file, "{}", asm)?;
-        file
-    };
+    }
     let mut gcc = Command::new("gcc")
         .args(&["-m32", "-g", "-c"])
         .arg("-o")

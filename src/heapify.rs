@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use error::*;
 use explicate::*;
 use raise::TransformAst;
 use raise::VisitAst;
@@ -30,26 +28,8 @@ pub struct Builder<'var_data> {
 }
 
 impl<'var_data> Builder<'var_data> {
-    fn heapify_stmts(&mut self, stmts: Vec<Stmt>) -> Vec<Stmt> {
-        stmts.into_iter().map(|stmt| self.stmt(stmt)).collect()
-    }
-
     fn new_temp(&mut self) -> Var {
         self.var_data.insert(var::Data::Temp)
-    }
-
-    fn assign_list_0(&mut self, var: Var) -> Assign {
-        Assign {
-            target: var.into(),
-            expr: List { exprs: vec![Const::Int(0).into()] }.into(),
-        }
-    }
-
-    fn assign_to(&mut self, target: Var, source: Var) -> Assign {
-        Assign {
-            target: subscript_0(target).into(),
-            expr: source.into(),
-        }
     }
 
     /// This is the main closure heapification function,
@@ -100,10 +80,6 @@ fn subscript_0(var: Var) -> Subscript {
         base: var.into(),
         elem: Const::Int(0).into(),
     }
-}
-
-fn list_0() -> List {
-    List { exprs: vec![Const::Int(0).into()] }
 }
 
 impl<'var_data> TransformAst for Builder<'var_data> {
@@ -234,7 +210,7 @@ impl ::raise::VisitAst for Locals {
         self.vars.insert(var);
     }
 
-    fn closure(&mut self, closure: &Closure) {
+    fn closure(&mut self, _closure: &Closure) {
         // don't traverse into nested scope
     }
 }

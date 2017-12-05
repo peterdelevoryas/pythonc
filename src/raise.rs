@@ -1,11 +1,8 @@
 use explicate::*;
-use error::*;
 
 pub mod func {
     use explicate::Var;
     use explicate::Closure;
-    use super::Block;
-    use std::collections::HashSet;
 
     impl_ref!(Func, "f");
 
@@ -411,7 +408,7 @@ pub trait VisitAst {
         }
     }
 
-    fn target_var(&mut self, var: &Var) {
+    fn target_var(&mut self, _var: &Var) {
         // nothing to do by default
     }
 
@@ -419,7 +416,7 @@ pub trait VisitAst {
         self.subscript(subscript);
     }
 
-    fn var(&mut self, var: &Var) {
+    fn var(&mut self, _var: &Var) {
         // nothing to do by default
     }
 
@@ -455,7 +452,7 @@ pub trait VisitAst {
         self.expr(&let_.body);
     }
 
-    fn let_var(&mut self, var: &Var) {
+    fn let_var(&mut self, _var: &Var) {
         // nothing to do by default
     }
 
@@ -521,15 +518,15 @@ pub trait VisitAst {
         }
     }
 
-    fn const_(&mut self, const_: &Const) {
+    fn const_(&mut self, _const: &Const) {
         // do nothing by default
     }
 
-    fn func(&mut self, func: &Func) {
+    fn func(&mut self, _func: &Func) {
         // do nothing by default
     }
 
-    fn closure_var(&mut self, var: &Var) {
+    fn closure_var(&mut self, _var: &Var) {
         // do nothing by default
     }
 }

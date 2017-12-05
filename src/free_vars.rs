@@ -51,25 +51,17 @@ impl Collect {
         self.defined.insert(var);
     }
 
-    fn is_defined(&self, var: Var) -> bool {
-        self.defined.contains(&var)
-    }
-
     fn used(&mut self, var: Var) {
         self.used.insert(var);
     }
 
-    fn is_used(&self, var: Var) -> bool {
-        self.used.contains(&var)
-    }
-
     fn free_vars(&self) -> HashSet<Var> {
-        self.used.difference(&self.defined).map(|&v| v).collect()
+        &self.used - &self.defined
     }
 }
 
 impl VisitAst for Collect {
-    fn closure(&mut self, closure: &Closure) {
+    fn closure(&mut self, _closure: &Closure) {
         // don't enter closure, only visit ast nodes
         // in the scope we were called from!
     }
@@ -82,7 +74,7 @@ impl VisitAst for Collect {
         self.used(var);
     }
 
-    fn closure_var(&mut self, var: &Var) {
+    fn closure_var(&mut self, _var: &Var) {
         panic!("Closure's should not be entered during free_vars::Collect!");
     }
 

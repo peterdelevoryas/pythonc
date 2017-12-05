@@ -7,7 +7,6 @@ use liveness;
 use liveness::LiveSet;
 use explicate::Var;
 
-use petgraph;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use petgraph::graphmap::UnGraphMap;
@@ -249,7 +248,7 @@ impl Graph {
                         }
                     }
                     If(_, _, _) => panic!("encountered If in wrong place"),
-                    While(cond, ref comp, ref body) => panic!("encountered While in wrong place"),
+                    While(_cond, ref _comp, ref _body) => panic!("encountered While in wrong place"),
                     JmpLabel(_) => unimplemented!(),
                     JeqLabel(_) => unimplemented!(),
                     Sub(_, _) => unimplemented!(),
@@ -258,11 +257,9 @@ impl Graph {
             }
             LiveSet::If {
                 inst,
-                then_before,
-                else_before,
-                live_after,
                 then,
                 else_,
+                ..
             } => {
                 match *inst {
                     If(_, _, _) => {}
@@ -277,11 +274,9 @@ impl Graph {
             }
             LiveSet::While {
                 inst,
-                header_before,
-                body_before,
-                live_after,
                 header,
-                body
+                body,
+                ..
             } => {
                 match *inst {
                     While(_, _, _) => {}

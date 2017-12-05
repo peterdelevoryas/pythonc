@@ -10,26 +10,6 @@ pub const BOOL_TAG: i32 = 1;
 pub const FLOAT_TAG: i32 = 2;
 pub const BIG_TAG: i32 = 3;
 
-macro_rules! set {
-    ($($e:expr),*) => ({
-        let mut set = HashSet::new();
-        $(
-            set.insert($e);
-        )*
-        set
-    })
-}
-
-macro_rules! set_union {
-    ($($e:expr),*) => ({
-        let mut set = HashSet::new();
-        $(
-            set.extend($e);
-        )*
-        set
-    })
-}
-
 pub fn explicate(ast: ast::Module) -> Module {
     let mut explicate = Explicate::new();
     explicate.module(ast)
@@ -390,7 +370,7 @@ pub struct Explicate {
 
 impl Explicate {
     pub fn new() -> Explicate {
-        let mut b = Explicate {
+        let b = Explicate {
             var_data: var::Slab::new(),
             names: HashMap::new(),
         };
@@ -843,7 +823,7 @@ use std::fmt;
 
 impl<'a> fmt::Display for Formatter<'a, ::raise::TransUnit> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let free_vars_string = |set: HashSet<Var>| -> String {
+        let _free_vars_string = |set: HashSet<Var>| -> String {
             let (_, free_vars): (_, String) = set.into_iter()
                 .map(|var| format!("{}", self.fmt(&var)))
                 .fold((true, "".into()), |(first, mut acc), s| {
@@ -1432,10 +1412,10 @@ impl TypeCheck for Return {
 
 impl TypeCheck for If {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        self.cond.type_check(env);
-        self.then.type_check(env);
+        self.cond.type_check(env)?;
+        self.then.type_check(env)?;
         if let Some(ref else_) = self.else_ {
-            else_.type_check(env);
+            else_.type_check(env)?;
         }
         Ok(None)
     }
@@ -1443,8 +1423,8 @@ impl TypeCheck for If {
 
 impl TypeCheck for While {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        self.test.type_check(env);
-        self.body.type_check(env);
+        self.test.type_check(env)?;
+        self.body.type_check(env)?;
         Ok(None)
     }
 }
@@ -1543,7 +1523,7 @@ impl TypeCheck for Expr {
                 })
             }
 
-            Func(ref func) => bail!("Func's shouldn't be in the AST before type checking!"),
+            Func(ref _func) => bail!("Func's shouldn't be in the AST before type checking!"),
         }
     }
 }
@@ -1672,7 +1652,8 @@ impl TypeCheck for Binary {
         expect_ty(left, Ty::Int).chain_err(
             || "left arg to binary is not int",
         )?;
-        let right = self.right.type_check(env).chain_err(
+        let right = self.right.type_check(env)?;
+        expect_ty(right, Ty::Int).chain_err(
             || "right arg to binary is not int",
         )?;
         Ok(Some(Ty::Int))
@@ -1792,7 +1773,7 @@ impl TypeCheck for Closure {
 }
 
 impl TypeCheck for Const {
-    fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
+    fn type_check(&self, _env: &mut TypeEnv) -> Result<Option<Ty>> {
         match *self {
             Const::Int(_) => Ok(Some(Ty::Int)),
             Const::Bool(_) => Ok(Some(Ty::Bool)),

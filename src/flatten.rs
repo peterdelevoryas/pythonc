@@ -2,8 +2,6 @@ use explicate as ex;
 use raise;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
-use std::convert;
 
 use explicate::Var;
 
@@ -279,7 +277,7 @@ impl Flatten for ex::Expr {
             ex::Expr::List(v) => v.flatten(builder),
             ex::Expr::Dict(v) => v.flatten(builder),
             ex::Expr::IfExp(v) => v.flatten(builder),
-            ex::Expr::Closure(v) => panic!("Encountered Closure in Flattening step."),
+            ex::Expr::Closure(_) => panic!("Encountered Closure in Flattening step."),
             ex::Expr::Const(c) => c.flatten(builder),
             ex::Expr::Var(v) => v.flatten(builder),
             ex::Expr::Func(f) => f.flatten(builder),
@@ -467,7 +465,7 @@ impl Flatten for ex::Const {
 
 impl Flatten for Var {
     type Output = Var;
-    fn flatten(self, builder: &mut Flattener) -> Var {
+    fn flatten(self, _builder: &mut Flattener) -> Var {
         self
     }
 }

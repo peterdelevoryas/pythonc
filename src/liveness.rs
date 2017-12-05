@@ -4,9 +4,7 @@ use vasm::Inst;
 use vasm::Function;
 use vasm::Block;
 use vasm;
-use explicate::Var;
 use std::collections::HashSet;
-use std::fmt;
 
 // Removes ebp and esp from liveset, because we don't
 // use them for register allocation, ever
@@ -91,7 +89,7 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
         //  LBefore(header) = Liveness(header, LBefore(body) U LAfter(header))
         //  LBefore(body) = Liveness(body, LBefore(header))
         //
-        if let While(cond, ref header, ref body) = *inst {
+        if let While(_, ref header, ref body) = *inst {
             // live after header
             let la_hdr = live_after.clone();
             // live before header
@@ -193,7 +191,7 @@ impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Module> {
                 writeln!(f, "{}:", func)?;
             }
             f.indent();
-            f.fmt(&Formatter { data: function });
+            f.fmt(&Formatter { data: function })?;
             f.dedent();
         }
         Ok(())
@@ -271,7 +269,7 @@ impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
                     f.fmt(live_set)?;
                 }
                 f.dedent();
-                writeln!(f, "}} else {{");
+                writeln!(f, "}} else {{")?;
                 f.indent();
                 writeln!(f, "break;")?;
                 f.dedent();
@@ -308,8 +306,6 @@ fn write_live_set<F>(f: &mut F, set: &HashSet<Lval>) -> ::std::io::Result<()>
 where
     F: ::std::io::Write,
 {
-    use std::io::Write;
-
     write!(f, "live: (")?;
     let live_after: Vec<Lval> = set.iter().map(|&lval| lval).collect();
     if !live_after.is_empty() {
