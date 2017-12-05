@@ -22,6 +22,7 @@ pub mod vasm;
 pub mod liveness;
 pub mod graph;
 pub mod regalloc;
+pub mod cfg;
 
 use flatten::Flatten;
 
