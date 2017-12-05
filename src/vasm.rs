@@ -564,11 +564,11 @@ impl fmt::Fmt for Inst {
     {
         use std::io::Write;
         match *self {
-            Inst::Mov(lval, rval) => writeln!(f, "mov {}, {}", rval, lval),
-            Inst::Add(lval, rval) => writeln!(f, "add {}, {}", rval, lval),
-            Inst::Neg(lval) => writeln!(f, "neg {}", lval),
-            Inst::Push(rval) => writeln!(f, "push {}", rval),
-            Inst::Pop(lval) => writeln!(f, "pop {}", lval),
+            Inst::Mov(lval, rval) => writeln!(f, "movl {}, {}", rval, lval),
+            Inst::Add(lval, rval) => writeln!(f, "addl {}, {}", rval, lval),
+            Inst::Neg(lval) => writeln!(f, "negl {}", lval),
+            Inst::Push(rval) => writeln!(f, "pushl {}", rval),
+            Inst::Pop(lval) => writeln!(f, "popl {}", lval),
             Inst::CallIndirect(lval) => writeln!(f, "call *{}", lval),
             Inst::Call(ref name) => writeln!(f, "call {}", name),
             Inst::If(cond, ref then, ref else_) => {
