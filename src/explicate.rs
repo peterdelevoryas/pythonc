@@ -601,7 +601,7 @@ impl Explicate {
         if let ast::Expr::Name(ast::Name(ref fn_name)) = c.expr {
             if fn_name == "input" {
                 return Expr::CallRuntime(CallRuntime {
-                    name : "input".into(),
+                    name : "input_int".into(),
                     args : eargs,
                 }.into());
             }
@@ -1650,7 +1650,7 @@ impl TypeCheck for CallRuntime {
             "add" => (Ty::Big, vec![Ty::Big, Ty::Big]),
             "equal" | "not_equal" => (Ty::Int, vec![Ty::Big, Ty::Big]),
             "is_true" => (Ty::Int, vec![Ty::Pyobj]),
-            "input" => (Ty::Pyobj, vec![]),
+            "input_int" => (Ty::Pyobj, vec![]),
             _ => unimplemented!(),
         };
         if self.args.len() != arg_types.len() {
