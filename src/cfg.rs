@@ -1,4 +1,5 @@
 use explicate::Var;
+use explicate::var;
 use flatten::Expr;
 
 /// Contains all data for a function
@@ -60,5 +61,24 @@ pub mod bb {
 
         /// Predecessors
         pub pred: HashSet<BasicBlock>,
+    }
+}
+
+/// Builds a `Function` from a `flatten::Function`.
+pub struct FuncBuilder<'var_data> {
+    curr: bb::BasicBlock,
+    bbs: bb::Slab<bb::Data>,
+    var_data: &'var_data mut var::Slab<var::Data>,
+}
+
+impl<'var_data> FuncBuilder<'var_data> {
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builder() {
     }
 }
