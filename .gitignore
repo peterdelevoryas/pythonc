@@ -8,3 +8,5 @@ pythonc-ast/src/parse.rs
 *.s
 *.py
 *.bin
+*.expected
+*.out

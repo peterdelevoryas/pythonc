@@ -11,47 +11,21 @@ use std::process::Stdio;
 use std::fs::File;
 use std::fs;
 
-#[derive(Debug, Copy, Clone)]
-enum Lang {
-    P0,
-    P1,
-    P2,
-    P3,
-}
+#[test]
+fn test_programs() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let programs_dir = manifest_dir.join("tests/programs");
 
-impl Lang {
-    fn test_dir_name(self) -> &'static str {
-        match self {
-            Lang::P0 => "P0_tests",
-            Lang::P1 => "P1_tests",
-            Lang::P2 => "P2_tests",
-            Lang::P3 => "P3_tests",
-        }
+    use std::io::Write;
+    if let Err(e) = run(&programs_dir, Stage::bin) {
+        panic!("\n{}", e.display_chain());
     }
 }
 
-macro_rules! impl_lang_tests {
-    ($lang:expr, $stage:expr, $test_name:ident) => {
-        #[test]
-        fn $test_name() {
-            use std::io::Write;
-            if let Err(e) = run($lang, $stage) {
-                panic!("\n{}", e.display_chain());
-            }
-        }
-    }
-}
-
-impl_lang_tests!(Lang::P0, Stage::bin, p0_bin_tests);
-impl_lang_tests!(Lang::P2, Stage::explicated, p1_explicate_tests);
-
-fn run(lang: Lang, stage: Stage) -> Result<()> {
+fn run(dir: &Path, stage: Stage) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let runtime = manifest_dir.join("runtime/libpyyruntime.a");
-    let pyyc_tests_contrib = manifest_dir.join("tests/pyyc-tests-contrib");
-    let lang_tests = pyyc_tests_contrib.join(lang.test_dir_name());
-
-    run_tests(&lang_tests, &runtime, stage).chain_err(|| format!("Test failure for {:?}", lang))
+    run_tests(dir, &runtime, stage).chain_err(|| format!("Test failure"))
 }
 
 fn subdirs<P>(dir: P) -> Result<Vec<PathBuf>>
