@@ -544,9 +544,9 @@ impl<'a> fmt::Display for Formatter<'a, Expr> {
         fn write_args_list(f: &mut fmt::Formatter, args: &[Var]) -> fmt::Result {
             if !args.is_empty() {
                 write!(f, "{}", args[0])?;
-            }
-            for arg in &args[1..] {
-                write!(f, ", {}", arg)?;
+                for arg in &args[1..] {
+                    write!(f, ", {}", arg)?;
+                }
             }
             Ok(())
         }
