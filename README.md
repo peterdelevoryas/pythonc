@@ -5,28 +5,34 @@ A compiler for a subset of Python, implemented in Rust.
 # Building
 
 ```bash
-# install rust with rustup
+# install rust with rustup (requires nightly, for now)
 curl https://sh.rustup.rs -sSf | sh
 
 # clone repository
-git clone https://github.com/csci4555-f17/pyyc-rust-python.git
-cd ./pyyc-rust-python
+git clone https://github.com/peterdelevoryas/pythonc.git
+cd ./pythonc
 
-# by default, builds for i686-unknown-linux-gnu
-# binary is output in target/i686-unknown-linux-gnu/debug
-make pythonc
+# build and install
+cargo install
 
-# view usage
-./pythonc -h
+# output a 32-bit x86 (only architecture supported right now) assembly file
+printf "x = 1\nwhile x != 10:\n\tprint x\n\tx = x + 1\nprint x" > test.py
+pythonc test.py
+cat test.s
 
-# cog.zip output in target/i686-unknown-linux-gnu/debug
-make cog
-```
+# build the runtime for outputting binary files
+make -C runtime
+# pythonc uses PYTHONC_RUNTIME env var, or --runtime flag to specify path
+# to compiled runtime library.
+export PYTHONC_RUNTIME=$(readlink -f ./runtime/libpyyruntime.a)
 
-# Testing against [`pyyc-tests-contrib`](https://github.com/csci4555-f17/pyyc-tests-contrib)
+# compile a binary and run it
+pythonc test.py --emit bin
+./test.bin
 
-```bash
-# while in pyyc-rust-python directory
-# runs cargo test for root and subdirectory crates
-make test
+# view an intermediate stage's output
+pythonc test.py --stdout --emit raised
+
+# view usage for more
+pythonc -h
 ```
