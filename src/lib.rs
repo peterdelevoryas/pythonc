@@ -171,7 +171,14 @@ impl Pythonc {
 
         let runtime = match runtime {
             Some(path) => path,
-            None => bail!("Emitting binary requires specifying runtime library path"),
+            None => {
+                let pythonc_runtime = ::std::env::var("PYTHONC_RUNTIME").map(PathBuf::from);
+                if let Ok(path) = pythonc_runtime {
+                    path
+                } else {
+                    bail!("Emitting binary requires specifying runtime library path")
+                }
+            }
         };
 
         assert_eq!(stop_stage, Stage::bin);

@@ -88,12 +88,6 @@ fn run() -> pythonc::Result<()> {
     };
     let runtime = m.value_of("LIB").map(PathBuf::from);
 
-    if emit == pythonc::Stage::bin {
-        if runtime.is_none() {
-            bail!("Cannot emit binary without runtime")
-        }
-    }
-
     let show_casts = m.is_present("show_casts");
     let show_nums = m.is_present("show_nums");
 
