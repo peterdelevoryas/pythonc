@@ -2,7 +2,7 @@
 
 A compiler for a subset of Python, implemented in Rust.
 
-# Building
+# Usage
 
 ```bash
 # install rust with rustup (requires nightly, for now)
