@@ -36,6 +36,7 @@ use std::fmt;
 pub struct Pythonc {}
 
 arg_enum!{
+    #[allow(bad_style)]
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub enum Stage {
         ast,
