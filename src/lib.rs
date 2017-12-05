@@ -58,6 +58,34 @@ impl Pythonc {
         Pythonc {}
     }
 
+    pub fn emit_flattened(&self, source: &str) -> Result<::flatten::Flattener> {
+        let parser = ast::Parser::new();
+        let ast = parser.parse(source).chain_err(|| "error parsing source")?;
+        let mut explicate = explicate::Explicate::new();
+        let explicated = explicate.module(ast);
+        {
+            use explicate::TypeCheck;
+            // type check!
+            let result = {
+                let mut type_env = explicate::TypeEnv::new(&explicate);
+                explicated.type_check(&mut type_env)
+            };
+            result
+                .chain_err(|| {
+                    // always show casts during type checking output
+                    let fmt = explicate::Formatter::new(&explicate, &explicated, true, true);
+                    format!("{}", fmt)
+                })
+                .chain_err(|| "Error type checking explicated ast")?;
+        }
+        let heapified = heapify::heapify(&mut explicate.var_data, explicated);
+        let trans_unit = raise::Builder::build(heapified, &mut explicate.var_data);
+        let mut flattener = flatten::Flattener::from(explicate, trans_unit.main);
+        trans_unit.flatten(&mut flattener);
+
+        Ok(flattener)
+    }
+
     pub fn emit(
         &self,
         in_path: &Path,
