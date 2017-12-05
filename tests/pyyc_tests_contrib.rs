@@ -42,8 +42,8 @@ macro_rules! impl_lang_tests {
     }
 }
 
-impl_lang_tests!(Lang::P0, Stage::Bin, p0_bin_tests);
-impl_lang_tests!(Lang::P2, Stage::Explicated, p1_explicate_tests);
+impl_lang_tests!(Lang::P0, Stage::bin, p0_bin_tests);
+impl_lang_tests!(Lang::P2, Stage::explicated, p1_explicate_tests);
 
 fn run(lang: Lang, stage: Stage) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -135,7 +135,7 @@ where
             Err(e) => bail!("panicked while compiling {:?}", source_file_name),
         }
 
-        if stage == Stage::Bin {
+        if stage == Stage::bin {
             let compiled = source.with_extension("bin");
             let input = source.with_extension("in");
             let output = source.with_extension("out");
