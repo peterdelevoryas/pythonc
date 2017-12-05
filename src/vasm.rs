@@ -245,7 +245,7 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Push(rval));
     }
 
-    /// ```
+    /// ```ignore
     /// if lval == 0 {
     ///     lval = 1;
     /// } else {
@@ -261,7 +261,7 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Sete(lval));
     }
 
-    /// ```
+    /// ```ignore
     /// lval += rval;
     /// ```
     fn add<L, R>(&mut self, lval: L, rval: R)
@@ -274,7 +274,7 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Add(lval, rval));
     }
 
-    /// ```
+    /// ```ignore
     /// if lval == rval {
     ///     lval = 1;
     /// } else {
@@ -292,7 +292,7 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Sete(lval));
     }
 
-    /// ```
+    /// ```ignore
     /// if lval != rval {
     ///     lval = 1;
     /// } else {
@@ -322,7 +322,7 @@ impl<'a> BlockBuilder<'a> {
         self.push_inst(Inst::Cmp(lval, rval));
     }
 
-    /// ```
+    /// ```ignore
     /// push arg[n]
     /// push arg[n - 1]
     /// ...
