@@ -72,13 +72,38 @@ pub struct FuncBuilder<'var_data> {
 }
 
 impl<'var_data> FuncBuilder<'var_data> {
+    
+}
+
+use flatten;
+impl Function {
+    pub fn new(flat: flatten::Function) -> Self {
+        unimplemented!()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use flatten;
     use super::*;
+
+    const TESTS: &'static [&'static str] = &[
+        "
+x = 1
+if input():
+    x = 3
+print x
+        ",
+    ];
 
     #[test]
     fn builder() {
+        let mut pythonc = ::Pythonc::new();
+        for test in TESTS {
+            let flattener = pythonc.emit_flattened(test).unwrap();
+            for (f, flat_function) in flattener.units {
+                let function = Function::new(flat_function);
+            }
+        }
     }
 }
