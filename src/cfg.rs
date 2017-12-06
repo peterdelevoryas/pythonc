@@ -263,10 +263,8 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
                 })?;
             }
         }
-        write!(f, ") {{")?;
-        f.indent();
+        writeln!(f, ") {{")?;
         f.fmt(&self.value.cfg)?;
-        f.dedent();
         write!(f, "}}")?;
 
         Ok(())
