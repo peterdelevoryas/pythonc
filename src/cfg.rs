@@ -100,7 +100,8 @@ pub struct Cfg {
 impl Cfg {
     pub fn new(block: FlatBlock) -> Cfg {
         let mut builder = CfgBuilder::new();
-        builder.visit_block(block);
+        let last = builder.build_block(block);
+        builder.terminate(last, Term::Return(None));
         builder.complete()
     }
 }
@@ -119,7 +120,12 @@ impl CfgBuilder {
         }
     }
 
-    fn visit_block(&mut self, block: FlatBlock) -> bb::BasicBlock {
+    fn terminate(&mut self, bb: bb::BasicBlock, term: Term) {
+        assert!(self.basic_block(bb).term.is_none());
+        self.basic_block(bb).term = Some(term);
+    }
+
+    fn build_block(&mut self, block: FlatBlock) -> bb::BasicBlock {
         let mut current = self.enter_new_block();
         for stmt in block {
             match stmt {
@@ -146,24 +152,15 @@ impl CfgBuilder {
                     // goto's to the new current block, and add predecessors
                     // to everything.
 
-                    let then = self.visit_block(then);
-                    let else_ = self.visit_block(else_);
+                    let then = self.build_block(then);
+                    let else_ = self.build_block(else_);
 
                     let prev = self.exit_block();
                     current = self.enter_new_block();
 
-                    assert!(self.basic_block(then).term.is_none());
-                    self.basic_block(then).term = Some(Term::Goto(current));
-
-                    assert!(self.basic_block(else_).term.is_none());
-                    self.basic_block(else_).term = Some(Term::Goto(current));
-
-                    assert!(self.basic_block(prev).term.is_none());
-                    self.basic_block(prev).term = Some(Term::Switch {
-                        cond: cond,
-                        then: then,
-                        else_: else_,
-                    });
+                    self.terminate(then, Term::Goto(current));
+                    self.terminate(else_, Term::Goto(current));
+                    self.terminate(prev, Term::Switch { cond, then, else_ });
 
                     self.basic_block(then).pred.insert(prev);
                     self.basic_block(else_).pred.insert(prev);
