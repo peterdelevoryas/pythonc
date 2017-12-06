@@ -48,6 +48,7 @@ pub enum Stmt {
 }
 
 /// A statement which terminates a basic block
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// Return from function
     Return(Option<Var>),
@@ -137,7 +138,33 @@ impl CfgBuilder {
                 unimplemented!()
             }
             flat::Stmt::If(cond, then, else_) => {
-                unimplemented!()
+                let current = self.exit_block();
+
+                self.enter_block();
+                for stmt in then {
+                    self.visit_stmt(stmt);
+                }
+                let then = self.exit_block();
+                self.basic_block(then).pred.insert(current);
+
+                self.enter_block();
+                for stmt in else_ {
+                    self.visit_stmt(stmt);
+                }
+                let else_ = self.exit_block();
+                self.basic_block(else_).pred.insert(current);
+
+                self.re_enter_block(current);
+
+                assert_eq!(self.current_basic_block().term, None);
+
+                let switch = Term::Switch {
+                    cond: cond,
+                    then: then,
+                    else_: else_,
+                };
+
+                self.current_basic_block().term = Some(switch);
             }
         }
     }
@@ -145,24 +172,38 @@ impl CfgBuilder {
     /// Panics if there aren't any basic blocks
     fn current_basic_block(&mut self) -> &mut bb::Data {
         let &bb = self.curr.last().expect("no basic blocks");
+        self.basic_block(bb)
+    }
+
+    fn basic_block(&mut self, bb: bb::BasicBlock) -> &mut bb::Data {
         &mut self.bbs[bb]
     }
 
-    fn enter_block(&mut self) {
+    fn re_enter_block(&mut self, bb: bb::BasicBlock) {
+        assert!(self.bbs.contains(bb));
+        self.curr.push(bb);
+    }
+
+    fn enter_block(&mut self) -> bb::BasicBlock {
         let data = bb::Data {
             body: Vec::new(),
             term: None,
             pred: HashSet::new(),
         };
         let bb = self.bbs.insert(data);
+        trace!("entering block {}", bb);
         self.curr.push(bb);
+        bb
     }
 
-    fn exit_block(&mut self) {
-        let _ = self.curr.pop().expect("basic block not entered");
+    fn exit_block(&mut self) -> bb::BasicBlock {
+        let bb = self.curr.pop().expect("basic block not entered");
+        trace!("exiting block {}", bb);
+        bb
     }
 
     fn complete(self) -> Cfg {
+        trace!("completing control flow graph");
         assert!(self.curr.is_empty());
         Cfg {
             bbs: self.bbs,

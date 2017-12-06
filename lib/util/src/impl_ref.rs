@@ -105,6 +105,10 @@ macro_rules! impl_ref {
             pub fn remove(&mut self, index: $ident) -> T {
                 self.inner.remove(index.inner())
             }
+
+            pub fn contains(&mut self, index: $ident) -> bool {
+                self.inner.contains(index.inner())
+            }
         }
 
         impl Iterator for Gen {
