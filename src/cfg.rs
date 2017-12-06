@@ -16,9 +16,10 @@ pub struct Module {
 
 impl Module {
     pub fn new(flattener: flat::Flattener) -> Module {
+        let main = flattener.main;
         let functions: HashMap<raise::Func, Function> = flattener.units.into_iter()
             .map(|(f, function)| {
-                let function = Function::new(f, function);
+                let function = Function::new(f, function, f == main);
                 (f, function)
             })
             .collect();
@@ -26,7 +27,7 @@ impl Module {
         Module {
             var_data: flattener.var_data,
             functions: functions,
-            main: flattener.main,
+            main: main,
         }
     }
 }
@@ -215,10 +216,11 @@ impl CfgBuilder {
 }
 
 impl Function {
-    pub fn new(f: raise::Func, function: flat::Function) -> Self {
+    pub fn new(f: raise::Func, function: flat::Function, is_main: bool) -> Self {
         let mut cfg = Cfg::new(function.body);
+        let name = if is_main { "main".into() } else { format!("{}", f) };
         Function {
-            name: format!("{}", f),
+            name: name,
             args: function.args,
             cfg: cfg,
         }
@@ -405,12 +407,13 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Function> {
         if !self.value.args.is_empty() {
             f.fmt(&self.formatted(&self.value.args[0]))?;
             for arg in &self.value.args[1..] {
+                write!(f, ", ")?;
                 f.fmt(&self.formatted(arg))?;
             }
         }
         writeln!(f, ") {{")?;
         f.fmt(&self.formatted(&self.value.cfg))?;
-        write!(f, "}}")?;
+        writeln!(f, "}}")?;
 
         Ok(())
     }
