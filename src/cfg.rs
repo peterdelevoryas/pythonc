@@ -191,7 +191,7 @@ impl ::util::fmt::Fmt for Cfg {
         use std::io::Write;
 
         for (bb, data) in &self.bbs {
-            writeln!(f, "{}:", bb);
+            writeln!(f, "{}:", bb)?;
             f.indent();
             for stmt in &data.body {
                 f.fmt(stmt)?;
@@ -202,8 +202,9 @@ impl ::util::fmt::Fmt for Cfg {
                 writeln!(f)?;
             }
             f.dedent();
+            writeln!(f)?;
         }
-        unimplemented!()
+        Ok(())
     }
 }
 
