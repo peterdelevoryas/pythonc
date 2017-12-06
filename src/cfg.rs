@@ -181,17 +181,76 @@ impl Function {
     }
 }
 
-impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Expr> {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Expr> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
         use std::io::Write;
-        unimplemented!()
+        match *self.value {
+            Expr::UnaryOp(op, var) => {
+                write!(f, "{} ", op)?;
+                f.fmt(&self.formatted(&var))?;
+            }
+            Expr::BinOp(op, l, r) => {
+                f.fmt(&self.formatted(&l))?;
+                write!(f, " {} ", op)?;
+                f.fmt(&self.formatted(&r))?;
+            }
+            Expr::CallFunc(target, ref args) => {
+                f.fmt(&self.formatted(&target))?;
+                write!(f, "(")?;
+                if !args.is_empty() {
+                    f.fmt(&self.formatted(&args[0]))?;
+                    for arg in &args[1..] {
+                        write!(f, ", ")?;
+                        f.fmt(&self.formatted(arg))?;
+                    }
+                }
+                write!(f, ")")?;
+            }
+            Expr::RuntimeFunc(ref name, ref args) => {
+                write!(f, "{}(", name)?;
+                if !args.is_empty() {
+                    f.fmt(&self.formatted(&args[0]))?;
+                    for arg in &args[1..] {
+                        write!(f, ", ")?;
+                        f.fmt(&self.formatted(arg))?;
+                    }
+                }
+                write!(f, ")")?;
+            }
+            Expr::GetTag(var) => {
+                write!(f, "get_tag ")?;
+                f.fmt(&self.formatted(&var))?;
+            }
+            Expr::ProjectTo(var, ty) => {
+                write!(f, "project ")?;
+                f.fmt(&self.formatted(&var))?;
+                write!(f, " to {}", ty)?;
+            }
+            Expr::InjectFrom(var, ty) => {
+                write!(f, "inject ")?;
+                f.fmt(&self.formatted(&var))?;
+                write!(f, " from {}", ty)?;
+            }
+            Expr::Const(i) => {
+                write!(f, "const i32 {}", i)?;
+            }
+            Expr::LoadFunctionPointer(ref func) => {
+                write!(f, "{}", self.module.functions[func].name)?;
+            }
+            Expr::Copy(var) => {
+                write!(f, "copy ")?;
+                f.fmt(&self.formatted(&var))?;
+            }
+        }
+
+        Ok(())
     }
 }
 
-impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Stmt> {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Stmt> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
@@ -199,37 +258,28 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Stmt> {
         use std::io::Write;
         match *self.value {
             Stmt::Def { ref lhs, ref rhs } => {
-                f.fmt(&Formatted {
-                    var_data: &self.var_data,
-                    value: lhs,
-                })?;
+                f.fmt(&self.formatted(lhs))?;
                 write!(f, " = ")?;
-                f.fmt(&Formatted {
-                    var_data: &self.var_data,
-                    value: rhs,
-                })?;
+                f.fmt(&self.formatted(rhs))?;
             }
             Stmt::Discard(ref expr) => {
-                f.fmt(&Formatted {
-                    var_data: &self.var_data,
-                    value: expr
-                })?;
+                f.fmt(&self.formatted(expr))?;
             }
         }
         Ok(())
     }
 }
 
-impl ::util::fmt::Fmt for Term {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Term> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
-        Ok(())
+        unimplemented!()
     }
 }
 
-impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Cfg> {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
@@ -240,14 +290,11 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Cfg> {
             writeln!(f, "{}:", bb)?;
             f.indent();
             for stmt in &data.body {
-                f.fmt(&Formatted {
-                    var_data: &self.var_data,
-                    value: stmt
-                })?;
+                //f.fmt(&self.formatted(stmt))?;
                 writeln!(f)?;
             }
             if let Some(ref term) = data.term {
-                f.fmt(term)?;
+                //f.fmt(term)?;
                 writeln!(f)?;
             }
             f.dedent();
@@ -257,14 +304,14 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Cfg> {
     }
 }
 
-impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Var> {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Var> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
         use std::io::Write;
 
-        match self.var_data[*self.value] {
+        match self.module.var_data[*self.value] {
             var::Data::User { ref source_name } => {
                 write!(f, "{}.{}", source_name, self.value.inner())
             }
@@ -275,7 +322,7 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Var> {
     }
 }
 
-impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Function> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
@@ -284,23 +331,31 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
 
         write!(f, "func {}(", self.value.name)?;
         if !self.value.args.is_empty() {
-            f.fmt(&Formatted {
-                var_data: &self.var_data,
-                value: &self.value.args[0]
-            })?;
+            f.fmt(&self.formatted(&self.value.args[0]))?;
             for arg in &self.value.args[1..] {
-                f.fmt(&Formatted {
-                    var_data: &self.var_data,
-                    value: arg,
-                })?;
+                f.fmt(&self.formatted(arg))?;
             }
         }
         writeln!(f, ") {{")?;
-        f.fmt(&Formatted {
-            var_data: &self.var_data,
-            value: &self.value.cfg,
-        })?;
+        f.fmt(&self.formatted(&self.value.cfg))?;
         write!(f, "}}")?;
+
+        Ok(())
+    }
+}
+
+impl<'module> ::util::fmt::Fmt for Formatted<'module, Module> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+
+        for (_, function) in &self.value.functions {
+            let formatted = self.formatted(function);
+            f.fmt(&formatted)?;
+        }
+        writeln!(f)?;
 
         Ok(())
     }
@@ -308,35 +363,34 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
 
 impl ::std::fmt::Display for Module {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        use std::io::Write;
-
         let mut formatter = ::util::fmt::Formatter::new(Vec::new());
-        for (f, function) in &self.functions {
-            let formatted = Formatted {
-                var_data: &self.var_data,
-                value: function,
-            };
-            formatter.fmt(&formatted).map_err(|_| ::std::fmt::Error)?;
-            writeln!(formatter).map_err(|_| ::std::fmt::Error)?;
-        }
+        let formatted = Formatted::new(self, self);
+        formatter.fmt(&formatted).map_err(|_| ::std::fmt::Error)?;
         let bytes = formatter.into_inner();
         let string = String::from_utf8(bytes).unwrap();
         write!(f, "{}", string)
     }
 }
 
-struct Formatted<'var_data, T: 'var_data> {
-    var_data: &'var_data var::Slab<var::Data>,
-    value: &'var_data T,
+struct Formatted<'module, T: 'module> {
+    module: &'module Module,
+    value: &'module T,
 }
 
-impl<'var_data, T> Formatted<'var_data, T>
+impl<'module, T> Formatted<'module, T>
 where
-    T: 'var_data
+    T: 'module
 {
-    pub fn value<V>(&self, value: &'var_data V) -> Formatted<'var_data, V> {
+    fn new(module: &'module Module, value: &'module T) -> Self {
         Formatted {
-            var_data: &self.var_data,
+            module: module,
+            value: value,
+        }
+    }
+
+    fn formatted<V>(&self, value: &'module V) -> Formatted<'module, V> {
+        Formatted {
+            module: self.module,
             value: value,
         }
     }
