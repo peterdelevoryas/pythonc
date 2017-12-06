@@ -2,6 +2,7 @@ use explicate::Var;
 use explicate::var;
 use flatten::Expr;
 use flatten as flat;
+use std::collections::HashSet;
 
 type FlatBlock = Vec<flat::Stmt>;
 
@@ -55,7 +56,7 @@ pub mod bb {
         /// Last stmt in basic block,
         /// which results in leaving
         /// the basic block
-        pub term: Term,
+        pub term: Option<Term>,
 
         /// Predecessors
         pub pred: HashSet<BasicBlock>,
@@ -122,11 +123,17 @@ impl CfgBuilder {
     }
 
     fn enter_block(&mut self) {
-        unimplemented!()
+        let data = bb::Data {
+            body: Vec::new(),
+            term: None,
+            pred: HashSet::new(),
+        };
+        let bb = self.bbs.insert(data);
+        self.curr.push(bb);
     }
 
     fn exit_block(&mut self) {
-        unimplemented!()
+        let _ = self.curr.pop().expect("basic block not entered");
     }
 
     fn complete(self) -> Cfg {
