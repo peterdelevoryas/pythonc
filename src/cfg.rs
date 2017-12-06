@@ -1,6 +1,9 @@
 use explicate::Var;
 use explicate::var;
 use flatten::Expr;
+use flatten as flat;
+
+type FlatBlock = Vec<flat::Stmt>;
 
 /// Contains all data for a function
 pub struct Function {
@@ -36,11 +39,6 @@ pub enum Term {
     }
 }
 
-/// Control flow graph
-pub struct Cfg {
-    bbs: bb::Slab<bb::Data>,
-}
-
 pub mod bb {
     use std::collections::HashSet;
     use super::Stmt;
@@ -62,23 +60,87 @@ pub mod bb {
         /// Predecessors
         pub pred: HashSet<BasicBlock>,
     }
+
+    pub type Set = Slab<Data>;
 }
 
-/// Builds a `Function` from a `flatten::Function`.
-pub struct FuncBuilder<'var_data> {
-    curr: bb::BasicBlock,
+/// Control flow graph
+pub struct Cfg {
     bbs: bb::Slab<bb::Data>,
-    var_data: &'var_data mut var::Slab<var::Data>,
 }
 
-impl<'var_data> FuncBuilder<'var_data> {
-    
+impl Cfg {
+    pub fn new(block: FlatBlock) -> Cfg {
+        let mut builder = CfgBuilder::new();
+        builder.enter_block();
+        for stmt in block {
+            builder.visit_stmt(stmt);
+        }
+        builder.exit_block();
+        builder.complete()
+    }
 }
 
-use flatten;
-impl Function {
-    pub fn new(flat: flatten::Function) -> Self {
+/// Builds a control flow graph from a flattened block.
+struct CfgBuilder {
+    curr: Vec<bb::BasicBlock>,
+    bbs: bb::Set,
+}
+
+impl CfgBuilder {
+    fn new() -> Self {
+        Self {
+            curr: Vec::new(),
+            bbs: bb::Set::new(),
+        }
+    }
+
+    fn visit_stmt(&mut self, stmt: flat::Stmt) {
+        match stmt {
+            flat::Stmt::Def(var, expr) => {
+                
+            }
+            flat::Stmt::Discard(expr) => {
+
+            }
+            flat::Stmt::Return(var) => {
+                unimplemented!()
+            }
+            flat::Stmt::While(cond, header, body) => {
+                unimplemented!()
+            }
+            flat::Stmt::If(cond, then, else_) => {
+                unimplemented!()
+            }
+        }
+    }
+
+    /// Panics if there aren't any basic blocks
+    fn current_basic_block(&mut self) -> &mut bb::Data {
+        let &bb = self.curr.last().expect("no basic blocks");
+        &mut self.bbs[bb]
+    }
+
+    fn enter_block(&mut self) {
         unimplemented!()
+    }
+
+    fn exit_block(&mut self) {
+        unimplemented!()
+    }
+
+    fn complete(self) -> Cfg {
+        unimplemented!()
+    }
+}
+
+impl Function {
+    pub fn new(f: flat::Function) -> Self {
+        let mut cfg = Cfg::new(f.body);
+        Function {
+            args: f.args,
+            cfg: cfg,
+        }
     }
 }
 
@@ -102,7 +164,7 @@ print x
         for test in TESTS {
             let flattener = pythonc.emit_flattened(test).unwrap();
             for (f, flat_function) in flattener.units {
-                let function = Function::new(flat_function);
+                //let function = Function::new(flat_function, &mut flattener.var_data);
             }
         }
     }
