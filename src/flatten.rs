@@ -537,28 +537,62 @@ impl<'a> fmt::Display for Formatter<'a, Stmt> {
     }
 }
 
+macro_rules! write_args_list {
+    ($f:expr, $args:expr) => ({
+        let args: &[Var] = $args;
+        if !args.is_empty() {
+            write!($f, "{}", args[0])?;
+            for arg in &args[1..] {
+                write!($f, ", {}", arg)?;
+            }
+        }
+    })
+}
+
+impl ::util::fmt::Fmt for Expr {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write
+    {
+        use std::io::Write;
+
+        use self::Expr::*;
+        match *self {
+            UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
+            BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
+            CallFunc(func, ref args) => {
+                write!(f, "{}(", func)?;
+                write_args_list!(f, args);
+                write!(f, ")")
+            }
+            Expr::RuntimeFunc(ref name, ref args) => {
+                write!(f, "@{}(", name)?;
+                write_args_list!(f, args);
+                write!(f, ")")
+            }
+            Expr::GetTag(var) => write!(f, "get_tag {}", var),
+            Expr::ProjectTo(loc, ty) => write!(f, "project {} to {}", loc, ty),
+            Expr::InjectFrom(loc, ty) => write!(f, "inject {} from {}", loc, ty),
+            Expr::Const(i) => write!(f, "const i32 {}", i),
+            Expr::LoadFunctionPointer(ref name) => write!(f, "const fn {}", name),
+            Expr::Copy(v) => write!(f, "copy {}", v),
+        }
+    }
+}
+
 impl<'a> fmt::Display for Formatter<'a, Expr> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fn write_args_list(f: &mut fmt::Formatter, args: &[Var]) -> fmt::Result {
-            if !args.is_empty() {
-                write!(f, "{}", args[0])?;
-                for arg in &args[1..] {
-                    write!(f, ", {}", arg)?;
-                }
-            }
-            Ok(())
-        }
         match *self.node {
             Expr::UnaryOp(op, loc) => write!(f, "{} {}", op, loc),
             Expr::BinOp(op, l, r) => write!(f, "{} {} {}", l, op, r),
             Expr::CallFunc(func, ref args) => {
                 write!(f, "{}(", func)?;
-                write_args_list(f, args)?;
+                write_args_list!(f, args);
                 write!(f, ")")
             }
             Expr::RuntimeFunc(ref name, ref args) => {
                 write!(f, "@{}(", name)?;
-                write_args_list(f, args)?;
+                write_args_list!(f, args);
                 write!(f, ")")
             }
             Expr::GetTag(var) => write!(f, "get_tag {}", var),

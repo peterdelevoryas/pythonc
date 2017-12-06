@@ -154,13 +154,22 @@ impl Function {
     }
 }
 
-impl ::std::fmt::Display for Stmt {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl ::util::fmt::Fmt for Stmt {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        use std::io::Write;
         match *self {
-            //Stmt::Def { ref lhs, ref rhs } => write!(f, "{} = {}", lhs, rhs),
-            //Stmt::Discard(ref expr) => write!(f, "{}", expr),
-            _ => unimplemented!()
+            Stmt::Def { ref lhs, ref rhs } => {
+                write!(f, "{} = ", lhs)?;
+                f.fmt(rhs)?;
+            }
+            Stmt::Discard(ref expr) => {
+                f.fmt(expr)?;
+            }
         }
+        Ok(())
     }
 }
 

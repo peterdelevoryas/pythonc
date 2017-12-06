@@ -1,7 +1,9 @@
 use std::io;
 
+pub type Result = ::std::io::Result<()>;
+
 pub trait Fmt {
-    fn fmt<W>(&self, f: &mut Formatter<W>) -> io::Result<()>
+    fn fmt<W>(&self, f: &mut Formatter<W>) -> Result
     where W: io::Write;
 }
 
