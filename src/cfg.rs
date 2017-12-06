@@ -100,11 +100,7 @@ pub struct Cfg {
 impl Cfg {
     pub fn new(block: FlatBlock) -> Cfg {
         let mut builder = CfgBuilder::new();
-        builder.enter_block();
-        for stmt in block {
-            builder.visit_stmt(stmt);
-        }
-        builder.exit_block();
+        builder.visit_block(block);
         builder.complete()
     }
 }
@@ -123,50 +119,60 @@ impl CfgBuilder {
         }
     }
 
-    fn visit_stmt(&mut self, stmt: flat::Stmt) {
-        match stmt {
-            flat::Stmt::Def(var, expr) => {
-                self.current_basic_block().body.push(Stmt::Def { lhs: var, rhs: expr });
-            }
-            flat::Stmt::Discard(expr) => {
-                self.current_basic_block().body.push(Stmt::Discard(expr));
-            }
-            flat::Stmt::Return(var) => {
-                unimplemented!()
-            }
-            flat::Stmt::While(cond, header, body) => {
-                unimplemented!()
-            }
-            flat::Stmt::If(cond, then, else_) => {
-                let current = self.exit_block();
-
-                self.enter_block();
-                for stmt in then {
-                    self.visit_stmt(stmt);
+    fn visit_block(&mut self, block: FlatBlock) -> bb::BasicBlock {
+        let mut current = self.enter_new_block();
+        for stmt in block {
+            match stmt {
+                flat::Stmt::Def(var, expr) => {
+                    self.current_basic_block().body.push(Stmt::Def { lhs: var, rhs: expr });
                 }
-                let then = self.exit_block();
-                self.basic_block(then).pred.insert(current);
-
-                self.enter_block();
-                for stmt in else_ {
-                    self.visit_stmt(stmt);
+                flat::Stmt::Discard(expr) => {
+                    self.current_basic_block().body.push(Stmt::Discard(expr));
                 }
-                let else_ = self.exit_block();
-                self.basic_block(else_).pred.insert(current);
+                flat::Stmt::Return(var) => {
+                    unimplemented!()
+                }
+                flat::Stmt::While(cond, header, body) => {
+                    unimplemented!()
+                }
+                flat::Stmt::If(cond, then, else_) => {
+                    // For an if statement, we first need to compute the
+                    // `then` and `else` blocks. Then we can terminate
+                    // the current block with a switch to those blocks.
+                    // After that, we create a new block, which will become
+                    // the current block, and represents the control
+                    // flow after the if statement. We also have to
+                    // terminate the `then` and `else` blocks with
+                    // goto's to the new current block, and add predecessors
+                    // to everything.
 
-                self.re_enter_block(current);
+                    let then = self.visit_block(then);
+                    let else_ = self.visit_block(else_);
 
-                assert_eq!(self.current_basic_block().term, None);
+                    let prev = self.exit_block();
+                    current = self.enter_new_block();
 
-                let switch = Term::Switch {
-                    cond: cond,
-                    then: then,
-                    else_: else_,
-                };
+                    assert!(self.basic_block(then).term.is_none());
+                    self.basic_block(then).term = Some(Term::Goto(current));
 
-                self.current_basic_block().term = Some(switch);
+                    assert!(self.basic_block(else_).term.is_none());
+                    self.basic_block(else_).term = Some(Term::Goto(current));
+
+                    assert!(self.basic_block(prev).term.is_none());
+                    self.basic_block(prev).term = Some(Term::Switch {
+                        cond: cond,
+                        then: then,
+                        else_: else_,
+                    });
+
+                    self.basic_block(then).pred.insert(prev);
+                    self.basic_block(else_).pred.insert(prev);
+                    self.basic_block(current).pred.insert(then);
+                    self.basic_block(current).pred.insert(else_);
+                }
             }
         }
+        self.exit_block()
     }
 
     /// Panics if there aren't any basic blocks
@@ -184,7 +190,7 @@ impl CfgBuilder {
         self.curr.push(bb);
     }
 
-    fn enter_block(&mut self) -> bb::BasicBlock {
+    fn enter_new_block(&mut self) -> bb::BasicBlock {
         let data = bb::Data {
             body: Vec::new(),
             term: None,
