@@ -50,7 +50,7 @@ pub enum Stmt {
 /// A statement which terminates a basic block
 pub enum Term {
     /// Return from function
-    Return,
+    Return(Option<Var>),
     /// Unconditional jump
     Goto(bb::BasicBlock),
     /// Conditional jump
@@ -275,7 +275,35 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Term> {
     where
         W: ::std::io::Write,
     {
-        unimplemented!()
+        use std::io::Write;
+
+        match *self.value {
+            Term::Return(var) => {
+                write!(f, "return")?;
+                if let Some(var) = var {
+                    write!(f, " ")?;
+                    f.fmt(&self.formatted(&var))?;
+                }
+            }
+            Term::Goto(bb) => {
+                write!(f, "goto {}", bb)?;
+            }
+            Term::Switch { cond, then, else_ } => {
+                write!(f, "if ")?;
+                f.fmt(&self.formatted(&cond))?;
+                writeln!(f, " {{")?;
+                f.indent();
+                writeln!(f, "goto {}", then)?;
+                f.dedent();
+                writeln!(f, "}} else {{")?;
+                f.indent();
+                writeln!(f, "goto {}", else_)?;
+                f.dedent();
+                write!(f, "}}")?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -290,11 +318,11 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
             writeln!(f, "{}:", bb)?;
             f.indent();
             for stmt in &data.body {
-                //f.fmt(&self.formatted(stmt))?;
+                f.fmt(&self.formatted(stmt))?;
                 writeln!(f)?;
             }
             if let Some(ref term) = data.term {
-                //f.fmt(term)?;
+                f.fmt(&self.formatted(term))?;
                 writeln!(f)?;
             }
             f.dedent();
