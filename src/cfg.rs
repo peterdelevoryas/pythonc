@@ -3,8 +3,16 @@ use explicate::var;
 use flatten::Expr;
 use flatten as flat;
 use std::collections::HashSet;
+use std::collections::HashMap;
+use raise;
 
 type FlatBlock = Vec<flat::Stmt>;
+
+pub struct Module {
+    pub var_data: var::Slab<var::Data>,
+    pub functions: HashMap<raise::Func, Function>,
+    pub main: raise::Func,
+}
 
 /// Contains all data for a function
 pub struct Function {
@@ -182,9 +190,8 @@ impl ::util::fmt::Fmt for Term {
     }
 }
 
-
 impl ::util::fmt::Fmt for Cfg {
-    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
@@ -206,6 +213,39 @@ impl ::util::fmt::Fmt for Cfg {
         }
         Ok(())
     }
+}
+
+impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        Ok(())
+    }
+}
+
+impl ::std::fmt::Display for Module {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        use std::io::Write;
+
+        let mut formatter = ::util::fmt::Formatter::new(Vec::new());
+        for (f, function) in &self.functions {
+            let formatted = Formatted {
+                var_data: &self.var_data,
+                value: function,
+            };
+            formatter.fmt(&formatted).map_err(|_| ::std::fmt::Error)?;
+            writeln!(formatter).map_err(|_| ::std::fmt::Error)?;
+        }
+        let bytes = formatter.into_inner();
+        let string = String::from_utf8(bytes).unwrap();
+        write!(f, "{}", string)
+    }
+}
+
+struct Formatted<'var_data, T: 'var_data> {
+    var_data: &'var_data var::Slab<var::Data>,
+    value: &'var_data T,
 }
 
 #[cfg(test)]
