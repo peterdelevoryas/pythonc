@@ -14,8 +14,26 @@ pub struct Module {
     pub main: raise::Func,
 }
 
+impl Module {
+    pub fn new(flattener: flat::Flattener) -> Module {
+        let functions: HashMap<raise::Func, Function> = flattener.units.into_iter()
+            .map(|(f, function)| {
+                let function = Function::new(f, function);
+                (f, function)
+            })
+            .collect();
+
+        Module {
+            var_data: flattener.var_data,
+            functions: functions,
+            main: flattener.main,
+        }
+    }
+}
+
 /// Contains all data for a function
 pub struct Function {
+    pub name: String,
     pub args: Vec<Var>,
     pub cfg: Cfg,
 }
@@ -153,10 +171,11 @@ impl CfgBuilder {
 }
 
 impl Function {
-    pub fn new(f: flat::Function) -> Self {
-        let mut cfg = Cfg::new(f.body);
+    pub fn new(f: raise::Func, function: flat::Function) -> Self {
+        let mut cfg = Cfg::new(function.body);
         Function {
-            args: f.args,
+            name: format!("{}", f),
+            args: function.args,
             cfg: cfg,
         }
     }
@@ -215,11 +234,41 @@ impl ::util::fmt::Fmt for Cfg {
     }
 }
 
+impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Var> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        Ok(())
+    }
+}
+
 impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
+        use std::io::Write;
+
+        write!(f, "func {}(", self.value.name)?;
+        if !self.value.args.is_empty() {
+            f.fmt(&Formatted {
+                var_data: &self.var_data,
+                value: &self.value.args[0]
+            })?;
+            for arg in &self.value.args[1..] {
+                f.fmt(&Formatted {
+                    var_data: &self.var_data,
+                    value: arg,
+                })?;
+            }
+        }
+        write!(f, ") {{")?;
+        f.indent();
+        f.fmt(&self.value.cfg)?;
+        f.dedent();
+        write!(f, "}}")?;
+
         Ok(())
     }
 }
@@ -267,9 +316,7 @@ print x
         let mut pythonc = ::Pythonc::new();
         for test in TESTS {
             let flattener = pythonc.emit_flattened(test).unwrap();
-            for (f, flat_function) in flattener.units {
-                let function = Function::new(flat_function);
-            }
+
         }
     }
 }
