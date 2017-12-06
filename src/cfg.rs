@@ -239,7 +239,16 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Var> {
     where
         W: ::std::io::Write,
     {
-        Ok(())
+        use std::io::Write;
+
+        match self.var_data[*self.value] {
+            var::Data::User { ref source_name } => {
+                write!(f, "{}.{}", source_name, self.value.inner())
+            }
+            var::Data::Temp => {
+                write!(f, "%{}", self.value.inner())
+            }
+        }
     }
 }
 
