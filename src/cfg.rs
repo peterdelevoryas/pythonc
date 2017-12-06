@@ -99,10 +99,10 @@ impl CfgBuilder {
     fn visit_stmt(&mut self, stmt: flat::Stmt) {
         match stmt {
             flat::Stmt::Def(var, expr) => {
-                
+                self.current_basic_block().body.push(Stmt::Def { lhs: var, rhs: expr });
             }
             flat::Stmt::Discard(expr) => {
-
+                self.current_basic_block().body.push(Stmt::Discard(expr));
             }
             flat::Stmt::Return(var) => {
                 unimplemented!()
@@ -137,7 +137,10 @@ impl CfgBuilder {
     }
 
     fn complete(self) -> Cfg {
-        unimplemented!()
+        assert!(self.curr.is_empty());
+        Cfg {
+            bbs: self.bbs,
+        }
     }
 }
 
@@ -151,6 +154,29 @@ impl Function {
     }
 }
 
+impl ::std::fmt::Display for Stmt {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            //Stmt::Def { ref lhs, ref rhs } => write!(f, "{} = {}", lhs, rhs),
+            //Stmt::Discard(ref expr) => write!(f, "{}", expr),
+            _ => unimplemented!()
+        }
+    }
+}
+
+impl ::util::fmt::Fmt for Cfg {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
+    where
+        W: ::std::io::Write,
+    {
+        use std::io::Write;
+
+        for (bb, data) in &self.bbs {
+        }
+        unimplemented!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use flatten;
@@ -159,8 +185,8 @@ mod tests {
     const TESTS: &'static [&'static str] = &[
         "
 x = 1
-if input():
-    x = 3
+#if input():
+    #x = 3
 print x
         ",
     ];
@@ -171,7 +197,7 @@ print x
         for test in TESTS {
             let flattener = pythonc.emit_flattened(test).unwrap();
             for (f, flat_function) in flattener.units {
-                //let function = Function::new(flat_function, &mut flattener.var_data);
+                let function = Function::new(flat_function);
             }
         }
     }
