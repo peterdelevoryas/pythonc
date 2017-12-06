@@ -209,14 +209,14 @@ impl ::util::fmt::Fmt for Term {
     }
 }
 
-impl ::util::fmt::Fmt for Cfg {
+impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Cfg> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
         use std::io::Write;
 
-        for (bb, data) in &self.bbs {
+        for (bb, data) in &self.value.bbs {
             writeln!(f, "{}:", bb)?;
             f.indent();
             for stmt in &data.body {
@@ -273,7 +273,10 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Function> {
             }
         }
         writeln!(f, ") {{")?;
-        f.fmt(&self.value.cfg)?;
+        f.fmt(&Formatted {
+            var_data: &self.var_data,
+            value: &self.value.cfg,
+        })?;
         write!(f, "}}")?;
 
         Ok(())
