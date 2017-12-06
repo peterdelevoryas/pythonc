@@ -26,6 +26,7 @@ impl<L, R> Either<L, R> {
 
 #[macro_export]
 macro_rules! hash_set {
+    () => (::std::collections::HashSet::new());
     ($($e:expr),*) => ({
         let mut set = ::std::collections::HashSet::new();
         $(
