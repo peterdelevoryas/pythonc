@@ -181,19 +181,39 @@ impl Function {
     }
 }
 
-impl ::util::fmt::Fmt for Stmt {
+impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Expr> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
         W: ::std::io::Write,
     {
         use std::io::Write;
-        match *self {
+        unimplemented!()
+    }
+}
+
+impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Stmt> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        use std::io::Write;
+        match *self.value {
             Stmt::Def { ref lhs, ref rhs } => {
-                write!(f, "{} = ", lhs)?;
-                f.fmt(rhs)?;
+                f.fmt(&Formatted {
+                    var_data: &self.var_data,
+                    value: lhs,
+                })?;
+                write!(f, " = ")?;
+                f.fmt(&Formatted {
+                    var_data: &self.var_data,
+                    value: rhs,
+                })?;
             }
             Stmt::Discard(ref expr) => {
-                f.fmt(expr)?;
+                f.fmt(&Formatted {
+                    var_data: &self.var_data,
+                    value: expr
+                })?;
             }
         }
         Ok(())
@@ -220,7 +240,10 @@ impl<'var_data> ::util::fmt::Fmt for Formatted<'var_data, Cfg> {
             writeln!(f, "{}:", bb)?;
             f.indent();
             for stmt in &data.body {
-                f.fmt(stmt)?;
+                f.fmt(&Formatted {
+                    var_data: &self.var_data,
+                    value: stmt
+                })?;
                 writeln!(f)?;
             }
             if let Some(ref term) = data.term {
@@ -305,6 +328,18 @@ impl ::std::fmt::Display for Module {
 struct Formatted<'var_data, T: 'var_data> {
     var_data: &'var_data var::Slab<var::Data>,
     value: &'var_data T,
+}
+
+impl<'var_data, T> Formatted<'var_data, T>
+where
+    T: 'var_data
+{
+    pub fn value<V>(&self, value: &'var_data V) -> Formatted<'var_data, V> {
+        Formatted {
+            var_data: &self.var_data,
+            value: value,
+        }
+    }
 }
 
 #[cfg(test)]
