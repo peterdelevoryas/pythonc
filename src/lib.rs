@@ -43,6 +43,7 @@ pub enum Stage {
     heapified,
     raised,
     flattened,
+    cfg,
     vasm,
     liveness,
     asm,
@@ -58,6 +59,7 @@ impl Stage {
             "heapified",
             "raised",
             "flattened",
+            "cfg",
             "vasm",
             "liveness",
             "asm",
@@ -77,6 +79,7 @@ impl ::std::str::FromStr for Stage {
             "heapified" => heapified,
             "raised" => raised,
             "flattened" => flattened,
+            "cfg" => cfg,
             "vasm" => vasm,
             "liveness" => liveness,
             "asm" => asm,
@@ -185,73 +188,12 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let vasm_module = vasm::Module::from(flattener);
-        if stop_stage == Stage::vasm {
-            return fmt_out(&vasm_module, out_path);
-        }
-        
-        if stop_stage == Stage::liveness {
-            return write_out(liveness::liveset_debug_string(&vasm_module), out_path);
+        let module = cfg::Module::new(flattener);
+        if stop_stage == Stage::cfg {
+            return write_out(&module, out_path)
         }
 
-        let mut vars = vasm_module.vars;
-        let funcs = vasm_module.funcs;
-        let main = vasm_module.main;
-
-        let funcs = funcs.into_iter().map(|(f, function)| {
-            let function = ::regalloc::regalloc(function, &mut vars);
-            (f, function)
-        }).collect();
-
-        let mut vasm_module = vasm::Module {
-            main,
-            vars,
-            funcs,
-        };
-
-        for (fname, func) in vasm_module.funcs.clone() {
-            let r = vasm::render_func(fname, func.clone(), fname == main);
-            vasm_module.funcs.insert(fname, vasm::Function {
-                args : func.args,
-                stack_slots : func.stack_slots,
-                block : vasm::Block {
-                    insts : r
-                },
-            });
-        }
-        if stop_stage == Stage::asm {
-            return fmt_out(&vasm_module, out_path)
-        }
-
-        if stop_stage == Stage::obj {
-            return emit_obj(&vasm_module, &asm_path, out_path)
-        }
-
-        let obj_file = tempfile::NamedTempFile::new().chain_err(
-            || "Could not create temporary file for obj output"
-        )?;
-        emit_obj(&vasm_module, &asm_path, obj_file.path()).chain_err(
-            || "Could not create obj from assembly"
-        )?;
-
-        let runtime = match runtime {
-            Some(path) => path,
-            None => {
-                let pythonc_runtime = ::std::env::var("PYTHONC_RUNTIME").map(PathBuf::from);
-                if let Ok(path) = pythonc_runtime {
-                    path
-                } else {
-                    bail!("Emitting binary requires specifying runtime library path")
-                }
-            }
-        };
-
-        assert_eq!(stop_stage, Stage::bin);
-        emit_bin(obj_file.path(), &runtime, out_path)
-            .chain_err(|| "Could not create binary from obj file")?;
-        obj_file.close().chain_err(|| "Failed to close and remove obj file")?;
-
-        Ok(())
+        write_out(&module, out_path)
     }
 }
 
@@ -264,6 +206,7 @@ impl Stage {
             heapified => "heapified",
             raised => "raised",
             flattened => "flattened",
+            cfg => "cfg",
             vasm => "vasm",
             liveness => "liveness",
             asm => "s",
