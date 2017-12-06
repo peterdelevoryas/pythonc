@@ -173,6 +173,16 @@ impl ::util::fmt::Fmt for Stmt {
     }
 }
 
+impl ::util::fmt::Fmt for Term {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        Ok(())
+    }
+}
+
+
 impl ::util::fmt::Fmt for Cfg {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
     where
@@ -181,6 +191,17 @@ impl ::util::fmt::Fmt for Cfg {
         use std::io::Write;
 
         for (bb, data) in &self.bbs {
+            writeln!(f, "{}:", bb);
+            f.indent();
+            for stmt in &data.body {
+                f.fmt(stmt)?;
+                writeln!(f)?;
+            }
+            if let Some(ref term) = data.term {
+                f.fmt(term)?;
+                writeln!(f)?;
+            }
+            f.dedent();
         }
         unimplemented!()
     }
