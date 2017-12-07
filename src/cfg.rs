@@ -75,12 +75,22 @@ impl Term {
             _ => false,
         }
     }
+
+    pub fn uses(&self) -> HashSet<Var> {
+        match *self {
+            Term::Return(Some(var)) => hash_set!(var),
+            Term::Return(None) => hash_set!(),
+            Term::Switch { cond, .. } => hash_set!(cond),
+            Term::Goto(_) => hash_set!(),
+        }
+    }
 }
 
 pub mod block {
     use std::collections::HashSet;
     use super::Stmt;
     use super::Term;
+    use explicate::Var;
 
     /// Block identifier
     impl_ref!(Block, "b");
@@ -133,6 +143,27 @@ pub mod block {
                     Box::new(vec![then, else_].into_iter())
                 }
             }
+        }
+
+        pub fn uses(&self) -> HashSet<Var> {
+            let mut uses = hash_set!();
+
+            for stmt in &self.body {
+                match *stmt {
+                    Stmt::Def { ref rhs, .. } => {
+                        uses.extend(rhs.uses());
+                    }
+                    Stmt::Discard(ref expr) => {
+                        uses.extend(expr.uses());
+                    }
+                }
+            }
+
+            if let Some(ref term) = self.term {
+                uses.extend(term.uses());
+            }
+
+            uses
         }
     }
 }

@@ -34,6 +34,33 @@ pub enum Expr {
     Copy(Var),
 }
 
+use std::collections::HashSet;
+impl Expr {
+    pub fn uses(&self) -> HashSet<Var> {
+        use self::Expr::*;
+        match *self {
+            UnaryOp(_, var) => hash_set!(var),
+            BinOp(_, l, r) => hash_set!(l, r),
+            CallFunc(var, ref args) => {
+                let mut uses = hash_set!(var);
+                uses.extend(args);
+                uses
+            }
+            RuntimeFunc(_, ref args) => {
+                let mut uses = hash_set!();
+                uses.extend(args);
+                uses
+            }
+            GetTag(var) => hash_set!(var),
+            ProjectTo(var, _) => hash_set!(var),
+            InjectFrom(var, _) => hash_set!(var),
+            Const(_) => hash_set!(),
+            LoadFunctionPointer(_) => hash_set!(),
+            Copy(var) => hash_set!(var),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Def(Var, Expr),
