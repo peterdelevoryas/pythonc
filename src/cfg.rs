@@ -658,6 +658,55 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Term> {
     }
 }
 
+impl<'module, 'cfg> ::util::fmt::Fmt for Formatted<'module, Liveness<'cfg>> {
+    fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
+    where
+        W: ::std::io::Write,
+    {
+        use std::io::Write;
+
+        for (b, data) in &self.value.cfg.blocks {
+            writeln!(f, "{}:", b)?;
+
+            write!(f, "in: (")?;
+            let in_: Vec<Var> = self.value.in_[&b].iter().map(|&b| b).collect();
+            if !in_.is_empty() {
+                f.fmt(&self.formatted(&in_[0]))?;
+                for &var in &in_[1..] {
+                    write!(f, ", ")?;
+                    f.fmt(&self.formatted(&var))?;
+                }
+            }
+            writeln!(f, ")")?;
+
+            write!(f, "out: (")?;
+            let out: Vec<Var> = self.value.out[&b].iter().map(|&b| b).collect();
+            if !out.is_empty() {
+                f.fmt(&self.formatted(&out[0]))?;
+                for &var in &out[1..] {
+                    write!(f, ", ")?;
+                    f.fmt(&self.formatted(&var))?;
+                }
+            }
+            writeln!(f, ")")?;
+
+            f.indent();
+            for stmt in &data.body {
+                f.fmt(&self.formatted(stmt))?;
+                writeln!(f)?;
+            }
+            if let Some(ref term) = data.term {
+                f.fmt(&self.formatted(term))?;
+                writeln!(f)?;
+            }
+            f.dedent();
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
@@ -679,15 +728,6 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
             f.dedent();
             writeln!(f)?;
         }
-        write!(f, "sorted: [")?;
-        let sorted = self.value.topologically_sorted();
-        if !sorted.is_empty() {
-            write!(f, "{}", sorted[0])?;
-            for &b in &sorted[1..] {
-                write!(f, ", {}", b)?;
-            }
-        }
-        write!(f, "]")?;
         writeln!(f)?;
         Ok(())
     }
@@ -762,7 +802,7 @@ impl ::std::fmt::Display for Module {
     }
 }
 
-struct Formatted<'module, T: 'module> {
+pub struct Formatted<'module, T: 'module> {
     module: &'module Module,
     value: &'module T,
 }
@@ -771,14 +811,14 @@ impl<'module, T> Formatted<'module, T>
 where
     T: 'module
 {
-    fn new(module: &'module Module, value: &'module T) -> Self {
+    pub fn new(module: &'module Module, value: &'module T) -> Self {
         Formatted {
             module: module,
             value: value,
         }
     }
 
-    fn formatted<V>(&self, value: &'module V) -> Formatted<'module, V> {
+    pub fn formatted<V>(&self, value: &'module V) -> Formatted<'module, V> {
         Formatted {
             module: self.module,
             value: value,

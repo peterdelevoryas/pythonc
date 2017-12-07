@@ -194,10 +194,24 @@ impl Pythonc {
         }
 
         if stop_stage == Stage::liveness {
+            use std::io::Write;
+            let mut formatter = ::util::fmt::Formatter::new(Vec::new());
             for (f, function) in &module.functions {
                 let liveness = cfg::Liveness::new(&function.cfg);
+                write!(formatter, "fun {}(", function.name)?;
+                if !function.args.is_empty() {
+                    let first = cfg::Formatted::new(&module, &function.args[0]);
+                    for arg in &function.args[1..] {
+                        write!(formatter, ", ")?;
+                        formatter.fmt(&cfg::Formatted::new(&module, arg))?;
+                    }
+                }
+                writeln!(formatter, ") {{")?;
+                formatter.fmt(&cfg::Formatted::new(&module, &liveness))?;
+                writeln!(formatter, "}}")?;
             }
-            //return write_out(&liveness, out_path)
+            let s = String::from_utf8(formatter.into_inner()).unwrap();
+            return write_out(&s, out_path)
         }
 
         write_out(&module, out_path)
