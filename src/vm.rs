@@ -6,6 +6,8 @@ pub struct Module {
 }
 
 pub mod var {
+    use std::fmt;
+
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Var {
         inner: Inner,
@@ -23,12 +25,26 @@ pub mod var {
     pub struct Env {
         next: usize,
     }
+
+    impl fmt::Display for Var {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match self.inner {
+                Inner::Temp => {
+                    write!(f, "_{}", self.index)
+                }
+                Inner::User { ref name } => {
+                    write!(f, "{}.{}", name, self.index)
+                }
+            }
+        }
+    }
 }
 pub use self::var::Var;
 pub use self::var::Env as VarEnv;
 
 pub mod func {
     use std::collections::HashMap;
+    use std::fmt;
     use vm::Var;
     use vm::Block;
     use vm::BlockData;
@@ -39,8 +55,26 @@ pub mod func {
     }
 
     pub struct Data {
+        pub name: Func,
         pub args: Vec<Var>,
         pub blocks: HashMap<Block, BlockData>,
+    }
+
+    impl fmt::Display for Data {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            writeln!(f, "func {name}({args}) {{",
+                name=self.name.name,
+                args=::itertools::join(&self.args, ", "),
+            )?;
+
+            for (_, block) in &self.blocks {
+                writeln!(f, "{}", block)?;
+            }
+
+            writeln!(f, "}}")?;
+
+            Ok(())
+        }
     }
 }
 pub use self::func::Func;
@@ -62,6 +96,7 @@ pub mod reg {
 pub use self::reg::Reg;
 
 pub mod inst {
+    use std::fmt;
     use vm::Reg;
     use vm::StackSlot;
     use vm::Var;
@@ -90,6 +125,12 @@ pub mod inst {
         Imm(Imm),
         Lval(Lval),
     }
+
+    impl fmt::Display for Inst {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            Ok(())
+        }
+    }
 }
 pub use self::inst::Inst;
 pub use self::inst::Data as InstData;
@@ -116,6 +157,7 @@ pub mod stack {
 pub use self::stack::Slot as StackSlot;
 
 pub mod term {
+    use std::fmt;
     use vm::Block;
     use vm::Var;
 
@@ -132,11 +174,19 @@ pub mod term {
             else_: Block,
         },
     }
+
+    impl fmt::Display for Term {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            unimplemented!()
+        }
+    }
 }
 pub use self::term::Term;
 
 pub mod block {
     use std::collections::HashSet;
+    use std::fmt;
+    use vm::fmt_indented;
     use vm::Inst;
     use vm::Term;
 
@@ -146,9 +196,21 @@ pub mod block {
     }
 
     pub struct Data {
+        pub name: Block,
         pub body: Vec<Inst>,
         pub term: Term,
         pub pred: HashSet<Block>,
+    }
+
+    impl fmt::Display for Data {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            writeln!(f, "{}:", self.name.name)?;
+            for inst in &self.body {
+                writeln!(f, "{}", fmt_indented(inst))?;
+            }
+            writeln!(f, "{}", fmt_indented(&self.term))?;
+            Ok(())
+        }
     }
 }
 pub use self::block::Block;
@@ -166,6 +228,45 @@ use std::fmt;
 
 impl fmt::Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unimplemented!()
+        for (_, func) in &self.funcs {
+            write!(f, "{}", func)?;
+        }
+        Ok(())
     }
+}
+
+pub fn fmt_indented<T>(data: &T) -> String
+where
+    T: fmt::Display
+{
+    let s = format!("{}", data);
+    indented(&s)
+}
+
+pub fn indented(s: &str) -> String {
+    let mut indented = String::new();
+    // just saw end of line
+    let mut eol = true;
+    for c in s.chars() {
+        match c {
+            '\n' if eol => {
+                indented.push(c);
+            }
+            '\n' if !eol => {
+                indented.push(c);
+                eol = true;
+            }
+            c if eol => {
+                indented.push_str("    ");
+                indented.push(c);
+                eol = false;
+            }
+            c if !eol => {
+                indented.push(c);
+            }
+            _ => unreachable!()
+        }
+    }
+
+    return indented
 }

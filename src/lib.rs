@@ -10,6 +10,7 @@ extern crate slab;
 extern crate ast;
 extern crate petgraph;
 extern crate tempfile;
+extern crate itertools;
 
 pub mod error;
 pub mod explicate;
@@ -220,7 +221,6 @@ impl Pythonc {
         }
 
         let vm = vm::Module::new(module);
-
         write_out(&vm, out_path)
     }
 }
