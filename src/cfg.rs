@@ -394,7 +394,7 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Expr> {
                 write!(f, ")")?;
             }
             Expr::RuntimeFunc(ref name, ref args) => {
-                write!(f, "{}(", name)?;
+                write!(f, "@{}(", name)?;
                 if !args.is_empty() {
                     f.fmt(&self.formatted(&args[0]))?;
                     for arg in &args[1..] {
@@ -473,17 +473,9 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Term> {
                 write!(f, "goto {}", bb)?;
             }
             Term::Switch { cond, then, else_ } => {
-                write!(f, "if ")?;
+                write!(f, "switch ")?;
                 f.fmt(&self.formatted(&cond))?;
-                writeln!(f, " {{")?;
-                f.indent();
-                writeln!(f, "goto {}", then)?;
-                f.dedent();
-                writeln!(f, "}} else {{")?;
-                f.indent();
-                writeln!(f, "goto {}", else_)?;
-                f.dedent();
-                write!(f, "}}")?;
+                write!(f, " [{}, {}]", then, else_)?;
             }
         }
 
