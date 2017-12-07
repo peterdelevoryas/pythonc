@@ -2,7 +2,6 @@ use explicate::Var;
 use explicate::var;
 use flatten::Expr;
 use flatten as flat;
-use std::collections::HashSet;
 use std::collections::HashMap;
 use raise;
 
@@ -54,7 +53,7 @@ pub enum Term {
     /// Return from function
     Return(Option<Var>),
     /// Unconditional jump
-    Goto(bb::BasicBlock),
+    Goto(Block),
     /// Conditional jump
     ///     if cond {
     ///         goto then;
@@ -63,8 +62,8 @@ pub enum Term {
     ///     }
     Switch {
         cond: Var,
-        then: bb::BasicBlock,
-        else_: bb::BasicBlock,
+        then: Block,
+        else_: Block,
     }
 }
 
@@ -77,13 +76,13 @@ impl Term {
     }
 }
 
-pub mod bb {
+pub mod block {
     use std::collections::HashSet;
     use super::Stmt;
     use super::Term;
 
-    /// Basic block identifier
-    impl_ref!(BasicBlock, "bb");
+    /// Block identifier
+    impl_ref!(Block, "b");
 
     /// Basic block data
     pub struct Data {
@@ -96,66 +95,86 @@ pub mod bb {
         pub term: Option<Term>,
 
         /// Predecessors
-        pub pred: HashSet<BasicBlock>,
+        pub pred: HashSet<Block>,
     }
 
-    pub type Set = Slab<Data>;
+    pub type Blocks = Slab<Data>;
 
     impl Data {
         pub fn is_terminated(&self) -> bool {
             self.term.is_some()
         }
+
+        pub fn push(&mut self, stmt: Stmt) {
+            self.body.push(stmt);
+        }
+
+        /// Returns an empty, unterminated block with no predecessors.
+        pub fn empty() -> Self {
+            Self {
+                body: Vec::new(),
+                term: None,
+                pred: hash_set!(),
+            }
+        }
     }
 }
+use self::block::Block;
+use self::block::Blocks;
+use self::block::Data as BlockData;
 
 /// Control flow graph
 pub struct Cfg {
-    bbs: bb::Slab<bb::Data>,
+    blocks: Blocks,
 }
 
 impl Cfg {
     pub fn new(block: FlatBlock) -> Cfg {
-        let mut builder = CfgBuilder::new();
-        let last = builder.build_block(block);
-        builder.terminate(last, Term::Return(None));
-        builder.complete()
+        let mut cfg = CfgBuilder::new();
+        let root = cfg.new_block();
+        cfg.enter(root);
+        cfg.build_block(block);
+        let last = cfg.exit();
+        cfg.terminate(last, Term::Return(None));
+        cfg.complete()
     }
 }
 
 /// Builds a control flow graph from a flattened block.
 struct CfgBuilder {
-    curr: Vec<bb::BasicBlock>,
-    bbs: bb::Set,
+    curr: Option<Block>,
+    blocks: Blocks,
 }
 
 impl CfgBuilder {
     fn new() -> Self {
-        Self {
-            curr: Vec::new(),
-            bbs: bb::Set::new(),
-        }
+        let curr = None;
+        let blocks = Blocks::new();
+
+        Self { curr, blocks }
     }
 
-    /// Terminates bb with term and adds bb as a predecessor
-    /// of the destination block (unless it's a return)
-    fn terminate(&mut self, bb: bb::BasicBlock, term: Term) {
+    /// Terminates block with term and adds block as a predecessor
+    /// of the destination block of term (unless term is a return,
+    /// in which case there is no destination block)
+    fn terminate(&mut self, b: Block, t: Term) {
         // add predecessor/s
-        match term {
+        match t {
             Term::Return(_) => {}
             Term::Goto(next) => {
-                self.add_predecessor(next, bb);
+                self.add_predecessor(next, b);
             }
             Term::Switch { then, else_, .. } => {
-                self.add_predecessor(then, bb);
-                self.add_predecessor(else_, bb);
+                self.add_predecessor(then, b);
+                self.add_predecessor(else_, b);
             }
         }
 
         // if the block is already terminated with a return,
         // then don't add a goto or switch
         // if we're trying to terminate a return with a return, panic!
-        self.basic_block(bb).term = match self.basic_block(bb).term {
-            Some(Term::Return(var)) if term.is_return() => {
+        self.block(b).term = match self.block(b).term {
+            Some(Term::Return(var)) if t.is_return() => {
                 // don't replace, just use original return
                 Some(Term::Return(var))
             }
@@ -164,107 +183,172 @@ impl CfgBuilder {
             Some(_) => {
                 panic!("attempting to terminate a goto or switch block!");
             }
-            None => Some(term),
+            None => Some(t),
         };
     }
 
-    /// Adds pred to bb's set of predecssors
-    fn add_predecessor(&mut self, bb: bb::BasicBlock, pred: bb::BasicBlock) {
-        self.basic_block(bb).pred.insert(pred);
+    /// Adds p to b's set of predecssors.
+    fn add_predecessor(&mut self, b: Block, p: Block) {
+        self.block(b).pred.insert(p);
     }
 
     /// build_block takes a block of statements, which may contain nested
     /// blocks of statements, creates a series of basic block nodes that
-    /// represent the control flow, and returns the final, unifying basic block
-    /// identifier.
-    fn build_block(&mut self, block: FlatBlock) -> bb::BasicBlock {
-        let mut current = self.enter_new_block();
-        for stmt in block {
+    /// represent the control flow, and returns the first and last basic block
+    /// identifiers. These may be the same if the nested block is just a single
+    /// basic block, but could be different if the block introduces branching.
+    fn build_block(&mut self, flat_block: FlatBlock) {
+        for stmt in flat_block {
             match stmt {
                 flat::Stmt::Def(var, expr) => {
-                    self.current_basic_block().body.push(Stmt::Def { lhs: var, rhs: expr });
+                    self.curr().push(Stmt::Def { lhs: var, rhs: expr });
                 }
                 flat::Stmt::Discard(expr) => {
-                    self.current_basic_block().body.push(Stmt::Discard(expr));
+                    self.curr().push(Stmt::Discard(expr));
                 }
                 flat::Stmt::Return(var) => {
-                    let bb = self.exit_block();
-                    self.terminate(bb, Term::Return(var));
+                    let curr = self.curr.unwrap();
+                    self.terminate(curr, Term::Return(var));
                     // If there are still statements left in the block, then
                     // they don't get processed! we immediately return
                     // from here. This is an optimization. It shouldn't
                     // be possible for there to be any successors to this
                     // block.
-                    return bb;
+
+                    break
                 }
+
+                ///
+                ///            ...
+                ///
+                ///             |
+                ///             |
+                ///             v
+                ///
+                ///     [ before_while ]
+                ///
+                ///             |
+                ///             | goto header_start
+                ///             v
+                ///
+                ///     [ header_start ]   <----------------------------------------------+
+                ///                                                                       |
+                ///             |                                                         |
+                ///             |                                                         |
+                ///             v                                                         |
+                ///                                                                       |
+                ///            ...                                                        |
+                ///                                                                       |
+                ///             |                                                         |
+                ///             |                                       goto header_start |
+                ///             v                                                         |
+                ///                                                                       |
+                ///     [  header_end  ] // last header block                             |
+                ///                                                                       |
+                ///             |                                                         |
+                ///             | switch cond [true -> body_start, false -> after_while]  |
+                ///             |                                                         |
+                ///             +---------> [ body_start ] -->  ...  --> [ body_end ] ----+
+                ///             |
+                ///             |
+                ///             |
+                ///             |
+                ///             v
+                ///
+                ///     [  after_while ]
+                ///
+                ///             |
+                ///             |
+                ///             v
+                ///
+                ///            ...
+                ///
                 flat::Stmt::While(cond, header, body) => {
-                    unimplemented!()
+                    let before_while = self.exit();
+                    let header_start = self.new_block();
+                    self.terminate(before_while, Term::Goto(header_start));
+                    self.enter(header_start);
+                    self.build_block(header);
+                    let header_end = self.exit();
+
+                    let body_start = self.new_block();
+                    self.enter(body_start);
+                    self.build_block(body);
+                    let body_end = self.exit();
+                    self.terminate(body_end, Term::Goto(header_start));
+
+                    let after_while = self.new_block();
+                    self.terminate(header_end, Term::Switch { cond, then: body_start, else_: after_while });
+                    self.enter(after_while);
                 }
                 flat::Stmt::If(cond, then, else_) => {
-                    // For an if statement, we first need to compute the
-                    // `then` and `else` blocks. Then we can terminate
-                    // the current block with a switch to those blocks.
-                    // After that, we create a new block, which will become
-                    // the current block, and represents the control
-                    // flow after the if statement. We also have to
-                    // terminate the `then` and `else` blocks with
-                    // goto's to the new current block, and add predecessors
-                    // to everything.
+                    let before_if = self.exit();
 
-                    let prev = self.exit_block();
-                    let then = self.build_block(then);
-                    let else_ = self.build_block(else_);
+                    let then_start = self.new_block();
+                    self.enter(then_start);
+                    self.build_block(then);
+                    let then_end = self.exit();
 
-                    current = self.enter_new_block();
+                    let else_start = self.new_block();
+                    self.enter(else_start);
+                    self.build_block(else_);
+                    let else_end = self.exit();
 
-                    self.terminate(then, Term::Goto(current));
-                    self.terminate(else_, Term::Goto(current));
-                    self.terminate(prev, Term::Switch { cond, then, else_ });
+                    self.terminate(before_if, Term::Switch { cond, then: then_start, else_: else_start });
 
+                    let after_if = self.new_block();
+                    self.terminate(then_end, Term::Goto(after_if));
+                    self.terminate(else_end, Term::Goto(after_if));
+                    self.enter(after_if);
                 }
             }
         }
-        self.exit_block()
     }
 
-    /// Panics if there aren't any basic blocks
-    fn current_basic_block(&mut self) -> &mut bb::Data {
-        let &bb = self.curr.last().expect("no basic blocks");
-        self.basic_block(bb)
+    /// Pushes a statement onto the current block.
+    fn push(&mut self, stmt: Stmt) {
+        self.curr().push(stmt);
     }
 
-    fn basic_block(&mut self, bb: bb::BasicBlock) -> &mut bb::Data {
-        &mut self.bbs[bb]
+    /// Returns a mutable reference to the current block's data.
+    fn curr(&mut self) -> &mut BlockData {
+        let curr = self.curr.expect("no current block");
+        self.block(curr)
     }
 
-    fn re_enter_block(&mut self, bb: bb::BasicBlock) {
-        assert!(self.bbs.contains(bb));
-        self.curr.push(bb);
+    /// Returns a mutable reference to the requested block's data.
+    fn block(&mut self, b: Block) -> &mut BlockData {
+        &mut self.blocks[b]
     }
 
-    fn enter_new_block(&mut self) -> bb::BasicBlock {
-        let data = bb::Data {
-            body: Vec::new(),
-            term: None,
-            pred: HashSet::new(),
-        };
-        let bb = self.bbs.insert(data);
-        trace!("entering block {}", bb);
-        self.curr.push(bb);
-        bb
+    /// Creates a new, empty, unterminated basic block with no predecessors.
+    fn new_block(&mut self) -> Block {
+        let b = self.blocks.insert(BlockData::empty());
+        trace!("created {}", b);
+        b
     }
 
-    fn exit_block(&mut self) -> bb::BasicBlock {
-        let bb = self.curr.pop().expect("basic block not entered");
-        trace!("exiting block {}", bb);
-        bb
+
+    /// "Enters" a block (sets current block to `b`)
+    fn enter(&mut self, b: Block) {
+        assert!(self.curr.is_none());
+        self.curr = Some(b);
+        trace!("entered {}", b);
     }
 
+    /// "Exits" the current block, returning what it was.
+    fn exit(&mut self) -> Block {
+        let b = self.curr.take().expect("exit called without entering first");
+        trace!("exited {}", b);
+        b
+    }
+
+    /// Terminates the current block and returns the set of blocks as a control flow graph.
     fn complete(self) -> Cfg {
         trace!("completing control flow graph");
-        assert!(self.curr.is_empty());
+
         Cfg {
-            bbs: self.bbs,
+            blocks: self.blocks,
         }
     }
 }
@@ -414,8 +498,8 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
     {
         use std::io::Write;
 
-        for (bb, data) in &self.value.bbs {
-            writeln!(f, "{}:", bb)?;
+        for (b, data) in &self.value.blocks {
+            writeln!(f, "{}:", b)?;
             f.indent();
             for stmt in &data.body {
                 f.fmt(&self.formatted(stmt))?;
@@ -444,7 +528,7 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Var> {
                 write!(f, "{}.{}", source_name, self.value.inner())
             }
             var::Data::Temp => {
-                write!(f, "%{}", self.value.inner())
+                write!(f, "_{}", self.value.inner())
             }
         }
     }
@@ -457,7 +541,7 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Function> {
     {
         use std::io::Write;
 
-        write!(f, "func {}(", self.value.name)?;
+        write!(f, "fun {}(", self.value.name)?;
         if !self.value.args.is_empty() {
             f.fmt(&self.formatted(&self.value.args[0]))?;
             for arg in &self.value.args[1..] {
