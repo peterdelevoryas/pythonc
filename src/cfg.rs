@@ -39,7 +39,7 @@ pub struct Function {
     pub cfg: Cfg,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Stmt {
     Def {
         lhs: Var,
@@ -65,7 +65,7 @@ impl Stmt {
 }
 
 /// A statement which terminates a basic block
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Term {
     /// Return from function
     Return(Option<Var>),
@@ -179,6 +179,10 @@ pub mod block {
             }
 
             defs
+        }
+
+        pub fn term(&self) -> &Term {
+            self.term.as_ref().unwrap()
         }
     }
 }
@@ -691,21 +695,45 @@ where
 
 pub struct Liveness<'cfg> {
     cfg: &'cfg Cfg,
-    uses: HashMap<Block, HashSet<Var>>,
-    defs: HashMap<Block, HashSet<Var>>,
+    uses: HashMap<LivenessNode<'cfg>, HashSet<Var>>,
+    defs: HashMap<LivenessNode<'cfg>, HashSet<Var>>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum LivenessNode<'cfg> {
+    Stmt(&'cfg Stmt),
+    Term(&'cfg Term),
 }
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        let uses = cfg.blocks.iter().map(|(b, data)| {
-            let uses = data.uses();
-            (b, uses)
-        }).collect();
+        let mut uses = HashMap::new();
+        for (_, block) in &cfg.blocks {
+            for stmt in &block.body {
+                let n = LivenessNode::Stmt(stmt);
+                let prev = uses.insert(n, hash_set!());
+                assert!(prev.is_none());
+            }
+            assert!(block.term.is_some());
+            let term = block.term.as_ref().unwrap();
+            let n = LivenessNode::Term(term);
+            let prev = uses.insert(n, term.uses());
+            assert!(prev.is_none());
+        }
 
-        let defs = cfg.blocks.iter().map(|(b, data)| {
-            let defs = data.defs();
-            (b, defs)
-        }).collect();
+        let mut defs = HashMap::new();
+        for (_, block) in &cfg.blocks {
+            for stmt in &block.body {
+                let n = LivenessNode::Stmt(stmt);
+                let prev = defs.insert(n, hash_set!());
+                assert!(prev.is_none());
+            }
+            assert!(block.term.is_some());
+            let term = block.term.as_ref().unwrap();
+            let n = LivenessNode::Term(term);
+            let prev = defs.insert(n, hash_set!());
+            assert!(prev.is_none());
+        }
 
         Liveness { cfg, uses, defs }
     }
