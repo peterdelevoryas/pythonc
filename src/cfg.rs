@@ -134,8 +134,6 @@ pub mod block {
         }
 
         pub fn successors(&self) -> HashSet<Block> {
-            use std::iter;
-
             match *self.term.as_ref().unwrap() {
                 Term::Return(_) => hash_set!(),
                 Term::Goto(b) => hash_set!(b),
@@ -317,10 +315,10 @@ impl CfgBuilder {
         for stmt in flat_block {
             match stmt {
                 flat::Stmt::Def(var, expr) => {
-                    self.curr().push(Stmt::Def { lhs: var, rhs: expr });
+                    self.push(Stmt::Def { lhs: var, rhs: expr });
                 }
                 flat::Stmt::Discard(expr) => {
-                    self.curr().push(Stmt::Discard(expr));
+                    self.push(Stmt::Discard(expr));
                 }
                 flat::Stmt::Return(var) => {
                     let curr = self.curr.unwrap();
@@ -426,7 +424,7 @@ impl CfgBuilder {
 
 impl Function {
     pub fn new(f: raise::Func, function: flat::Function, is_main: bool) -> Self {
-        let mut cfg = Cfg::new(function.body);
+        let cfg = Cfg::new(function.body);
         let name = if is_main { "main".into() } else { format!("{}", f) };
         Function {
             name: name,
