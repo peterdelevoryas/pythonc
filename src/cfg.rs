@@ -792,13 +792,45 @@ pub struct Liveness<'cfg> {
     /// Directly from Modern Compiler Implementation,
     /// using the aggregate optimization presented
     /// in Chapter 17 (basic blocks)
-    uses: HashMap<Block, HashSet<Var>>,
-    defs: HashMap<Block, HashSet<Var>>,
+    gens: HashMap<Block, HashSet<Var>>,
+    kills: HashMap<Block, HashSet<Var>>,
+    in_: HashMap<Block, HashSet<Var>>,
+    out: HashMap<Block, HashSet<Var>>,
 }
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        unimplemented!()
+        let gens: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens())).collect();
+        let kills: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.kills())).collect();
+
+        let mut in_p: HashMap<Block, HashSet<Var>> = HashMap::new();
+        let mut out_p: HashMap<Block, HashSet<Var>> = HashMap::new();
+        let mut in_: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, _)| (b, HashSet::new())).collect();
+        let mut out: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, _)| (b, HashSet::new())).collect();
+
+        loop {
+            // See chapter 10 of Modern Compiler Implementation in ML
+            for (n, block) in &cfg.blocks {
+                in_p.insert(n, in_[&n].clone());
+                out_p.insert(n, out[&n].clone());
+                let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
+                in_.insert(n, in_n);
+                let mut out_n = hash_set!();
+                for s in block.successors() {
+                    out_n.extend(&in_[&s]);
+                }
+                out.insert(n, out_n);
+            }
+
+            let done = cfg.blocks.iter().all(|(b, _)| {
+                in_p[&b] == in_[&b] && out_p[&b] == out[&b]
+            });
+            if done {
+                break;
+            }
+        }
+
+        Liveness { cfg, gens, kills, in_, out }
     }
 }
 
