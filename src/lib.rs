@@ -219,7 +219,9 @@ impl Pythonc {
             return write_out(&s, out_path);
         }
 
-        write_out(&module, out_path)
+        let vm = vm::Module::new(module);
+
+        write_out(&vm, out_path)
     }
 }
 

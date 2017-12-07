@@ -5,7 +5,6 @@ pub struct Module {
     pub funcs: HashMap<Func, FuncData>,
 }
 
-
 pub mod var {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Var {
@@ -154,3 +153,19 @@ pub mod block {
 }
 pub use self::block::Block;
 pub use self::block::Data as BlockData;
+
+use cfg;
+
+impl Module {
+    pub fn new(m: cfg::Module) -> Self {
+        unimplemented!()
+    }
+}
+
+use std::fmt;
+
+impl fmt::Display for Module {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unimplemented!()
+    }
+}
