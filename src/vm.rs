@@ -7,6 +7,7 @@ pub mod module {
     use vm::VarEnv;
     use vm::Func;
     use vm::FuncData;
+    use vm::func::Builder as FuncBuilder;
     use explicate::VarData;
     use raise;
 
@@ -39,7 +40,9 @@ pub mod module {
         }
 
         fn visit_function(&mut self, f: raise::Func, function: cfg::Function, is_main: bool) {
-            unimplemented!()
+            let mut b = FuncBuilder::new(&mut self.vars, self.var_data);
+            let func_data = b.build(f, function, is_main);
+            self.funcs.insert(func_data.name.clone(), func_data);
         }
 
         fn build(self) -> Module {
@@ -113,9 +116,13 @@ pub mod func {
     use std::collections::HashMap;
     use std::fmt;
     use vm::Var;
+    use vm::VarEnv;
     use vm::Block;
     use vm::BlockData;
     use vm::StackLayout;
+    use explicate::VarData;
+    use cfg;
+    use raise;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Func {
@@ -127,6 +134,21 @@ pub mod func {
         pub args: Vec<Var>,
         pub blocks: HashMap<Block, BlockData>,
         pub stack: StackLayout,
+    }
+
+    pub struct Builder<'vars, 'var_data> {
+        vars: &'vars mut VarEnv,
+        var_data: &'var_data VarData,
+    }
+
+    impl<'vars, 'var_data> Builder<'vars, 'var_data> {
+        pub fn new(vars: &'vars mut VarEnv, var_data: &'var_data VarData) -> Self {
+            unimplemented!()
+        }
+
+        pub fn build(self, f: raise::Func, function: cfg::Function, is_main: bool) -> Data {
+            unimplemented!()
+        }
     }
 
     impl fmt::Display for Data {
