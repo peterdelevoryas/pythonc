@@ -674,6 +674,8 @@ where
 mod tests {
     use flatten;
     use super::*;
+    use explicate::var;
+    use flatten::Expr;
 
     const TESTS: &'static [&'static str] = &[
         "
@@ -691,5 +693,28 @@ print x
             let flattener = pythonc.emit_flattened(test).unwrap();
 
         }
+    }
+
+    #[test]
+    fn uses() {
+        let mut vars: var::Slab<var::Data> = var::Slab::new();
+        let x = vars.insert(var::Data::Temp);
+        let y = vars.insert(var::Data::Temp);
+        let mut blocks = block::Blocks::new();
+        let b0 = blocks.insert(block::Data::empty());
+        let b1 = blocks.insert(block::Data::empty());
+
+        let block = block::Data {
+            body: vec![
+                Stmt::Def { lhs: x, rhs: Expr::Copy(y) },
+            ],
+            term: Some(Term::Return(Some(x))),
+            pred: hash_set!(),
+        };
+
+        assert_eq!(block.uses(), hash_set!(x, y));
+
+        assert_eq!(Term::Switch { cond: x, then: b0, else_: b1 }.uses(), hash_set!(x));
+        assert_eq!(Term::Goto(b0).uses(), hash_set!());
     }
 }
