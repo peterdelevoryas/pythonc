@@ -274,6 +274,8 @@ impl Cfg {
         root.unwrap()
     }
 
+    /// Actually computes backwards version,
+    /// because this is just for liveness analysis
     pub fn topologically_sorted(&self) -> Vec<Block> {
         let mut sorter = Sorter {
             cfg: self,
