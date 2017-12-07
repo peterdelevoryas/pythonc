@@ -210,7 +210,11 @@ pub mod block {
 
         /// kill[pn] = kill[p] U kill[n]
         pub fn kills(&self) -> HashSet<Var> {
-            unimplemented!()
+            let mut kill_pn = hash_set!();
+            for stmt in &self.body {
+                kill_pn = &kill_pn | &stmt.defs();
+            }
+            kill_pn
         }
     }
 }
