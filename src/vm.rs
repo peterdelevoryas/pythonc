@@ -1,12 +1,69 @@
 use std::collections::HashMap;
 
-pub struct Module {
-    pub vars: VarEnv,
-    pub funcs: HashMap<Func, FuncData>,
+pub mod module {
+    use std::collections::HashMap;
+    use std::fmt;
+    use cfg;
+    use vm::VarEnv;
+    use vm::Func;
+    use vm::FuncData;
+    use explicate::VarData;
+    use raise;
+
+    pub struct Module {
+        pub vars: VarEnv,
+        pub funcs: HashMap<Func, FuncData>,
+    }
+
+    impl Module {
+        pub fn new(m: cfg::Module) -> Self {
+            let mut b = Builder::new(&m.var_data);
+            for (f, function) in m.functions {
+                b.visit_function(f, function, f == m.main);
+            }
+            b.build()
+        }
+    }
+
+    struct Builder<'var_data> {
+        var_data: &'var_data VarData,
+        vars: VarEnv,
+        funcs: HashMap<Func, FuncData>,
+    }
+
+    impl<'var_data> Builder<'var_data> {
+        fn new(var_data: &'var_data VarData) -> Self {
+            let vars = VarEnv::from(var_data);
+            let funcs = HashMap::new();
+            Builder { var_data, vars, funcs }
+        }
+
+        fn visit_function(&mut self, f: raise::Func, function: cfg::Function, is_main: bool) {
+            unimplemented!()
+        }
+
+        fn build(self) -> Module {
+            Module {
+                vars: self.vars,
+                funcs: self.funcs,
+            }
+        }
+    }
+
+    impl fmt::Display for Module {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            for (_, func) in &self.funcs {
+                write!(f, "{}", func)?;
+            }
+            Ok(())
+        }
+    }
 }
+pub use self::module::Module;
 
 pub mod var {
     use std::fmt;
+    use explicate::var;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Var {
@@ -24,6 +81,16 @@ pub mod var {
 
     pub struct Env {
         next: usize,
+    }
+
+    impl Env {
+        pub fn from(var_data: &var::Slab<var::Data>) -> Env {
+            let next = var_data.iter()
+                .map(|(v, _)| v.inner())
+                .max()
+                .unwrap_or(0);
+            Env { next }
+        }
     }
 
     impl fmt::Display for Var {
@@ -48,6 +115,7 @@ pub mod func {
     use vm::Var;
     use vm::Block;
     use vm::BlockData;
+    use vm::StackLayout;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Func {
@@ -58,6 +126,7 @@ pub mod func {
         pub name: Func,
         pub args: Vec<Var>,
         pub blocks: HashMap<Block, BlockData>,
+        pub stack: StackLayout,
     }
 
     impl fmt::Display for Data {
@@ -116,6 +185,7 @@ pub mod inst {
 
     pub enum Binary {
         Add,
+        Sub,
         Sete,
         Setne,
         Or,
@@ -184,8 +254,13 @@ pub mod stack {
         },
     }
 
+    pub struct Layout {
+
+    }
 }
 pub use self::stack::Slot as StackSlot;
+pub use self::stack::Data as StackSlotData;
+pub use self::stack::Layout as StackLayout;
 
 pub mod term {
     use std::fmt;
@@ -247,24 +322,7 @@ pub mod block {
 pub use self::block::Block;
 pub use self::block::Data as BlockData;
 
-use cfg;
-
-impl Module {
-    pub fn new(m: cfg::Module) -> Self {
-        unimplemented!()
-    }
-}
-
 use std::fmt;
-
-impl fmt::Display for Module {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (_, func) in &self.funcs {
-            write!(f, "{}", func)?;
-        }
-        Ok(())
-    }
-}
 
 pub fn fmt_indented<T>(data: &T) -> String
 where
