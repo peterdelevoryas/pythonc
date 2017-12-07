@@ -37,8 +37,9 @@ extern {
 
 pub return: Return = {
     "Return" "(" <expr:expr> ")" => {
-        Return { expr }
+        Return { expr: Some(expr) }
     },
+    "Return" "(" "Const" "(" none_literal ")" ")" => { Return { expr: None } },
 };
 
 pub lambda: Lambda = {

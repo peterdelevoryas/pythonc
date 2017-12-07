@@ -181,7 +181,7 @@ pub trait TransformAst {
     }
 
     fn return_(&mut self, return_: Return) -> Stmt {
-        Return { expr: self.expr(return_.expr) }.into()
+        Return { expr: return_.expr.map(|e| self.expr(e)) }.into()
     }
 
     fn if_(&mut self, if_: If) -> Stmt {
@@ -385,7 +385,9 @@ pub trait VisitAst {
     }
 
     fn return_(&mut self, return_: &Return) {
-        self.expr(&return_.expr);
+        if let Some(ref e) = return_.expr {
+            self.expr(e);
+        }
     }
 
     fn if_(&mut self, if_: &If) {

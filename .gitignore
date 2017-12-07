@@ -18,3 +18,4 @@ pythonc-ast/src/parse.rs
 *.liveness
 *.asm
 *.obj
+*.cfg

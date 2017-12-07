@@ -190,7 +190,7 @@ pub struct Lambda {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Return {
-    pub expr: Expr,
+    pub expr: Option<Expr>,
 }
 
 pub struct Parser {
@@ -450,7 +450,7 @@ mod test {
             test parse_return {
                 source: "Return(Name('x'))";
                 expect: Return {
-                    expr: Name("x".into()).into(),
+                    expr: Some(Name("x".into()).into()),
                 };
             }
 

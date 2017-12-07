@@ -197,6 +197,54 @@ impl CfgBuilder {
     /// represent the control flow, and returns the first and last basic block
     /// identifiers. These may be the same if the nested block is just a single
     /// basic block, but could be different if the block introduces branching.
+    ///
+    ///
+    /// ```ignore
+    ///            ...
+    ///
+    ///             |
+    ///             |
+    ///             v
+    ///
+    ///     [ before_while ]
+    ///
+    ///             |
+    ///             | goto header_start
+    ///             v
+    ///
+    ///     [ header_start ]   <----------------------------------------------+
+    ///                                                                       |
+    ///             |                                                         |
+    ///             |                                                         |
+    ///             v                                                         |
+    ///                                                                       |
+    ///            ...                                                        |
+    ///                                                                       |
+    ///             |                                                         |
+    ///             |                                       goto header_start |
+    ///             v                                                         |
+    ///                                                                       |
+    ///     [  header_end  ] // last header block                             |
+    ///                                                                       |
+    ///             |                                                         |
+    ///             | switch cond [true -> body_start, false -> after_while]  |
+    ///             |                                                         |
+    ///             +---------> [ body_start ] -->  ...  --> [ body_end ] ----+
+    ///             |
+    ///             |
+    ///             |
+    ///             |
+    ///             v
+    ///
+    ///     [  after_while ]
+    ///
+    ///             |
+    ///             |
+    ///             v
+    ///
+    ///            ...
+    /// ```
+    ///
     fn build_block(&mut self, flat_block: FlatBlock) {
         for stmt in flat_block {
             match stmt {
@@ -218,51 +266,6 @@ impl CfgBuilder {
                     break
                 }
 
-                ///
-                ///            ...
-                ///
-                ///             |
-                ///             |
-                ///             v
-                ///
-                ///     [ before_while ]
-                ///
-                ///             |
-                ///             | goto header_start
-                ///             v
-                ///
-                ///     [ header_start ]   <----------------------------------------------+
-                ///                                                                       |
-                ///             |                                                         |
-                ///             |                                                         |
-                ///             v                                                         |
-                ///                                                                       |
-                ///            ...                                                        |
-                ///                                                                       |
-                ///             |                                                         |
-                ///             |                                       goto header_start |
-                ///             v                                                         |
-                ///                                                                       |
-                ///     [  header_end  ] // last header block                             |
-                ///                                                                       |
-                ///             |                                                         |
-                ///             | switch cond [true -> body_start, false -> after_while]  |
-                ///             |                                                         |
-                ///             +---------> [ body_start ] -->  ...  --> [ body_end ] ----+
-                ///             |
-                ///             |
-                ///             |
-                ///             |
-                ///             v
-                ///
-                ///     [  after_while ]
-                ///
-                ///             |
-                ///             |
-                ///             v
-                ///
-                ///            ...
-                ///
                 flat::Stmt::While(cond, header, body) => {
                     let before_while = self.exit();
                     let header_start = self.new_block();

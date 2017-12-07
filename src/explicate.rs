@@ -230,7 +230,7 @@ pub struct Closure {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Return {
-    pub expr: Expr,
+    pub expr: Option<Expr>,
 }
 
 impl Ty {
@@ -309,11 +309,11 @@ where
     }
 }
 
-pub fn return_<E>(expr: E) -> Return
+pub fn return_<E>(expr: Option<E>) -> Return
 where
     E: Into<Expr>,
 {
-    Return { expr: expr.into() }
+    Return { expr: expr.map(|e| e.into()) }
 }
 
 pub fn assign<T, E>(target: T, expr: E) -> Assign
@@ -543,7 +543,7 @@ impl Explicate {
     }
 
     pub fn return_(&mut self, assign: ast::Return) -> Return {
-        Return { expr: self.expr(assign.expr) }
+        Return { expr: assign.expr.map(|e| self.expr(e)) }
     }
 
     pub fn const_(&mut self, const_: ast::Const) -> InjectFrom {
@@ -734,7 +734,7 @@ impl Explicate {
                 .into_iter()
                 .map(|arg| self.name(ast::Name(arg)))
                 .collect(),
-            code: vec![return_(self.expr(l.expr)).into()],
+            code: vec![return_(Some(self.expr(l.expr))).into()],
         };
         self.names = saved;
         inject_from(closure, Ty::Big)
@@ -1010,7 +1010,11 @@ impl<'a> fmt::Display for Formatter<'a, While> {
 
 impl<'a> fmt::Display for Formatter<'a, Return> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "return {}", self.fmt(&self.node.expr))
+        write!(f, "return")?;
+        if let Some(ref expr) = self.node.expr {
+            write!(f, " {}", self.fmt(expr))?;
+        }
+        Ok(())
     }
 }
 
@@ -1406,7 +1410,11 @@ impl TypeCheck for Assign {
 
 impl TypeCheck for Return {
     fn type_check(&self, env: &mut TypeEnv) -> Result<Option<Ty>> {
-        self.expr.type_check(env)
+        if let Some(ref expr) = self.expr {
+            expr.type_check(env)
+        } else {
+            Ok(None)
+        }
     }
 }
 

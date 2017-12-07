@@ -22,6 +22,17 @@ fn test_programs() {
     }
 }
 
+#[test]
+fn build_cfg() {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let programs_dir = manifest_dir.join("tests/programs");
+
+    use std::io::Write;
+    if let Err(e) = run(&programs_dir, Stage::cfg) {
+        panic!("\n{}", e.display_chain());
+    }
+}
+
 fn run(dir: &Path, stage: Stage) -> Result<()> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let runtime = manifest_dir.join("runtime/libpyyruntime.a");
@@ -80,6 +91,7 @@ where
         if ext.is_none() || ext.unwrap() != "py" {
             continue;
         }
+        println!("compiling {}", path.display());
         let source = &path;
         let pythonc = Pythonc::new();
 

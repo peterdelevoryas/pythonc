@@ -220,8 +220,8 @@ impl Flatten for ex::Printnl {
 impl Flatten for ex::Return {
     type Output = ();
     fn flatten(self, builder: &mut Flattener) {
-        let loc = self.expr.flatten(builder);
-        builder.push(Stmt::Return(Some(loc)));
+        let value = self.expr.map(|e| e.flatten(builder));
+        builder.push(Stmt::Return(value));
     }
 }
 
