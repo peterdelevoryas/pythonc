@@ -48,6 +48,22 @@ pub enum Stmt {
     Discard(Expr),
 }
 
+impl Stmt {
+    pub fn uses(&self) -> HashSet<Var> {
+        match *self {
+            Stmt::Def { ref rhs, .. } => rhs.uses(),
+            Stmt::Discard(ref expr) => expr.uses(),
+        }
+    }
+
+    pub fn defs(&self) -> HashSet<Var> {
+        match *self {
+            Stmt::Def { lhs, .. } => hash_set!(lhs),
+            Stmt::Discard(_) => hash_set!(),
+        }
+    }
+}
+
 /// A statement which terminates a basic block
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
@@ -145,14 +161,7 @@ pub mod block {
             let mut uses = hash_set!();
 
             for stmt in &self.body {
-                match *stmt {
-                    Stmt::Def { ref rhs, .. } => {
-                        uses.extend(rhs.uses());
-                    }
-                    Stmt::Discard(ref expr) => {
-                        uses.extend(expr.uses());
-                    }
-                }
+                uses.extend(stmt.uses());
             }
 
             if let Some(ref term) = self.term {
@@ -166,12 +175,7 @@ pub mod block {
             let mut defs = hash_set!();
 
             for stmt in &self.body {
-                match *stmt {
-                    Stmt::Def { lhs, .. } => {
-                        defs.insert(lhs);
-                    }
-                    Stmt::Discard(_) => {}
-                }
+                defs.extend(stmt.defs());
             }
 
             defs
