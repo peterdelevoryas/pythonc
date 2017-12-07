@@ -106,9 +106,40 @@ pub mod inst {
         pub data: Data,
     }
 
+    pub enum Unary {
+        Mov,
+        Neg,
+        Push,
+        Pop,
+        MovLabel,
+    }
+
+    pub enum Binary {
+        Add,
+        Sete,
+        Setne,
+        Or,
+        And,
+        Shr,
+        Shl,
+    }
+
     pub enum Data {
-        Unary(Rval),
-        Binary(Rval, Rval),
+        Unary {
+            opcode: Unary,
+            arg: Rval
+        },
+        Binary {
+            opcode: Binary,
+            left: Rval,
+            right: Rval
+        },
+        CallIndirect {
+            arg: Rval,
+        },
+        Call {
+            func: String,
+        },
     }
 
     pub type Imm = i32;
