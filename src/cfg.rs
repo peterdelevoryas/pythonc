@@ -687,11 +687,23 @@ where
 
 pub struct Liveness<'cfg> {
     cfg: &'cfg Cfg,
+    uses: HashMap<Block, HashSet<Var>>,
+    defs: HashMap<Block, HashSet<Var>>,
 }
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        unimplemented!()
+        let uses = cfg.blocks.iter().map(|(b, data)| {
+            let uses = data.uses();
+            (b, uses)
+        }).collect();
+
+        let defs = cfg.blocks.iter().map(|(b, data)| {
+            let defs = data.defs();
+            (b, defs)
+        }).collect();
+
+        Liveness { cfg, uses, defs }
     }
 }
 
