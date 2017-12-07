@@ -237,6 +237,7 @@ impl Cfg {
         cfg.terminate(last, Term::Return(None));
         let cfg = cfg.complete();
         cfg.check_edges();
+        assert_eq!(root, cfg.root());
 
         return cfg
     }
