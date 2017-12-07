@@ -129,19 +129,17 @@ pub mod block {
             }
         }
 
-        pub fn predecessors<'data>(&'data self) -> impl 'data + Iterator<Item=Block> {
-            self.pred.iter().map(|&b| b)
+        pub fn predecessors(&self) -> HashSet<Block> {
+            self.pred.clone()
         }
 
-        pub fn successors(&self) -> Box<Iterator<Item=Block>> {
+        pub fn successors(&self) -> HashSet<Block> {
             use std::iter;
 
             match *self.term.as_ref().unwrap() {
-                Term::Return(_) => Box::new(iter::empty()),
-                Term::Goto(b) => Box::new(iter::once(b)),
-                Term::Switch { then, else_, .. } => {
-                    Box::new(vec![then, else_].into_iter())
-                }
+                Term::Return(_) => hash_set!(),
+                Term::Goto(b) => hash_set!(b),
+                Term::Switch { then, else_, .. } => hash_set!(then, else_),
             }
         }
 
@@ -196,11 +194,11 @@ impl Cfg {
         for (b, block) in &self.blocks {
             for p in block.predecessors() {
                 // assert predecessor contains self in successors
-                assert!(self.block(p).successors().find(|&s| s == b).is_some());
+                assert!(self.block(p).successors().contains(&b));
             }
             for s in block.successors() {
                 // assert successors contain self in predecessors
-                assert!(self.block(s).predecessors().find(|&p| p == b).is_some());
+                assert!(self.block(s).predecessors().contains(&b));
             }
         }
     }
