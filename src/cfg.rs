@@ -161,6 +161,21 @@ pub mod block {
 
             uses
         }
+
+        pub fn defs(&self) -> HashSet<Var> {
+            let mut defs = hash_set!();
+
+            for stmt in &self.body {
+                match *stmt {
+                    Stmt::Def { lhs, .. } => {
+                        defs.insert(lhs);
+                    }
+                    Stmt::Discard(_) => {}
+                }
+            }
+
+            defs
+        }
     }
 }
 use self::block::Block;
@@ -716,5 +731,28 @@ print x
 
         assert_eq!(Term::Switch { cond: x, then: b0, else_: b1 }.uses(), hash_set!(x));
         assert_eq!(Term::Goto(b0).uses(), hash_set!());
+    }
+
+    #[test]
+    fn defs() {
+        let mut vars: var::Slab<var::Data> = var::Slab::new();
+        let x = vars.insert(var::Data::Temp);
+        let y = vars.insert(var::Data::Temp);
+        let z = vars.insert(var::Data::Temp);
+        let mut blocks = block::Blocks::new();
+        let b0 = blocks.insert(block::Data::empty());
+        let b1 = blocks.insert(block::Data::empty());
+
+        let block = block::Data {
+            body: vec![
+                Stmt::Def { lhs: x, rhs: Expr::Copy(y) },
+                Stmt::Def { lhs: z, rhs: Expr::Copy(x) },
+                Stmt::Discard(Expr::Copy(y)),
+            ],
+            term: Some(Term::Return(None)),
+            pred: hash_set!(),
+        };
+
+        assert_eq!(block.defs(), hash_set!(x, z));
     }
 }
