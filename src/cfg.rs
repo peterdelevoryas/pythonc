@@ -68,6 +68,15 @@ pub enum Term {
     }
 }
 
+impl Term {
+    pub fn is_return(&self) -> bool {
+        match *self {
+            Term::Return(_) => true,
+            _ => false,
+        }
+    }
+}
+
 pub mod bb {
     use std::collections::HashSet;
     use super::Stmt;
@@ -91,6 +100,12 @@ pub mod bb {
     }
 
     pub type Set = Slab<Data>;
+
+    impl Data {
+        pub fn is_terminated(&self) -> bool {
+            self.term.is_some()
+        }
+    }
 }
 
 /// Control flow graph
@@ -121,11 +136,47 @@ impl CfgBuilder {
         }
     }
 
+    /// Terminates bb with term and adds bb as a predecessor
+    /// of the destination block (unless it's a return)
     fn terminate(&mut self, bb: bb::BasicBlock, term: Term) {
-        assert!(self.basic_block(bb).term.is_none());
-        self.basic_block(bb).term = Some(term);
+        // add predecessor/s
+        match term {
+            Term::Return(_) => {}
+            Term::Goto(next) => {
+                self.add_predecessor(next, bb);
+            }
+            Term::Switch { then, else_, .. } => {
+                self.add_predecessor(then, bb);
+                self.add_predecessor(else_, bb);
+            }
+        }
+
+        // if the block is already terminated with a return,
+        // then don't add a goto or switch
+        // if we're trying to terminate a return with a return, panic!
+        self.basic_block(bb).term = match self.basic_block(bb).term {
+            Some(Term::Return(var)) if term.is_return() => {
+                // don't replace, just use original return
+                Some(Term::Return(var))
+            }
+            // just leave returns alone, if replace with goto or switch
+            Some(Term::Return(var)) => Some(Term::Return(var)),
+            Some(_) => {
+                panic!("attempting to terminate a goto or switch block!");
+            }
+            None => Some(term),
+        };
     }
 
+    /// Adds pred to bb's set of predecssors
+    fn add_predecessor(&mut self, bb: bb::BasicBlock, pred: bb::BasicBlock) {
+        self.basic_block(bb).pred.insert(pred);
+    }
+
+    /// build_block takes a block of statements, which may contain nested
+    /// blocks of statements, creates a series of basic block nodes that
+    /// represent the control flow, and returns the final, unifying basic block
+    /// identifier.
     fn build_block(&mut self, block: FlatBlock) -> bb::BasicBlock {
         let mut current = self.enter_new_block();
         for stmt in block {
@@ -137,7 +188,14 @@ impl CfgBuilder {
                     self.current_basic_block().body.push(Stmt::Discard(expr));
                 }
                 flat::Stmt::Return(var) => {
-                    unimplemented!()
+                    let bb = self.exit_block();
+                    self.terminate(bb, Term::Return(var));
+                    // If there are still statements left in the block, then
+                    // they don't get processed! we immediately return
+                    // from here. This is an optimization. It shouldn't
+                    // be possible for there to be any successors to this
+                    // block.
+                    return bb;
                 }
                 flat::Stmt::While(cond, header, body) => {
                     unimplemented!()
@@ -153,20 +211,16 @@ impl CfgBuilder {
                     // goto's to the new current block, and add predecessors
                     // to everything.
 
+                    let prev = self.exit_block();
                     let then = self.build_block(then);
                     let else_ = self.build_block(else_);
 
-                    let prev = self.exit_block();
                     current = self.enter_new_block();
 
                     self.terminate(then, Term::Goto(current));
                     self.terminate(else_, Term::Goto(current));
                     self.terminate(prev, Term::Switch { cond, then, else_ });
 
-                    self.basic_block(then).pred.insert(prev);
-                    self.basic_block(else_).pred.insert(prev);
-                    self.basic_block(current).pred.insert(then);
-                    self.basic_block(current).pred.insert(else_);
                 }
             }
         }
