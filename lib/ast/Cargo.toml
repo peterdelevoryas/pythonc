@@ -3,6 +3,7 @@ name = "ast"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 build = "build.rs"
+license = "MIT"
 
 [build-dependencies.lalrpop]
 version = "0.13.1"

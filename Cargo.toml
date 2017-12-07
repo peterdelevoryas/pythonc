@@ -3,6 +3,7 @@ name = "pythonc"
 version = "0.1.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>",
            "William Temple <william.temple@colorado.edu>"]
+license = "MIT"
 
 [[bin]]
 doc = false
