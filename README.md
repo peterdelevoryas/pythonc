@@ -36,3 +36,10 @@ pythonc test.py --stdout --emit raised
 # view usage for more
 pythonc -h
 ```
+
+# Licensing
+
+The runtime was not created by me, and is included under the
+terms of the MIT license. The rest of the library, written by
+myself and William Temple, is also provided under the terms
+of the MIT license.
