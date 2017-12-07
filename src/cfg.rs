@@ -3,6 +3,7 @@ use explicate::var;
 use flatten::Expr;
 use flatten as flat;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use raise;
 
 type FlatBlock = Vec<flat::Stmt>;
@@ -117,6 +118,22 @@ pub mod block {
                 pred: hash_set!(),
             }
         }
+
+        pub fn predecessors<'data>(&'data self) -> impl 'data + Iterator<Item=Block> {
+            self.pred.iter().map(|&b| b)
+        }
+
+        pub fn successors(&self) -> Box<Iterator<Item=Block>> {
+            use std::iter;
+
+            match *self.term.as_ref().unwrap() {
+                Term::Return(_) => Box::new(iter::empty()),
+                Term::Goto(b) => Box::new(iter::once(b)),
+                Term::Switch { then, else_, .. } => {
+                    Box::new(vec![then, else_].into_iter())
+                }
+            }
+        }
     }
 }
 use self::block::Block;
@@ -136,7 +153,29 @@ impl Cfg {
         cfg.build_block(block);
         let last = cfg.exit();
         cfg.terminate(last, Term::Return(None));
-        cfg.complete()
+        let cfg = cfg.complete();
+        cfg.check_edges();
+
+        return cfg
+    }
+
+    /// Looks at all blocks in cfg, makes sure that there aren't
+    /// any blocks whos predecessors or successors are incorrect.
+    pub fn check_edges(&self) {
+        for (b, block) in &self.blocks {
+            for p in block.predecessors() {
+                // assert predecessor contains self in successors
+                assert!(self.block(p).successors().find(|&s| s == b).is_some());
+            }
+            for s in block.successors() {
+                // assert successors contain self in predecessors
+                assert!(self.block(s).predecessors().find(|&p| p == b).is_some());
+            }
+        }
+    }
+
+    pub fn block(&self, b: Block) -> &BlockData {
+        &self.blocks[b]
     }
 }
 
