@@ -26,7 +26,10 @@ pub fn liveness(function: &Function) -> (HashSet<Lval>, Vec<LiveSet>) {
 /// Takes live_sets param to retain context of
 /// the block following this one (if there is one)
 /// Returns (live_set_before_block, live_sets_for_block_insts)
-pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<Lval>, Vec<LiveSet>) {
+pub fn block_liveness(
+    block: &Block,
+    mut live_after: HashSet<Lval>,
+) -> (HashSet<Lval>, Vec<LiveSet>) {
     // I think this should be initialized to live after? For the case of an empty block?
     let mut live_before: HashSet<Lval> = live_after.clone();
     let mut live_sets: Vec<LiveSet> = Vec::new();
@@ -61,7 +64,7 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
         //  |          |
         //  +----------+
         //       |
-        //       | 
+        //       |
         //       | <--------------------------
         //       |                              ^
         //       |  LBefore(header)             |
@@ -117,15 +120,12 @@ pub fn block_liveness(block: &Block, mut live_after: HashSet<Lval>) -> (HashSet<
                 lb_hdr = lb_hdr_p;
                 lb_body = lb_body_p;
             }
-            continue
+            continue;
         }
         let w = remove_special_regs(inst.write_set());
         let r = remove_special_regs(inst.read_set());
 
-        live_before = (&live_after - &w)
-            .union(&r)
-            .map(|&lval| lval)
-            .collect();
+        live_before = (&live_after - &w).union(&r).map(|&lval| lval).collect();
 
         live_sets.push(LiveSet::Inst {
             inst: inst,
@@ -180,7 +180,7 @@ struct Formatter<'a, T: 'a> {
 impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Module> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
         for (&func, function) in &self.data.funcs {
@@ -201,7 +201,7 @@ impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Module> {
 impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
 
@@ -285,12 +285,16 @@ impl<'inst> ::util::fmt::Fmt for LiveSet<'inst> {
 impl<'a> ::util::fmt::Fmt for Formatter<'a, vasm::Function> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::std::io::Result<()>
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
         writeln!(f, "push %ebp")?;
         writeln!(f, "mov %esp, %ebp")?;
-        writeln!(f, "sub ${}, %esp", self.data.stack_slots as vasm::Imm * vasm::WORD_SIZE)?;
+        writeln!(
+            f,
+            "sub ${}, %esp",
+            self.data.stack_slots as vasm::Imm * vasm::WORD_SIZE
+        )?;
 
         let (before, live_sets) = liveness(self.data);
         write_live_set(f, &before)?;

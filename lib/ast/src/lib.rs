@@ -165,7 +165,7 @@ pub struct While {
 pub struct If {
     pub cond: Expr,
     pub then: Vec<Stmt>,
-    pub else_: Option<Vec<Stmt>>
+    pub else_: Option<Vec<Stmt>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,11 +228,11 @@ impl Parser {
             || "python stdout is not utf-8",
         )?;
         use error::ResultExt;
-        let module = parser::parse_module(&output).map_err(|e| {
-            Error::from(ErrorKind::Msg(lalrpop_parse_error_to_str(source, e).into()))
-        }).chain_err(|| {
-            format!("Python repr: {}", output)
-        })?;
+        let module = parser::parse_module(&output)
+            .map_err(|e| {
+                Error::from(ErrorKind::Msg(lalrpop_parse_error_to_str(source, e).into()))
+            })
+            .chain_err(|| format!("Python repr: {}", output))?;
 
         Ok(module)
     }

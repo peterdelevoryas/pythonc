@@ -123,7 +123,12 @@ impl<'var_data> TransformAst for Builder<'var_data> {
     fn closure(&mut self, closure: Closure) -> Expr {
         let func = self.raise_closure(closure);
         let list = List {
-            exprs: self.funcs[func].free_vars.clone().into_iter().map(|v| v.into()).collect(),
+            exprs: self.funcs[func]
+                .free_vars
+                .clone()
+                .into_iter()
+                .map(|v| v.into())
+                .collect(),
         };
         CallRuntime {
             name: "create_closure".into(),
@@ -190,8 +195,8 @@ pub trait TransformAst {
             then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
             else_: match if_.else_ {
                 Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
-                None => None
-            }
+                None => None,
+            },
         }.into()
     }
 

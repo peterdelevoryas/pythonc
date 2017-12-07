@@ -1,4 +1,5 @@
-#[macro_use] extern crate util;
+#[macro_use]
+extern crate util;
 
 use std::fmt;
 use std::io;
@@ -7,9 +8,7 @@ use util::fmt::Fmt;
 
 pub enum Stmt {
     Def,
-    If {
-        then: Vec<Stmt>,
-    }
+    If { then: Vec<Stmt> },
 }
 
 impl util::fmt::Fmt for Stmt {
@@ -42,14 +41,7 @@ fn main() {
         Stmt::If {
             then: vec![
                 Stmt::Def,
-                Stmt::If {
-                    then: vec![
-                        Stmt::Def,
-                        Stmt::Def,
-                        Stmt::Def,
-                        Stmt::Def,
-                    ],
-                },
+                Stmt::If { then: vec![Stmt::Def, Stmt::Def, Stmt::Def, Stmt::Def] },
                 Stmt::Def,
             ],
         },

@@ -15,9 +15,7 @@ pub fn heapify(var_data: &mut var::Slab<var::Data>, module: Module) -> Module {
         heapified: HashSet::new(),
     };
     let main = builder.heapify_closure(main);
-    Module {
-        stmts: main.code,
-    }
+    Module { stmts: main.code }
 }
 
 #[derive(Debug)]
@@ -38,7 +36,9 @@ impl<'var_data> Builder<'var_data> {
         let locals = locals(&closure);
         trace!("locals: {:?}", locals);
         // make call on body recursively
-        let heapified_body: Vec<Stmt> = closure.code.into_iter()
+        let heapified_body: Vec<Stmt> = closure
+            .code
+            .into_iter()
             .map(|stmt| self.stmt(stmt))
             .collect();
 

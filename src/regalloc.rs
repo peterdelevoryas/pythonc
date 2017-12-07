@@ -10,7 +10,7 @@ pub fn regalloc(mut function: vasm::Function, vars: &mut Vars) -> vasm::Function
         match g.run_dsatur() {
             Success => {
                 function = g.assign_homes(function);
-                return function
+                return function;
             }
             Spill(u) => {
                 function.spill(u);

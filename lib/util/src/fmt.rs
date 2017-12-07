@@ -4,12 +4,13 @@ pub type Result = ::std::io::Result<()>;
 
 pub trait Fmt {
     fn fmt<W>(&self, f: &mut Formatter<W>) -> Result
-    where W: io::Write;
+    where
+        W: io::Write;
 }
 
 pub struct Formatter<W>
 where
-    W: io::Write
+    W: io::Write,
 {
     target: W,
     indent: u32,
@@ -19,7 +20,7 @@ where
 
 impl<W> Formatter<W>
 where
-    W: io::Write
+    W: io::Write,
 {
     pub fn new(target: W) -> Self {
         Formatter {
@@ -83,7 +84,7 @@ where
                 b if !self.eol => {
                     self.write_byte(b)?;
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
 

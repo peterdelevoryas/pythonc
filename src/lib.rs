@@ -48,7 +48,7 @@ pub enum Stage {
     liveness,
     asm,
     obj,
-    bin
+    bin,
 }
 
 impl Stage {
@@ -85,7 +85,11 @@ impl ::std::str::FromStr for Stage {
             "asm" => asm,
             "obj" => obj,
             "bin" => bin,
-            _ => bail!("invalid stage, expected one of [ast, explicated, heapified, raised, flattened, vasm, liveness, asm, obj, bin]")
+            _ => {
+                bail!(
+                    "invalid stage, expected one of [ast, explicated, heapified, raised, flattened, vasm, liveness, asm, obj, bin]"
+                )
+            }
         };
         Ok(stage)
     }
@@ -190,7 +194,7 @@ impl Pythonc {
 
         let module = cfg::Module::new(flattener);
         if stop_stage == Stage::cfg {
-            return write_out(&module, out_path)
+            return write_out(&module, out_path);
         }
 
         if stop_stage == Stage::liveness {
@@ -211,7 +215,7 @@ impl Pythonc {
                 writeln!(formatter, "}}")?;
             }
             let s = String::from_utf8(formatter.into_inner()).unwrap();
-            return write_out(&s, out_path)
+            return write_out(&s, out_path);
         }
 
         write_out(&module, out_path)
@@ -289,7 +293,7 @@ fn write_out<D: fmt::Display>(data: D, out_path: &Path) -> Result<()> {
 
 fn open_out_file<P>(path: P, create_new: bool) -> Result<File>
 where
-    P: AsRef<Path>
+    P: AsRef<Path>,
 {
     use std::fs::OpenOptions;
     let path = path.as_ref();
@@ -322,7 +326,7 @@ fn emit_obj(asm: &vasm::Module, asm_path: &Path, out: &Path) -> Result<()> {
     };
     {
         let mut file = ::std::fs::File::create(asm_path).chain_err(
-            || "Could not create temp file for asm"
+            || "Could not create temp file for asm",
         )?;
         write!(&mut file, "{}", asm)?;
     }

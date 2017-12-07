@@ -25,7 +25,8 @@ pub struct Function {
 
 pub struct FunctionBuilder {
     args: Vec<Var>,
-    stack_slots: u32, }
+    stack_slots: u32,
+}
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Block {
@@ -75,7 +76,7 @@ pub enum Inst {
     /// Just `ret`, nothing else
     Ret,
     /// String s -> `s:`
-    Label(String)
+    Label(String),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -123,11 +124,7 @@ impl Module {
             funcs.insert(func, function);
         }
 
-        Module {
-            main,
-            funcs,
-            vars,
-        }
+        Module { main, funcs, vars }
     }
 }
 
@@ -210,9 +207,7 @@ impl<'a> BlockBuilder<'a> {
     }
 
     fn complete(self) -> Block {
-        Block {
-            insts: self.insts,
-        }
+        Block { insts: self.insts }
     }
 
     fn push_inst(&mut self, inst: Inst) {
@@ -433,12 +428,8 @@ impl<'a> BlockBuilder<'a> {
                     ex::Ty::Big => {
                         self.or(lhs, ex::BIG_TAG);
                     }
-                    ex::Ty::Pyobj => {
-                        panic!("Encountered InjectFrom(Pyobj) during vasm generation")
-                    }
-                    ex::Ty::Func => {
-                        panic!("Encountered InjectFrom(Func) during vasm generation")
-                    }
+                    ex::Ty::Pyobj => panic!("Encountered InjectFrom(Pyobj) during vasm generation"),
+                    ex::Ty::Func => panic!("Encountered InjectFrom(Func) during vasm generation"),
                 }
             }
             flat::Stmt::Def(lhs, flat::Expr::Const(i)) => {
@@ -538,7 +529,7 @@ impl fmt::Fmt for Block {
 impl fmt::Fmt for Inst {
     fn fmt<W>(&self, f: &mut fmt::Formatter<W>) -> ::std::io::Result<()>
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
         match *self {
@@ -575,26 +566,30 @@ impl fmt::Fmt for Inst {
             Inst::Cmp(lval, rval) => writeln!(f, "cmp {}, {}", rval, lval),
             Inst::Sete(lval) => {
                 let arg = match lval {
-                    Lval::Reg(r) => match r {
-                        Reg::EAX => "%al",
-                        Reg::EBX => "%bl",
-                        Reg::ECX => "%cl",
-                        Reg::EDX => "%dl",
-                        _ => panic!("registers edi and esi do not have 8 bit versions!"),
-                    }.into(),
+                    Lval::Reg(r) => {
+                        match r {
+                            Reg::EAX => "%al",
+                            Reg::EBX => "%bl",
+                            Reg::ECX => "%cl",
+                            Reg::EDX => "%dl",
+                            _ => panic!("registers edi and esi do not have 8 bit versions!"),
+                        }.into()
+                    }
                     lval => format!("{}", lval),
                 };
                 writeln!(f, "sete {}", arg)
             }
             Inst::Setne(lval) => {
                 let arg = match lval {
-                    Lval::Reg(r) => match r {
-                        Reg::EAX => "%al",
-                        Reg::EBX => "%bl",
-                        Reg::ECX => "%cl",
-                        Reg::EDX => "%dl",
-                        _ => panic!("registers edi and esi do not have 8 bit versions!"),
-                    }.into(),
+                    Lval::Reg(r) => {
+                        match r {
+                            Reg::EAX => "%al",
+                            Reg::EBX => "%bl",
+                            Reg::ECX => "%cl",
+                            Reg::EDX => "%dl",
+                            _ => panic!("registers edi and esi do not have 8 bit versions!"),
+                        }.into()
+                    }
                     lval => format!("{}", lval),
                 };
                 writeln!(f, "setne {}", arg)
@@ -611,7 +606,7 @@ impl fmt::Fmt for Inst {
                 writeln!(f, "{}:", label)?;
                 f.indent();
                 Ok(())
-            },
+            }
             Inst::Sub(lval, rval) => writeln!(f, "sub {}, {}", rval, lval),
             Inst::Ret => writeln!(f, "ret"),
         }
@@ -644,7 +639,7 @@ impl From<Param> for Lval {
 
 impl<L> From<L> for Rval
 where
-    L: Into<Lval>
+    L: Into<Lval>,
 {
     fn from(l: L) -> Self {
         let lval = l.into();
@@ -693,9 +688,11 @@ impl ::std::fmt::Display for Rval {
 pub trait TransformBlock {
     fn block(&mut self, block: Block) -> Block {
         Block {
-            insts: block.insts.into_iter().flat_map(|inst| {
-                self.inst(inst)
-            }).collect()
+            insts: block
+                .insts
+                .into_iter()
+                .flat_map(|inst| self.inst(inst))
+                .collect(),
         }
     }
 
@@ -719,7 +716,7 @@ pub trait TransformBlock {
             Shl(l, imm) => Shl(self.lval(l), imm),
             MovLabel(l, func) => MovLabel(self.lval(l), func),
             While(c, cond, body) => While(self.lval(c), self.block(cond), self.block(body)),
-                        Ret => Ret,
+            Ret => Ret,
             Label(_) => panic!("Encountered label in TransformBlock"),
             JmpLabel(_) => panic!("Encountered `jmp label` in TransformBlock"),
             JeqLabel(_) => panic!("Encountered `jeq label` in TransformBlock"),
@@ -735,13 +732,17 @@ pub trait TransformBlock {
     fn rval(&mut self, rval: Rval) -> Rval {
         match rval {
             Rval::Imm(imm) => Rval::Imm(imm),
-            Rval::Lval(lval) => Rval::Lval(self.lval(lval))
+            Rval::Lval(lval) => Rval::Lval(self.lval(lval)),
         }
     }
 }
 
-pub fn render_func(label: raise::Func, f : Function, is_main: bool) -> Vec<Inst> {
-    let label: String = if is_main { "main".into() } else { format!("{}", label) };
+pub fn render_func(label: raise::Func, f: Function, is_main: bool) -> Vec<Inst> {
+    let label: String = if is_main {
+        "main".into()
+    } else {
+        format!("{}", label)
+    };
     let mut result = vec![
         //Inst::Label(format!("{}", label)),
         Inst::Push(Rval::Lval(Lval::Reg(Reg::EBX))),
@@ -752,7 +753,10 @@ pub fn render_func(label: raise::Func, f : Function, is_main: bool) -> Vec<Inst>
     // write shim first
     result.push(Inst::Push(Reg::EBP.into()));
     result.push(Inst::Mov(Reg::EBP.into(), Reg::ESP.into()));
-    result.push(Inst::Sub(Reg::ESP.into(), Rval::Imm(f.stack_slots as Imm * WORD_SIZE)));
+    result.push(Inst::Sub(
+        Reg::ESP.into(),
+        Rval::Imm(f.stack_slots as Imm * WORD_SIZE),
+    ));
 
     let mut label_index = 0;
     result.extend(linearize(label.clone(), f.block.insts, &mut label_index));
@@ -789,7 +793,7 @@ fn linearize(label_prefix: String, instrs: Vec<Inst>, label_index: &mut usize) -
 
                 //   CMP c,c
                 //   JZ _else
-                v.push(Inst::Cmp(c,Rval::Imm(0)));
+                v.push(Inst::Cmp(c, Rval::Imm(0)));
                 v.push(Inst::JeqLabel(l_else.clone()));
 
                 let then = linearize(label_prefix.clone(), then.insts, label_index);
@@ -805,7 +809,7 @@ fn linearize(label_prefix: String, instrs: Vec<Inst>, label_index: &mut usize) -
 
                 // _end:
                 v.push(Inst::Label(l_end));
-            },
+            }
             Inst::While(c, comp, body) => {
                 let l_top = next_label(&label_prefix, label_index);
                 let l_bot = next_label(&label_prefix, label_index);
@@ -829,7 +833,7 @@ fn linearize(label_prefix: String, instrs: Vec<Inst>, label_index: &mut usize) -
 
                 // _bot:
                 v.push(Inst::Label(l_bot));
-            },
+            }
             Inst::Ret => v.push(Inst::JmpLabel(format!("{}.out", label_prefix))),
             // Default case, don't modify the instruction
             i => v.push(i),
@@ -961,24 +965,32 @@ pub trait VisitBlock {
 }
 
 impl Inst {
-
     /// Gives the write set for the instruction.
     /// NOTE: if the instruction is an If, it will
     /// panic! Ifs should be handled manually
     pub fn write_set(&self) -> HashSet<Lval> {
         use self::Inst::*;
         match *self {
-            Mov(lval, _) | Add(lval, _) |
-            Neg(lval) | Pop(lval) |
-            Sete(lval) | Setne(lval) |
-            Or(lval, _) | And(lval, _) |
-            Shr(lval, _) | Shl(lval, _) |
+            Mov(lval, _) |
+            Add(lval, _) |
+            Neg(lval) |
+            Pop(lval) |
+            Sete(lval) |
+            Setne(lval) |
+            Or(lval, _) |
+            And(lval, _) |
+            Shr(lval, _) |
+            Shl(lval, _) |
             MovLabel(lval, _) => hash_set!(lval),
 
             Push(_) | Cmp(_, _) | Ret => hash_set!(),
 
-            Call(_) | CallIndirect(_)
-                => hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter().map(|reg| reg.into()).collect(),
+            Call(_) | CallIndirect(_) => {
+                hash_set!(Reg::EAX, Reg::ECX, Reg::EDX)
+                    .into_iter()
+                    .map(|reg| reg.into())
+                    .collect()
+            }
 
             If(_, _, _) => panic!("write_set called on Inst::If"),
             While(_, _, _) => unimplemented!(),
@@ -995,32 +1007,31 @@ impl Inst {
     pub fn read_set(&self) -> HashSet<Lval> {
         use self::Inst::*;
         match *self {
-            Add(l, Rval::Lval(r))
-                | Or(l, Rval::Lval(r))
-                | And(l, Rval::Lval(r))
-                | Cmp(l, Rval::Lval(r)) => hash_set!(l, r),
+            Add(l, Rval::Lval(r)) |
+            Or(l, Rval::Lval(r)) |
+            And(l, Rval::Lval(r)) |
+            Cmp(l, Rval::Lval(r)) => hash_set!(l, r),
 
-            Add(v, Rval::Imm(_))
-                | Or(v, Rval::Imm(_))
-                | And(v, Rval::Imm(_))
-                | Cmp(v, Rval::Imm(_)) => hash_set!(v),
+            Add(v, Rval::Imm(_)) |
+            Or(v, Rval::Imm(_)) |
+            And(v, Rval::Imm(_)) |
+            Cmp(v, Rval::Imm(_)) => hash_set!(v),
 
-            Mov(_, Rval::Lval(v))
-                | Neg(v)
-                | Push(Rval::Lval(v))
-                | CallIndirect(v)
-                | Shr(v, _)
-                | Shl(v, _) => hash_set!(v),
+            Mov(_, Rval::Lval(v)) |
+            Neg(v) |
+            Push(Rval::Lval(v)) |
+            CallIndirect(v) |
+            Shr(v, _) |
+            Shl(v, _) => hash_set!(v),
 
-            Call(_)
-                | Sete(_)
-                | Setne(_)
-                | MovLabel(_, _)
-                | Ret
-                | Pop(_)
-                | Mov(_, Rval::Imm(_))
-                | Push(Rval::Imm(_))
-                => hash_set!(),
+            Call(_) |
+            Sete(_) |
+            Setne(_) |
+            MovLabel(_, _) |
+            Ret |
+            Pop(_) |
+            Mov(_, Rval::Imm(_)) |
+            Push(Rval::Imm(_)) => hash_set!(),
             If(_, _, _) => panic!("read_set called on Inst::If"),
             While(_, _, _) => unimplemented!(),
             JmpLabel(_) => unimplemented!(),
@@ -1046,7 +1057,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
                 return vec![
                     Mov(var.into(), StackSlot(src).into()),
                     Mov(StackSlot(dst).into(), var.into()),
-                ]
+                ];
             }
             Add(StackSlot(dst), Lval(StackSlot(src))) => {
                 let var = self.vars.insert(::explicate::var::Data::Temp);
@@ -1054,7 +1065,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
                     Mov(var.into(), StackSlot(dst).into()),
                     Add(var.into(), StackSlot(src).into()),
                     Mov(StackSlot(dst).into(), var.into()),
-                ]
+                ];
             }
             Or(StackSlot(dst), Lval(StackSlot(src))) => {
                 let var = self.vars.insert(::explicate::var::Data::Temp);
@@ -1062,7 +1073,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
                     Mov(var.into(), StackSlot(dst).into()),
                     Or(var.into(), StackSlot(src).into()),
                     Mov(StackSlot(dst).into(), var.into()),
-                ]
+                ];
             }
             And(StackSlot(dst), Lval(StackSlot(src))) => {
                 let var = self.vars.insert(::explicate::var::Data::Temp);
@@ -1070,7 +1081,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
                     Mov(var.into(), StackSlot(dst).into()),
                     And(var.into(), StackSlot(src).into()),
                     Mov(StackSlot(dst).into(), var.into()),
-                ]
+                ];
             }
 
             Mov(l, r) => Mov(self.lval(l), self.rval(r)),
@@ -1102,9 +1113,7 @@ impl<'vars> TransformBlock for ReplaceStackOps<'vars> {
 
 impl Function {
     pub fn replace_stack_to_stack_ops(self, vars: &mut ex::var::Slab<ex::var::Data>) -> Self {
-        let mut replace = ReplaceStackOps {
-            vars: vars,
-        };
+        let mut replace = ReplaceStackOps { vars: vars };
         Function {
             args: self.args,
             stack_slots: self.stack_slots,
@@ -1131,7 +1140,7 @@ impl TransformBlock for Spill {
     fn lval(&mut self, lval: Lval) -> Lval {
         if let Lval::Var(var) = lval {
             if var == self.var {
-                return self.stack_slot.into()
+                return self.stack_slot.into();
             }
         }
         lval
@@ -1158,10 +1167,20 @@ mod tests {
         assert_eq!(Neg(x).write_set(), hash_set!(x));
         assert_eq!(Push(z).write_set(), hash_set!());
         assert_eq!(Pop(x).write_set(), hash_set!(x));
-        assert_eq!(CallIndirect(x).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
-                   .map(|reg| reg.into()).collect());
-        assert_eq!(Call("hello".into()).write_set(), hash_set!(Reg::EAX, Reg::ECX, Reg::EDX).into_iter()
-                   .map(|reg| reg.into()).collect());
+        assert_eq!(
+            CallIndirect(x).write_set(),
+            hash_set!(Reg::EAX, Reg::ECX, Reg::EDX)
+                .into_iter()
+                .map(|reg| reg.into())
+                .collect()
+        );
+        assert_eq!(
+            Call("hello".into()).write_set(),
+            hash_set!(Reg::EAX, Reg::ECX, Reg::EDX)
+                .into_iter()
+                .map(|reg| reg.into())
+                .collect()
+        );
         assert_eq!(Cmp(x, z).write_set(), hash_set!());
         assert_eq!(Sete(x).write_set(), hash_set!(x));
         assert_eq!(Setne(x).write_set(), hash_set!(x));

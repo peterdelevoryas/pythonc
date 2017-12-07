@@ -579,7 +579,7 @@ macro_rules! write_args_list {
 impl ::util::fmt::Fmt for Expr {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
 

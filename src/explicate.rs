@@ -196,7 +196,7 @@ pub struct If {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct While {
     pub test: Expr,
-    pub body: Vec<Stmt>
+    pub body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -336,11 +336,9 @@ where
 
 pub fn list_1<E>(expr: E) -> List
 where
-    E: Into<Expr>
+    E: Into<Expr>,
 {
-    List {
-        exprs: vec![expr.into()]
-    }
+    List { exprs: vec![expr.into()] }
 }
 
 impl Binop {
@@ -422,28 +420,27 @@ impl Explicate {
         //self.force_insert_name(&ast::Name("True".into()));
         //self.force_insert_name(&ast::Name("False".into()));
         self.add_names_in_module(&module);
-        let mut stmts : Vec<Stmt> = vec![
+        let mut stmts: Vec<Stmt> = vec![
             Stmt::Assign(Assign {
-                target : Target::Var(self.name(ast::Name("True".into()))),
-                expr : Expr::InjectFrom(InjectFrom {
-                    from : Ty::Bool,
-                    expr : Expr::Const(Const::Bool(true)),
-                }.into())
+                target: Target::Var(self.name(ast::Name("True".into()))),
+                expr: Expr::InjectFrom(
+                    InjectFrom {
+                        from: Ty::Bool,
+                        expr: Expr::Const(Const::Bool(true)),
+                    }.into(),
+                ),
             }),
             Stmt::Assign(Assign {
-                target : Target::Var(self.name(ast::Name("False".into()))),
-                expr : Expr::InjectFrom(InjectFrom {
-                    from : Ty::Bool,
-                    expr : Expr::Const(Const::Bool(false)),
-                }.into())
+                target: Target::Var(self.name(ast::Name("False".into()))),
+                expr: Expr::InjectFrom(
+                    InjectFrom {
+                        from: Ty::Bool,
+                        expr: Expr::Const(Const::Bool(false)),
+                    }.into(),
+                ),
             }),
         ];
-        stmts.extend(
-            module
-                .stmts
-                .into_iter()
-                .map(|stmt| self.stmt(stmt))
-        );
+        stmts.extend(module.stmts.into_iter().map(|stmt| self.stmt(stmt)));
         Module { stmts }
     }
 
@@ -524,7 +521,7 @@ impl Explicate {
                 name: "is_true".into(),
                 args: vec![self.expr(while_.test)],
             }.into(),
-            body: while_.body.into_iter().map(|s| self.stmt(s)).collect()
+            body: while_.body.into_iter().map(|s| self.stmt(s)).collect(),
         }
     }
 
@@ -537,8 +534,8 @@ impl Explicate {
             then: if_.then.into_iter().map(|s| self.stmt(s)).collect(),
             else_: match if_.else_ {
                 Some(body) => Some(body.into_iter().map(|s| self.stmt(s)).collect()),
-                None => None
-            }
+                None => None,
+            },
         }
     }
 
@@ -577,20 +574,24 @@ impl Explicate {
     pub fn call_func(&mut self, c: ast::CallFunc) -> Expr {
 
         let eargs = c.args.into_iter().map(|e| self.expr(e)).collect();
-        
+
         if let ast::Expr::Name(ast::Name(ref fn_name)) = c.expr {
             if fn_name == "input" {
-                return Expr::CallRuntime(CallRuntime {
-                    name : "input_int".into(),
-                    args : eargs,
-                }.into());
+                return Expr::CallRuntime(
+                    CallRuntime {
+                        name: "input_int".into(),
+                        args: eargs,
+                    }.into(),
+                );
             }
         }
 
-        Expr::CallFunc(CallFunc {
-            expr: self.expr(c.expr),
-            args: eargs,
-        }.into())
+        Expr::CallFunc(
+            CallFunc {
+                expr: self.expr(c.expr),
+                args: eargs,
+            }.into(),
+        )
     }
 
     pub fn binop(&mut self, left: ast::Expr, right: ast::Expr, binop: Binop) -> Let {
@@ -780,7 +781,12 @@ pub struct Formatter<'a, N: 'a + ?Sized> {
 }
 
 impl<'a, N: 'a + ?Sized> Formatter<'a, N> {
-    pub fn new(explicate: &'a Explicate, node: &'a N, show_casts: bool, show_nums: bool) -> Formatter<'a, N> {
+    pub fn new(
+        explicate: &'a Explicate,
+        node: &'a N,
+        show_casts: bool,
+        show_nums: bool,
+    ) -> Formatter<'a, N> {
         Formatter {
             explicate,
             node,
@@ -977,11 +983,7 @@ impl<'a> fmt::Display for Formatter<'a, Assign> {
 
 impl<'a> fmt::Display for Formatter<'a, If> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(
-            f,
-            "if {}:",
-            self.fmt(&self.node.cond)
-        )?;
+        writeln!(f, "if {}:", self.fmt(&self.node.cond))?;
         for stmt in &self.node.then {
             write!(f, "{}", self.indent())?;
             writeln!(f, "{}", self.indented(stmt))?;
@@ -1055,7 +1057,12 @@ impl<'a> fmt::Display for Formatter<'a, GetTag> {
 impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
-            write!(f, "@project_to<{}>({})", self.fmt(&self.node.to), self.fmt(&self.node.expr))
+            write!(
+                f,
+                "@project_to<{}>({})",
+                self.fmt(&self.node.to),
+                self.fmt(&self.node.expr)
+            )
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
         }
@@ -1065,7 +1072,12 @@ impl<'a> fmt::Display for Formatter<'a, ProjectTo> {
 impl<'a> fmt::Display for Formatter<'a, InjectFrom> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.show_casts {
-            write!(f, "@inject_from<{}>({})", self.fmt(&self.node.from), self.fmt(&self.node.expr))
+            write!(
+                f,
+                "@inject_from<{}>({})",
+                self.fmt(&self.node.from),
+                self.fmt(&self.node.expr)
+            )
         } else {
             write!(f, "{}", self.fmt(&self.node.expr))
         }
@@ -1214,9 +1226,7 @@ impl<'a> fmt::Display for Formatter<'a, Var> {
             }
         } else {
             match *self.explicate.var_data(*self.node) {
-                var::Data::User { ref source_name } => {
-                    write!(f, "{}", source_name)
-                }
+                var::Data::User { ref source_name } => write!(f, "{}", source_name),
                 var::Data::Temp => write!(f, "%{}", self.node.inner()),
             }
         }

@@ -17,7 +17,9 @@ pub struct Module {
 impl Module {
     pub fn new(flattener: flat::Flattener) -> Module {
         let main = flattener.main;
-        let functions: HashMap<raise::Func, Function> = flattener.units.into_iter()
+        let functions: HashMap<raise::Func, Function> = flattener
+            .units
+            .into_iter()
             .map(|(f, function)| {
                 let function = Function::new(f, function, f == main);
                 (f, function)
@@ -41,10 +43,7 @@ pub struct Function {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Stmt {
-    Def {
-        lhs: Var,
-        rhs: Expr,
-    },
+    Def { lhs: Var, rhs: Expr },
     Discard(Expr),
 }
 
@@ -81,7 +80,7 @@ pub enum Term {
         cond: Var,
         then: Block,
         else_: Block,
-    }
+    },
 }
 
 impl Term {
@@ -226,7 +225,7 @@ impl Cfg {
         cfg.check_edges();
         assert_eq!(root, cfg.root());
 
-        return cfg
+        return cfg;
     }
 
     /// Looks at all blocks in cfg, makes sure that there aren't
@@ -408,7 +407,10 @@ impl CfgBuilder {
         for stmt in flat_block {
             match stmt {
                 flat::Stmt::Def(var, expr) => {
-                    self.push(Stmt::Def { lhs: var, rhs: expr });
+                    self.push(Stmt::Def {
+                        lhs: var,
+                        rhs: expr,
+                    });
                 }
                 flat::Stmt::Discard(expr) => {
                     self.push(Stmt::Discard(expr));
@@ -422,7 +424,7 @@ impl CfgBuilder {
                     // be possible for there to be any successors to this
                     // block.
 
-                    break
+                    break;
                 }
 
                 flat::Stmt::While(cond, header, body) => {
@@ -440,7 +442,14 @@ impl CfgBuilder {
                     self.terminate(body_end, Term::Goto(header_start));
 
                     let after_while = self.new_block();
-                    self.terminate(header_end, Term::Switch { cond, then: body_start, else_: after_while });
+                    self.terminate(
+                        header_end,
+                        Term::Switch {
+                            cond,
+                            then: body_start,
+                            else_: after_while,
+                        },
+                    );
                     self.enter(after_while);
                 }
                 flat::Stmt::If(cond, then, else_) => {
@@ -456,7 +465,14 @@ impl CfgBuilder {
                     self.build_block(else_);
                     let else_end = self.exit();
 
-                    self.terminate(before_if, Term::Switch { cond, then: then_start, else_: else_start });
+                    self.terminate(
+                        before_if,
+                        Term::Switch {
+                            cond,
+                            then: then_start,
+                            else_: else_start,
+                        },
+                    );
 
                     let after_if = self.new_block();
                     self.terminate(then_end, Term::Goto(after_if));
@@ -500,7 +516,9 @@ impl CfgBuilder {
 
     /// "Exits" the current block, returning what it was.
     fn exit(&mut self) -> Block {
-        let b = self.curr.take().expect("exit called without entering first");
+        let b = self.curr.take().expect(
+            "exit called without entering first",
+        );
         trace!("exited {}", b);
         b
     }
@@ -509,16 +527,18 @@ impl CfgBuilder {
     fn complete(self) -> Cfg {
         trace!("completing control flow graph");
 
-        Cfg {
-            blocks: self.blocks,
-        }
+        Cfg { blocks: self.blocks }
     }
 }
 
 impl Function {
     pub fn new(f: raise::Func, function: flat::Function, is_main: bool) -> Self {
         let cfg = Cfg::new(function.body);
-        let name = if is_main { "main".into() } else { format!("{}", f) };
+        let name = if is_main {
+            "main".into()
+        } else {
+            format!("{}", f)
+        };
         Function {
             name: name,
             args: function.args,
@@ -755,9 +775,7 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Var> {
             var::Data::User { ref source_name } => {
                 write!(f, "{}.{}", source_name, self.value.inner())
             }
-            var::Data::Temp => {
-                write!(f, "_{}", self.value.inner())
-            }
+            var::Data::Temp => write!(f, "_{}", self.value.inner()),
         }
     }
 }
@@ -788,7 +806,7 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Function> {
 impl<'module> ::util::fmt::Fmt for Formatted<'module, Module> {
     fn fmt<W>(&self, f: &mut ::util::fmt::Formatter<W>) -> ::util::fmt::Result
     where
-        W: ::std::io::Write
+        W: ::std::io::Write,
     {
         use std::io::Write;
 
@@ -820,7 +838,7 @@ pub struct Formatted<'module, T: 'module> {
 
 impl<'module, T> Formatted<'module, T>
 where
-    T: 'module
+    T: 'module,
 {
     pub fn new(module: &'module Module, value: &'module T) -> Self {
         Formatted {
@@ -851,13 +869,25 @@ pub struct Liveness<'cfg> {
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        let gens: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens_kills().0)).collect();
-        let kills: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens_kills().1)).collect();
+        let gens: HashMap<Block, HashSet<Var>> = cfg.blocks
+            .iter()
+            .map(|(b, block)| (b, block.gens_kills().0))
+            .collect();
+        let kills: HashMap<Block, HashSet<Var>> = cfg.blocks
+            .iter()
+            .map(|(b, block)| (b, block.gens_kills().1))
+            .collect();
 
         let mut in_p: HashMap<Block, HashSet<Var>> = HashMap::new();
         let mut out_p: HashMap<Block, HashSet<Var>> = HashMap::new();
-        let mut in_: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, _)| (b, HashSet::new())).collect();
-        let mut out: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, _)| (b, HashSet::new())).collect();
+        let mut in_: HashMap<Block, HashSet<Var>> = cfg.blocks
+            .iter()
+            .map(|(b, _)| (b, HashSet::new()))
+            .collect();
+        let mut out: HashMap<Block, HashSet<Var>> = cfg.blocks
+            .iter()
+            .map(|(b, _)| (b, HashSet::new()))
+            .collect();
 
         loop {
             // See chapter 10 of Modern Compiler Implementation in ML
@@ -881,7 +911,13 @@ impl<'cfg> Liveness<'cfg> {
             }
         }
 
-        Liveness { cfg, gens, kills, in_, out }
+        Liveness {
+            cfg,
+            gens,
+            kills,
+            in_,
+            out,
+        }
     }
 }
 
@@ -921,7 +957,10 @@ print x
 
         let block = block::Data {
             body: vec![
-                Stmt::Def { lhs: x, rhs: Expr::Copy(y) },
+                Stmt::Def {
+                    lhs: x,
+                    rhs: Expr::Copy(y),
+                },
             ],
             term: Some(Term::Return(Some(x))),
             pred: hash_set!(),
@@ -929,7 +968,14 @@ print x
 
         assert_eq!(block.uses(), hash_set!(x, y));
 
-        assert_eq!(Term::Switch { cond: x, then: b0, else_: b1 }.uses(), hash_set!(x));
+        assert_eq!(
+            Term::Switch {
+                cond: x,
+                then: b0,
+                else_: b1,
+            }.uses(),
+            hash_set!(x)
+        );
         assert_eq!(Term::Goto(b0).uses(), hash_set!());
     }
 
@@ -945,8 +991,14 @@ print x
 
         let block = block::Data {
             body: vec![
-                Stmt::Def { lhs: x, rhs: Expr::Copy(y) },
-                Stmt::Def { lhs: z, rhs: Expr::Copy(x) },
+                Stmt::Def {
+                    lhs: x,
+                    rhs: Expr::Copy(y),
+                },
+                Stmt::Def {
+                    lhs: z,
+                    rhs: Expr::Copy(x),
+                },
                 Stmt::Discard(Expr::Copy(y)),
             ],
             term: Some(Term::Return(None)),
