@@ -273,6 +273,41 @@ impl Cfg {
 
         root.unwrap()
     }
+
+    pub fn topologically_sorted(&self) -> Vec<Block> {
+        let mut sorter = Sorter {
+            cfg: self,
+            visited: HashSet::new(),
+            sorted: Vec::new(),
+        };
+
+        sorter.dfs(self.root());
+
+        sorter.sorted.reverse();
+        sorter.sorted
+    }
+}
+
+struct Sorter<'cfg> {
+    cfg: &'cfg Cfg,
+    visited: HashSet<Block>,
+    sorted: Vec<Block>,
+}
+
+impl<'cfg> Sorter<'cfg> {
+    fn dfs(&mut self, b: Block) {
+        if !self.visited(b) {
+            self.visited.insert(b);
+            for s in self.cfg.block(b).successors() {
+                self.dfs(s);
+            }
+            self.sorted.push(b);
+        }
+    }
+
+    fn visited(&self, b: Block) -> bool {
+        self.visited.contains(&b)
+    }
 }
 
 /// Builds a control flow graph from a flattened block.
@@ -642,6 +677,16 @@ impl<'module> ::util::fmt::Fmt for Formatted<'module, Cfg> {
             f.dedent();
             writeln!(f)?;
         }
+        write!(f, "sorted: [")?;
+        let sorted = self.value.topologically_sorted();
+        if !sorted.is_empty() {
+            write!(f, "{}", sorted[0])?;
+            for &b in &sorted[1..] {
+                write!(f, ", {}", b)?;
+            }
+        }
+        write!(f, "]")?;
+        writeln!(f)?;
         Ok(())
     }
 }
