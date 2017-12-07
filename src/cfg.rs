@@ -259,6 +259,19 @@ impl Cfg {
     pub fn block(&self, b: Block) -> &BlockData {
         &self.blocks[b]
     }
+
+    /// Returns block with no predecessors
+    pub fn root(&self) -> Block {
+        let mut root = None;
+        for (b, block) in &self.blocks {
+            if block.predecessors().is_empty() {
+                assert!(root.is_none());
+                root = Some(b);
+            }
+        }
+
+        root.unwrap()
+    }
 }
 
 /// Builds a control flow graph from a flattened block.
