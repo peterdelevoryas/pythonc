@@ -193,6 +193,13 @@ impl Pythonc {
             return write_out(&module, out_path)
         }
 
+        if stop_stage == Stage::liveness {
+            for (f, function) in &module.functions {
+                let liveness = cfg::Liveness::new(&function.cfg);
+            }
+            //return write_out(&liveness, out_path)
+        }
+
         write_out(&module, out_path)
     }
 }

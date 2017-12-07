@@ -685,6 +685,16 @@ where
     }
 }
 
+pub struct Liveness<'cfg> {
+    cfg: &'cfg Cfg,
+}
+
+impl<'cfg> Liveness<'cfg> {
+    pub fn new(cfg: &'cfg Cfg) -> Self {
+        unimplemented!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use flatten;
