@@ -185,36 +185,23 @@ pub mod block {
             self.term.as_ref().unwrap()
         }
 
-        /// gen[pn] = gen[n] U (gen[p] - kill[n])
-        pub fn gens(&self) -> HashSet<Var> {
-            match self.body.len() {
-                0 => hash_set!(),
-                1 => self.body[0].uses(),
-                _ => {
-                    let mut gen_pn = {
-                        let gen_n = &self.body[1].uses();
-                        let gen_p = &self.body[0].uses();
-                        let kill_n = &self.body[1].defs();
-                        gen_n | &(gen_p - kill_n)
-                    };
-                    for stmt in &self.body[2..] {
-                        let gen_n = &stmt.uses();
-                        let kill_n = &stmt.defs();
-                        gen_pn = gen_n | &(&gen_pn - kill_n);
+        pub fn gens_kills(&self) -> (HashSet<Var>, HashSet<Var>) {
+            let mut kills = hash_set!();
+            let mut gens = hash_set!();
+            for stmt in &self.body {
+                let uses = stmt.uses();
+                let defs = stmt.defs();
+                for &used in &uses {
+                    if !kills.contains(&used) {
+                        gens.insert(used);
                     }
-                    gen_pn = &self.term().uses() | &gen_pn;
-                    gen_pn
+                }
+                for &def in &defs {
+                    kills.insert(def);
                 }
             }
-        }
 
-        /// kill[pn] = kill[p] U kill[n]
-        pub fn kills(&self) -> HashSet<Var> {
-            let mut kill_pn = hash_set!();
-            for stmt in &self.body {
-                kill_pn = &kill_pn | &stmt.defs();
-            }
-            kill_pn
+            (gens, kills)
         }
     }
 }
@@ -690,6 +677,30 @@ impl<'module, 'cfg> ::util::fmt::Fmt for Formatted<'module, Liveness<'cfg>> {
             }
             writeln!(f, ")")?;
 
+            write!(f, "gens: (")?;
+            let gens: Vec<Var> = self.value.gens[&b].iter().map(|&b| b).collect();
+            if !gens.is_empty() {
+                f.fmt(&self.formatted(&gens[0]))?;
+                for &var in &gens[1..] {
+                    write!(f, ", ")?;
+                    f.fmt(&self.formatted(&var))?;
+                }
+            }
+            writeln!(f, ")")?;
+
+            write!(f, "kills: (")?;
+            let kills: Vec<Var> = self.value.kills[&b].iter().map(|&b| b).collect();
+            if !kills.is_empty() {
+                f.fmt(&self.formatted(&kills[0]))?;
+                for &var in &kills[1..] {
+                    write!(f, ", ")?;
+                    f.fmt(&self.formatted(&var))?;
+                }
+            }
+            writeln!(f, ")")?;
+
+
+
             f.indent();
             for stmt in &data.body {
                 f.fmt(&self.formatted(stmt))?;
@@ -840,8 +851,8 @@ pub struct Liveness<'cfg> {
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        let gens: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens())).collect();
-        let kills: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.kills())).collect();
+        let gens: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens_kills().0)).collect();
+        let kills: HashMap<Block, HashSet<Var>> = cfg.blocks.iter().map(|(b, block)| (b, block.gens_kills().1)).collect();
 
         let mut in_p: HashMap<Block, HashSet<Var>> = HashMap::new();
         let mut out_p: HashMap<Block, HashSet<Var>> = HashMap::new();
