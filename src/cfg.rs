@@ -184,6 +184,34 @@ pub mod block {
         pub fn term(&self) -> &Term {
             self.term.as_ref().unwrap()
         }
+
+        /// gen[pn] = gen[n] U (gen[p] - kill[n])
+        pub fn gens(&self) -> HashSet<Var> {
+            match self.body.len() {
+                0 => hash_set!(),
+                1 => self.body[0].uses(),
+                _ => {
+                    let mut gen_pn = {
+                        let gen_n = &self.body[1].uses();
+                        let gen_p = &self.body[0].uses();
+                        let kill_n = &self.body[1].defs();
+                        gen_n | &(gen_p - kill_n)
+                    };
+                    for stmt in &self.body[2..] {
+                        let gen_n = &stmt.uses();
+                        let kill_n = &stmt.defs();
+                        gen_pn = gen_n | &(&gen_pn - kill_n);
+                    }
+                    gen_pn = &self.term().uses() | &gen_pn;
+                    gen_pn
+                }
+            }
+        }
+
+        /// kill[pn] = kill[p] U kill[n]
+        pub fn kills(&self) -> HashSet<Var> {
+            unimplemented!()
+        }
     }
 }
 use self::block::Block;
@@ -695,47 +723,17 @@ where
 
 pub struct Liveness<'cfg> {
     cfg: &'cfg Cfg,
-    uses: HashMap<LivenessNode<'cfg>, HashSet<Var>>,
-    defs: HashMap<LivenessNode<'cfg>, HashSet<Var>>,
-}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum LivenessNode<'cfg> {
-    Stmt(&'cfg Stmt),
-    Term(&'cfg Term),
+    /// Directly from Modern Compiler Implementation,
+    /// using the aggregate optimization presented
+    /// in Chapter 17 (basic blocks)
+    uses: HashMap<Block, HashSet<Var>>,
+    defs: HashMap<Block, HashSet<Var>>,
 }
 
 impl<'cfg> Liveness<'cfg> {
     pub fn new(cfg: &'cfg Cfg) -> Self {
-        let mut uses = HashMap::new();
-        for (_, block) in &cfg.blocks {
-            for stmt in &block.body {
-                let n = LivenessNode::Stmt(stmt);
-                let prev = uses.insert(n, hash_set!());
-                assert!(prev.is_none());
-            }
-            assert!(block.term.is_some());
-            let term = block.term.as_ref().unwrap();
-            let n = LivenessNode::Term(term);
-            let prev = uses.insert(n, term.uses());
-            assert!(prev.is_none());
-        }
-
-        let mut defs = HashMap::new();
-        for (_, block) in &cfg.blocks {
-            for stmt in &block.body {
-                let n = LivenessNode::Stmt(stmt);
-                let prev = defs.insert(n, hash_set!());
-                assert!(prev.is_none());
-            }
-            assert!(block.term.is_some());
-            let term = block.term.as_ref().unwrap();
-            let n = LivenessNode::Term(term);
-            let prev = defs.insert(n, hash_set!());
-            assert!(prev.is_none());
-        }
-
-        Liveness { cfg, uses, defs }
+        unimplemented!()
     }
 }
 
