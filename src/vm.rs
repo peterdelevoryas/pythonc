@@ -149,6 +149,7 @@ pub mod func {
     use vm::Lval;
     use vm::Rval;
     use vm::Reg::*;
+    use vm::InstData;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Func {
@@ -234,28 +235,40 @@ pub mod func {
             vars.into_iter().map(move |&var| self.convert_var(var))
         }
 
+        fn convert_expr(&self, expr: &Expr) -> InstData {
+            match *expr {
+                Expr::CallFunc(var, ref args) => {
+                    let var = self.convert_var(var);
+                    let args = self.convert_vars(args)
+                        .map(|v| Rval::Lval(Lval::Var(v)))
+                        .collect();
+                    Inst::call_indirect(Lval::Var(var), args)
+                }
+                Expr::RuntimeFunc(ref name, ref args) => {
+                    let func = name.clone();
+                    let args = self.convert_vars(args)
+                        .map(|v| Rval::Lval(Lval::Var(v)))
+                        .collect();
+                    Inst::call(func, args)
+                }
+                _ => unimplemented!()
+            }
+        }
+
         /// Returns None (if a non-side-effecting stmt) or
         /// the stmt converted into an instruction.
         fn convert_stmt(&self, stmt: &Stmt) -> Option<Inst> {
             let inst = match *stmt {
                 Stmt::Def { lhs, ref rhs } => {
-                    unimplemented!()
+                    let dst = self.convert_var(lhs);
+                    self.convert_expr(rhs).dst(Lval::Var(dst))
                 }
                 // Only add side-effecting discards
-                Stmt::Discard(Expr::CallFunc(var, ref args)) => {
-                    let var = self.convert_var(var);
-                    let args = self.convert_vars(args)
-                        .map(|v| Rval::Lval(Lval::Var(v)))
-                        .collect();
-                    let call = Inst::call_indirect(Lval::Var(var), args);
-                    call.dst(Lval::Reg(EAX))
+                Stmt::Discard(ref e @ Expr::CallFunc(_, _)) => {
+                    self.convert_expr(e).dst(Lval::Reg(EAX))
                 }
-                Stmt::Discard(Expr::RuntimeFunc(ref name, ref args)) => {
-                    let func = name.clone();
-                    let args = self.convert_vars(args)
-                        .map(|v| Rval::Lval(Lval::Var(v)))
-                        .collect();
-                    Inst::call(func, args).dst(Lval::Reg(EAX))
+                Stmt::Discard(ref e @ Expr::RuntimeFunc(_, _)) => {
+                    self.convert_expr(e).dst(Lval::Reg(EAX))
                 }
                 Stmt::Discard(Expr::UnaryOp(_, _))
                     | Stmt::Discard(Expr::BinOp(_, _, _))
