@@ -1,4 +1,5 @@
 use std::fmt;
+use std::collections::HashSet;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Reg {
@@ -10,6 +11,10 @@ pub enum Reg {
     EDI,
     ESP,
     EBP,
+}
+
+pub fn caller_save() -> HashSet<Reg> {
+    hash_set!(Reg::EAX, Reg::ECX, Reg::EDX)
 }
 
 impl fmt::Display for Reg {

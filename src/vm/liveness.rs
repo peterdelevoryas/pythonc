@@ -128,7 +128,14 @@ impl Defs for InstData {
     fn defs(&self) -> Lvals {
         use self::InstData::*;
         match *self {
-            _ => unimplemented!()
+            CallIndirect { .. } |
+            Call { .. } => {
+                vm::reg::caller_save().into_iter().map(Lval::Reg).collect()
+            }
+            Unary { .. } |
+            Binary { .. } |
+            ShiftLeftThenOr { .. } |
+            MovFuncLabel { .. } => Lvals::new(),
         }
     }
 }
