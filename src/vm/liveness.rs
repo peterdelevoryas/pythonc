@@ -13,17 +13,15 @@ use vm;
 
 pub type Lvals = HashSet<Lval>;
 
-pub struct Liveness<'func_data> {
-    func_data: &'func_data FuncData,
-
-    gens: HashMap<Block, Lvals>,
-    kills: HashMap<Block, Lvals>,
-    in_: HashMap<Block, Lvals>,
-    out: HashMap<Block, Lvals>,
+pub struct Liveness {
+    pub gens: HashMap<Block, Lvals>,
+    pub kills: HashMap<Block, Lvals>,
+    pub in_: HashMap<Block, Lvals>,
+    pub out: HashMap<Block, Lvals>,
 }
 
-impl<'func_data> Liveness<'func_data> {
-    pub fn new(func_data: &'func_data FuncData) -> Self {
+impl Liveness {
+    pub fn new(func_data: &FuncData) -> Self {
         let (gens, kills) = {
             let (mut gens, mut kills) = (HashMap::new(), HashMap::new());
             for (block, block_data) in &func_data.blocks {
@@ -66,7 +64,7 @@ impl<'func_data> Liveness<'func_data> {
             }
         }
 
-        Liveness { func_data, gens, kills, in_, out }
+        Liveness { gens, kills, in_, out }
     }
 }
 

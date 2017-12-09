@@ -49,6 +49,8 @@ where
     W: io::Write + 'dst,
 {
     dst: &'dst mut W,
+    // this is really hacky!!!
+    liveness: Option<::vm::Liveness>,
 }
 
 impl<'dst, W> Visit for Writer<'dst, W>
@@ -56,6 +58,9 @@ where
     W: io::Write + 'dst,
 {
     fn visit_func(&mut self, func: &FuncData) {
+        let liveness = ::vm::Liveness::new(func);
+        assert!(self.liveness.is_none());
+        self.liveness = Some(liveness);
         let r: io::Result<()> = do catch {
             writeln!(
                 self.dst,
@@ -71,12 +76,24 @@ where
             Ok(())
         };
         r.unwrap();
+        self.liveness = None;
     }
 
     fn visit_block(&mut self, block: &BlockData) {
         let r: io::Result<()> = do catch {
             writeln!(self.dst, "{}:", block.name())?;
+
+            {
+                assert!(self.liveness.is_some());
+                let liveness = self.liveness.as_ref().unwrap();
+                writeln!(self.dst, "in:  ({})",
+                    ::itertools::join(&liveness.in_[&block.name], ", "))?;
+                writeln!(self.dst, "out: ({})",
+                    ::itertools::join(&liveness.out[&block.name], ", "))?;
+            }
+
             self.traverse_block(block);
+
             Ok(())
         };
         r.unwrap();
@@ -103,6 +120,6 @@ pub fn write<W>(dst: &mut W, module: &Module)
 where
     W: io::Write,
 {
-    let mut writer = Writer { dst };
+    let mut writer = Writer { dst, liveness: None };
     writer.visit_module(module);
 }
