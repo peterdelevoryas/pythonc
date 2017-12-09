@@ -54,6 +54,10 @@ impl Data {
     pub fn block(&self, block: &Block) -> &BlockData {
         &self.blocks[block]
     }
+
+    pub fn name(&self) -> &str {
+        &self.name.name
+    }
 }
 
 pub struct Builder<'vars, 'var_data> {

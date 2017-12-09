@@ -35,6 +35,10 @@ impl Data {
             Term::Switch { ref then, ref else_, .. } => hash_set!(then.clone(), else_.clone()),
         }
     }
+
+    pub fn name(&self) -> &str {
+        &self.name.name
+    }
 }
 
 impl fmt::Display for Block {

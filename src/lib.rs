@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns, conservative_impl_trait)]
+#![feature(box_syntax, box_patterns, conservative_impl_trait, catch_expr)]
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -220,7 +220,12 @@ impl Pythonc {
         }
 
         let vm = vm::Module::new(module);
-        write_out(&vm, out_path)
+        let s = {
+            let mut buf = Vec::new();
+            ::vm::util::write(&mut buf, &vm);
+            String::from_utf8(buf).unwrap()
+        };
+        write_out(&s, out_path)
     }
 }
 

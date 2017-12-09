@@ -52,7 +52,6 @@ pub trait Visit {
             visited: HashSet::new(),
             callback: move |block| {
                 self.visit_block(block);
-                self.traverse_block(block);
             }
         };
 
@@ -66,13 +65,18 @@ pub trait Visit {
         self.visit_term(&block.term);
     }
 
-    fn visit(&mut self, module: &Module) {
-        self.visit_module(module);
+    fn visit_module(&mut self, module: &Module) {
         self.traverse_module(module);
     }
-    fn visit_module(&mut self, module: &Module) {}
-    fn visit_func(&mut self, _func: &FuncData) {}
-    fn visit_block(&mut self, _block: &BlockData) {}
+
+    fn visit_func(&mut self, func: &FuncData) {
+        self.traverse_func(func);
+    }
+
+    fn visit_block(&mut self, block: &BlockData) {
+        self.traverse_block(block);
+    }
+
     fn visit_inst(&mut self, _inst: &Inst) {}
     fn visit_term(&mut self, _term: &Term) {}
 }
