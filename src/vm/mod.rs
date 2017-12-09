@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 pub mod module;
 pub use self::module::Module;
 

@@ -58,7 +58,7 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
             name: function.name,
         };
         let args: Vec<Var> = self.convert_vars(&function.args).collect();
-        let mut stack = StackLayout::new();
+        let stack = StackLayout::new();
 
         let mut ret = Data {
             name: name,
@@ -220,7 +220,7 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
     }
 
     fn convert_func_name(&self, name: ::raise::Func) -> Func {
-        unimplemented!()
+        self.funcs[&name].clone()
     }
 
     /// Returns None (if a non-side-effecting stmt) or
