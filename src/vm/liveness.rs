@@ -24,7 +24,49 @@ pub struct Liveness<'func_data> {
 
 impl<'func_data> Liveness<'func_data> {
     pub fn new(func_data: &'func_data FuncData) -> Self {
-        unimplemented!()
+        let (gens, kills) = {
+            let (mut gens, mut kills) = (HashMap::new(), HashMap::new());
+            for (block, block_data) in &func_data.blocks {
+                let (g, k) = gens_kills(block_data);
+                gens.insert(block.clone(), g);
+                kills.insert(block.clone(), k);
+            }
+            (gens, kills)
+        };
+
+        let mut in_p: HashMap<Block, Lvals> = HashMap::new();
+        let mut out_p: HashMap<Block, Lvals> = HashMap::new();
+        let mut in_: HashMap<Block, Lvals> = func_data.blocks
+            .iter()
+            .map(|(b, _)| (b.clone(), Lvals::new()))
+            .collect();
+        let mut out: HashMap<Block, Lvals> = func_data.blocks
+            .iter()
+            .map(|(b, _)| (b.clone(), Lvals::new()))
+            .collect();
+
+        loop {
+            for (n, block) in &func_data.blocks {
+                in_p.insert(n.clone(), in_[&n].clone());
+                out_p.insert(n.clone(), out[&n].clone());
+                let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
+                in_.insert(n.clone(), in_n);
+                let mut out_n = Lvals::new();
+                for s in block.successors() {
+                    out_n.extend(in_[&s].clone());
+                }
+                out.insert(n.clone(), out_n);
+            }
+
+            let done = func_data.blocks.iter().all(|(b, _)| {
+                in_p[&b] == in_[&b] && out_p[&b] == out[&b]
+            });
+            if done {
+                break;
+            }
+        }
+
+        Liveness { func_data, gens, kills, in_, out }
     }
 }
 

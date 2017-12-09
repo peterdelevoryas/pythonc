@@ -26,6 +26,16 @@ impl Block {
     }
 }
 
+impl Data {
+    pub fn successors(&self) -> HashSet<Block> {
+        match self.term {
+            Term::Return { .. } => hash_set!(),
+            Term::Goto { ref block } => hash_set!(block.clone()),
+            Term::Switch { ref then, ref else_, .. } => hash_set!(then.clone(), else_.clone()),
+        }
+    }
+}
+
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)
