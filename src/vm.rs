@@ -178,7 +178,7 @@ pub mod func {
                 index: f.inner(),
                 name: function.name,
             };
-            let args: Vec<Var> = self.convert_vars(&function.args);
+            let args: Vec<Var> = self.convert_vars(&function.args).collect();
             let mut stack = StackLayout::new();
 
             let mut ret = Data {
@@ -226,8 +226,12 @@ pub mod func {
             }
         }
 
-        fn convert_vars(&self, vars: &[ex::Var]) -> Vec<Var> {
-            vars.iter().map(|&var| self.convert_var(var)).collect()
+        fn convert_vars<'v, I>(&'v self, vars: I) -> impl 'v + Iterator<Item=Var>
+        where
+            I: IntoIterator<Item=&'v ex::Var>,
+            <I as IntoIterator>::IntoIter: 'v,
+        {
+            vars.into_iter().map(move |&var| self.convert_var(var))
         }
 
         /// Returns None (if a non-side-effecting stmt) or
