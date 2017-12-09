@@ -43,3 +43,5 @@ pub use self::util::fmt_indented;
 
 pub mod visit;
 pub use self::visit::Visit;
+
+pub mod interference;
