@@ -9,6 +9,7 @@ use vm::Visit;
 use vm::StackSlot;
 use vm;
 
+#[derive(Debug)]
 pub struct Graph {
     graph: UnGraphMap<Node, ()>,
     unspillable: HashSet<Var>,
@@ -68,7 +69,7 @@ impl Graph {
             }
         }
 
-        unimplemented!()
+        graph
     }
 
     fn add_spillable(&mut self, var: Var) {
@@ -145,7 +146,27 @@ fn referenced_vars(block: &BlockData) -> HashSet<Var> {
     }
 
     fn inst(inst: &vm::InstData) -> HashSet<Var> {
-        unimplemented!()
+        use vm::InstData::*;
+        match *inst {
+            Unary { ref arg, .. } => rval(arg),
+            Binary { ref left, ref right, .. } => &rval(left) | &rval(right),
+            CallIndirect { ref target, ref args } => {
+                let mut vars = lval(target);
+                for arg in args {
+                    vars.extend(rval(arg));
+                }
+                vars
+            }
+            Call { ref args, .. } => {
+                let mut vars = HashSet::new();
+                for arg in args {
+                    vars.extend(rval(arg));
+                }
+                vars
+            }
+            ShiftLeftThenOr { ref arg, .. } => rval(arg),
+            MovFuncLabel { .. } => HashSet::new(),
+        }
     }
 
     let mut referenced = ReferencedVars { vars: HashSet::new() };

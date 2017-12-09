@@ -19,3 +19,5 @@ pythonc-ast/src/parse.rs
 *.asm
 *.obj
 *.cfg
+*.vm
+*.ig

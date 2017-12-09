@@ -46,7 +46,9 @@ pub enum Stage {
     flattened,
     cfg,
     vasm,
+    vm,
     liveness,
+    ig,
     asm,
     obj,
     bin,
@@ -62,7 +64,9 @@ impl Stage {
             "flattened",
             "cfg",
             "vasm",
+            "vm",
             "liveness",
+            "ig",
             "asm",
             "obj",
             "bin",
@@ -82,13 +86,15 @@ impl ::std::str::FromStr for Stage {
             "flattened" => flattened,
             "cfg" => cfg,
             "vasm" => vasm,
+            "vm" => vm,
             "liveness" => liveness,
+            "ig" => ig,
             "asm" => asm,
             "obj" => obj,
             "bin" => bin,
             _ => {
                 bail!(
-                    "invalid stage, expected one of [ast, explicated, heapified, raised, flattened, vasm, liveness, asm, obj, bin]"
+                    "invalid stage, expected one of [ast, explicated, heapified, raised, flattened, vasm, vm, liveness, ig, asm, obj, bin]"
                 )
             }
         };
@@ -220,12 +226,29 @@ impl Pythonc {
         }
 
         let vm = vm::Module::new(module);
-        let s = {
+        if stop_stage == Stage::vm {
+            let s = {
+                let mut buf = Vec::new();
+                ::vm::util::write(&mut buf, &vm);
+                String::from_utf8(buf).unwrap()
+            };
+            return write_out(&s, out_path)
+        }
+
+
+        {
             let mut buf = Vec::new();
-            ::vm::util::write(&mut buf, &vm);
-            String::from_utf8(buf).unwrap()
-        };
-        write_out(&s, out_path)
+            for (_, func) in &vm.funcs {
+                use std::io::Write;
+                writeln!(&mut buf, "interference for func {}:", func.name())?;
+                let ig = vm::interference::Graph::build(func);
+                writeln!(&mut buf, "{:#?}", ig)?;
+            }
+            let s = String::from_utf8(buf).unwrap();
+            return write_out(&s, out_path)
+        }
+
+        Ok(())
     }
 }
 
@@ -240,7 +263,9 @@ impl Stage {
             flattened => "flattened",
             cfg => "cfg",
             vasm => "vasm",
+            vm => "vm",
             liveness => "liveness",
+            ig => "ig",
             asm => "s",
             obj => "o",
             bin => "bin",
