@@ -18,7 +18,13 @@ pub mod module {
 
     impl Module {
         pub fn new(m: cfg::Module) -> Self {
-            let mut b = Builder::new(&m.var_data);
+            let func_map = m.functions.iter()
+                .map(|(&f, function)| {
+                    let func = Func::new(f.inner(), function.name.clone());
+                    (f, func)
+                })
+                .collect();
+            let mut b = Builder::new(&m.var_data, func_map);
             for (f, function) in m.functions {
                 b.visit_function(f, function, f == m.main);
             }
@@ -30,21 +36,23 @@ pub mod module {
         var_data: &'var_data VarData,
         vars: VarEnv,
         funcs: HashMap<Func, FuncData>,
+        func_map: HashMap<raise::Func, Func>,
     }
 
     impl<'var_data> Builder<'var_data> {
-        fn new(var_data: &'var_data VarData) -> Self {
+        fn new(var_data: &'var_data VarData, func_map: HashMap<raise::Func, Func>) -> Self {
             let vars = VarEnv::from(var_data);
             let funcs = HashMap::new();
             Builder {
                 var_data,
                 vars,
                 funcs,
+                func_map,
             }
         }
 
         fn visit_function(&mut self, f: raise::Func, function: cfg::Function, _is_main: bool) {
-            let b = FuncBuilder::new(&mut self.vars, self.var_data);
+            let b = FuncBuilder::new(&mut self.vars, self.var_data, self.func_map.clone());
             let func_data = b.build(f, function);
             self.funcs.insert(func_data.name.clone(), func_data);
         }
@@ -163,14 +171,24 @@ pub mod func {
         pub stack: StackLayout,
     }
 
+    impl Func {
+        pub fn new(index: usize, name: String) -> Func {
+            Func { index, name }
+        }
+    }
+
     pub struct Builder<'vars, 'var_data> {
         vars: &'vars mut VarEnv,
         var_data: &'var_data VarData,
+        funcs: HashMap<raise::Func, Func>,
     }
 
     impl<'vars, 'var_data> Builder<'vars, 'var_data> {
-        pub fn new(vars: &'vars mut VarEnv, var_data: &'var_data VarData) -> Self {
-            Builder { vars, var_data }
+        pub fn new(vars: &'vars mut VarEnv,
+                   var_data: &'var_data VarData,
+                   funcs: HashMap<raise::Func, Func>) -> Self
+        {
+            Builder { vars, var_data, funcs }
         }
 
         pub fn build(self, f: raise::Func, function: cfg::Function) -> Data {
@@ -326,8 +344,16 @@ pub mod func {
                     }
                 }
                 Expr::Const(i) => InstData::Unary { opcode: Mov, arg: Rval::Imm(i) },
+                Expr::LoadFunctionPointer(f) => {
+                    let func = self.convert_func_name(f);
+                    InstData::MovFuncLabel { func }
+                }
                 _ => unimplemented!(),
             }
+        }
+
+        fn convert_func_name(&self, name: ::raise::Func) -> Func {
+            unimplemented!()
         }
 
         /// Returns None (if a non-side-effecting stmt) or
@@ -427,6 +453,7 @@ pub mod inst {
     use vm::Reg;
     use vm::StackSlot;
     use vm::Var;
+    use vm::Func;
     use cfg::Stmt;
     use flatten::Expr;
 
@@ -441,7 +468,6 @@ pub mod inst {
         Not,
         Push,
         Pop,
-        MovLabel,
     }
 
     pub enum Binary {
@@ -472,6 +498,11 @@ pub mod inst {
             arg: Rval,
             shift: Imm,
             or: Imm,
+        },
+
+        /// XXX Another oof!
+        MovFuncLabel {
+            func: Func,
         }
     }
 
