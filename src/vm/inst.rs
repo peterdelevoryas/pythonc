@@ -17,7 +17,6 @@ pub enum Unary {
     Neg,
     Not,
     Push,
-    Pop,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -153,7 +152,6 @@ impl Unary {
             Neg => "neg",
             Not => "not",
             Push => "push",
-            Pop => "pop",
         }
     }
 }

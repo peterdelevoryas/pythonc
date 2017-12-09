@@ -69,10 +69,6 @@ impl Uses for InstData {
                     vm::Unary::Neg |
                     vm::Unary::Not |
                     vm::Unary::Push => arg.uses(),
-                    // pop doesn't read from arg,
-                    // although we might consider adding
-                    // a "use stackslot" or etc????
-                    vm::Unary::Pop => Lvals::new(),
                 }
             }
             Binary { opcode, ref left, ref right } => {
@@ -130,6 +126,9 @@ impl Defs for Inst {
 
 impl Defs for InstData {
     fn defs(&self) -> Lvals {
-        unimplemented!()
+        use self::InstData::*;
+        match *self {
+            _ => unimplemented!()
+        }
     }
 }
