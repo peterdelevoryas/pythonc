@@ -42,7 +42,7 @@ pub enum DSaturResult {
 
 impl Graph {
     fn new() -> Graph {
-        let mut graph = UnGraphMap::new();
+        let graph = UnGraphMap::new();
         let unspillable = HashSet::new();
         let colors = HashMap::new();
         Graph { graph, unspillable, colors }
@@ -51,18 +51,54 @@ impl Graph {
     pub fn build(func: &FuncData) -> Graph {
         let mut graph = Graph::new();
 
+        use vm::Reg::*;
+        for &reg in &[EAX, EBX, ECX, EDX, ESI, EDI] {
+            graph.add_reg(reg);
+        }
+
         for (_, block) in &func.blocks {
             let vars = referenced_vars(block);
             for var in vars {
-
+                if let Some(index) = func.args.iter().position(|&arg| arg == var) {
+                    // Yikes, stack slot should be constructed way before this point
+                    let stack_slot = StackSlot::Param { index };
+                    graph.add_param(var, stack_slot);
+                }
+                graph.add_spillable(var);
             }
         }
 
         unimplemented!()
     }
 
+    fn add_spillable(&mut self, var: Var) {
+        self.add_node(Node::Var(var));
+    }
+
+    fn add_unspillable(&mut self, var: Var) {
+        self.add_node(Node::Var(var));
+        self.unspillable.insert(var);
+    }
+
+    fn add_reg(&mut self, reg: Reg) {
+        self.add_node(Node::Reg(reg));
+    }
+
+    fn add_param(&mut self, param: Var, stack_slot: StackSlot) {
+        self.add_node(Node::Var(param));
+
+    }
+
     fn add_node(&mut self, node: Node) {
         self.graph.add_node(node);
+    }
+
+    fn write_color(&mut self, var: Var, color: Color) {
+        assert!(
+            !self.colors.contains_key(&var),
+            "Writing color for node that already has a color"
+        );
+        self.colors.insert(var, color);
     }
 }
 
@@ -73,7 +109,6 @@ fn referenced_vars(block: &BlockData) -> HashSet<Var> {
 
     impl Visit for ReferencedVars {
         fn visit_inst(&mut self, i: &vm::Inst) {
-            use vm::InstData::*;
             self.vars = &self.vars | &lval(&i.dst);
             self.vars = &self.vars | &inst(&i.data);
         }
