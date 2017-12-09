@@ -238,6 +238,9 @@ pub mod func {
         }
 
         fn convert_expr(&self, expr: &Expr) -> InstData {
+            use vm::inst::Unary::*;
+            use vm::inst::Binary::*;
+            use flatten as flat;
             match *expr {
                 Expr::CallFunc(var, ref args) => {
                     let var = self.convert_var(var);
@@ -252,6 +255,14 @@ pub mod func {
                         .map(|v| Rval::Lval(Lval::Var(v)))
                         .collect();
                     Inst::call(func, args)
+                }
+                Expr::UnaryOp(op, arg) => {
+                    let arg = self.convert_var(arg);
+                    let opcode = match op {
+                        flat::UnaryOp::NEGATE => Neg,
+                        flat::UnaryOp::NOT => Not,
+                    };
+                    Inst::unary(opcode, Rval::Lval(Lval::Var(arg)))
                 }
                 _ => unimplemented!(),
             }
@@ -365,6 +376,7 @@ pub mod inst {
     pub enum Unary {
         Mov,
         Neg,
+        Not,
         Push,
         Pop,
         MovLabel,
@@ -415,6 +427,10 @@ pub mod inst {
         pub fn call(func: String, args: Vec<Rval>) -> Data {
             Data::Call { func, args }
         }
+
+        pub fn unary(opcode: Unary, arg: Rval) -> Data {
+            Data::Unary { opcode, arg }
+        }
     }
 
     impl Data {
@@ -437,6 +453,8 @@ pub use self::inst::Data as InstData;
 pub use self::inst::Imm;
 pub use self::inst::Lval;
 pub use self::inst::Rval;
+pub use self::inst::Unary;
+pub use self::inst::Binary;
 
 pub mod stack {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
