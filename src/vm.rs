@@ -298,6 +298,33 @@ pub mod func {
                         _ => panic!("Cannot project {} to {}", var, ty),
                     }
                 }
+                Expr::InjectFrom(var, ty) => {
+                    let arg = Rval::Lval(Lval::Var(self.convert_var(var)));
+                    match ty {
+                        ex::Ty::Int => {
+                            InstData::ShiftLeftThenOr {
+                                arg: arg,
+                                shift: ex::SHIFT,
+                                or: ex::INT_TAG,
+                            }
+                        }
+                        ex::Ty::Bool => {
+                            InstData::ShiftLeftThenOr {
+                                arg: arg,
+                                shift: ex::SHIFT,
+                                or: ex::BOOL_TAG,
+                            }
+                        }
+                        ex::Ty::Big => {
+                            InstData::Binary {
+                                opcode: Or,
+                                left: arg,
+                                right: Rval::Imm(ex::BIG_TAG),
+                            }
+                        }
+                        _ => panic!("Cannot inject {} from {}", var, ty),
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
@@ -436,6 +463,15 @@ pub mod inst {
         },
         CallIndirect { target: Lval, args: Vec<Rval> },
         Call { func: String, args: Vec<Rval> },
+
+        /// XXX Oof! This is unfortunately here for now,
+        /// a product of InjectFrom requiring two binary
+        /// instructions
+        ShiftLeftThenOr {
+            arg: Rval,
+            shift: Imm,
+            or: Imm,
+        }
     }
 
     pub type Imm = i32;
