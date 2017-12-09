@@ -8,13 +8,13 @@ use vm::Inst;
 use vm::Term;
 
 pub trait Visit {
-    fn visit_module(&mut self, module: &Module) {
+    fn traverse_module(&mut self, module: &Module) {
         for (_, func) in &module.funcs {
             self.visit_func(func);
         }
     }
 
-    fn visit_func(&mut self, func: &FuncData) {
+    fn traverse_func(&mut self, func: &FuncData) {
         struct Dfs<'func_data, F>
         where
             F: FnMut(&BlockData)
@@ -52,19 +52,27 @@ pub trait Visit {
             visited: HashSet::new(),
             callback: move |block| {
                 self.visit_block(block);
+                self.traverse_block(block);
             }
         };
 
         dfs.dfs(func.root());
     }
 
-    fn visit_block(&mut self, block: &BlockData) {
+    fn traverse_block(&mut self, block: &BlockData) {
         for inst in &block.body {
             self.visit_inst(inst);
         }
         self.visit_term(&block.term);
     }
 
+    fn visit(&mut self, module: &Module) {
+        self.visit_module(module);
+        self.traverse_module(module);
+    }
+    fn visit_module(&mut self, module: &Module) {}
+    fn visit_func(&mut self, _func: &FuncData) {}
+    fn visit_block(&mut self, _block: &BlockData) {}
     fn visit_inst(&mut self, _inst: &Inst) {}
     fn visit_term(&mut self, _term: &Term) {}
 }

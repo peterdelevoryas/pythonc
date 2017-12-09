@@ -62,5 +62,5 @@ where
     W: io::Write,
 {
     let mut writer = Writer { dst };
-    writer.visit_module(module);
+    writer.visit(module);
 }
