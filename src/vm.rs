@@ -418,6 +418,12 @@ pub mod func {
         }
     }
 
+    impl fmt::Display for Func {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.name)
+        }
+    }
+
     impl fmt::Display for Data {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             writeln!(f, "func {name}({args}) {{",
@@ -439,6 +445,8 @@ pub use self::func::Func;
 pub use self::func::Data as FuncData;
 
 pub mod reg {
+    use std::fmt;
+
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub enum Reg {
         EAX,
@@ -449,6 +457,23 @@ pub mod reg {
         EDI,
         ESP,
         EBP,
+    }
+
+    impl fmt::Display for Reg {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            use self::Reg::*;
+            let s = match *self {
+                EAX => "eax",
+                EBX => "ebx",
+                ECX => "ecx",
+                EDX => "edx",
+                ESI => "esi",
+                EDI => "edi",
+                ESP => "esp",
+                EBP => "ebp",
+            };
+            write!(f, "{}", s)
+        }
     }
 }
 pub use self::reg::Reg;
@@ -552,7 +577,92 @@ pub mod inst {
 
     impl fmt::Display for Inst {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            Ok(())
+            write!(f, "{} = {}", self.dst, self.data)
+        }
+    }
+
+    impl fmt::Display for Data {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Data::Unary { ref opcode, ref arg } => {
+                    write!(f, "{} {}", opcode, arg)
+                }
+                Data::Binary { ref opcode, ref left, ref right } => {
+                    write!(f, "{} {}, {}", opcode, left, right)
+                }
+                Data::CallIndirect { ref target, ref args } => {
+                    write!(f, "call* {}({})", target, ::itertools::join(args, ", "))
+                }
+                Data::Call { ref func, ref args } => {
+                    write!(f, "call {}({})", func, ::itertools::join(args, ", "))
+                }
+                Data::ShiftLeftThenOr { ref arg, ref shift, ref or } => {
+                    write!(f, "({} << ${}) | ${}", arg, shift, or)
+                }
+                Data::MovFuncLabel { ref func } => {
+                    write!(f, "mov ${}", func)
+                }
+            }
+        }
+    }
+
+    impl fmt::Display for Lval {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Lval::Var(ref var) => write!(f, "{}", var),
+                Lval::StackSlot(ref stack_slot) => write!(f, "{}", stack_slot),
+                Lval::Reg(ref reg) => write!(f, "{}", reg),
+            }
+        }
+    }
+
+    impl fmt::Display for Rval {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Rval::Lval(ref lval) => write!(f, "{}", lval),
+                Rval::Imm(ref imm) => write!(f, "${}", imm),
+            }
+        }
+    }
+
+    impl Unary {
+        pub fn as_str(&self) -> &'static str {
+            use self::Unary::*;
+            match *self {
+                Mov => "mov",
+                Neg => "neg",
+                Not => "not",
+                Push => "push",
+                Pop => "pop",
+            }
+        }
+    }
+
+    impl fmt::Display for Unary {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.as_str())
+        }
+    }
+
+    impl Binary {
+        pub fn as_str(&self) -> &'static str {
+            use self::Binary::*;
+            match *self {
+                Add => "add",
+                Sub => "sub",
+                Sete => "sete",
+                Setne => "setne",
+                Or => "or",
+                And => "and",
+                Shr => "shr",
+                Shl => "shl",
+            }
+        }
+    }
+
+    impl fmt::Display for Binary {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.as_str())
         }
     }
 }
@@ -565,6 +675,8 @@ pub use self::inst::Unary;
 pub use self::inst::Binary;
 
 pub mod stack {
+    use std::fmt;
+
     #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
     pub struct Slot {
         index: usize,
@@ -580,6 +692,12 @@ pub mod stack {
     impl Layout {
         pub fn new() -> Self {
             Layout {}
+        }
+    }
+
+    impl fmt::Display for Slot {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "[stack slot] {}", self.index)
         }
     }
 }
@@ -604,7 +722,21 @@ pub mod term {
 
     impl fmt::Display for Term {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            unimplemented!()
+            match *self {
+                Term::Return { ref var } => {
+                    write!(f, "return")?;
+                    if let Some(ref var) = *var {
+                        write!(f, " {}", var)?;
+                    }
+                    Ok(())
+                }
+                Term::Goto { ref block } => {
+                    write!(f, "goto {}", block)
+                }
+                Term::Switch { ref cond, ref then, ref else_ } => {
+                    write!(f, "switch {} [{}, {}]", cond, then, else_)
+                }
+            }
         }
     }
 }
@@ -636,6 +768,12 @@ pub mod block {
             let name = format!("{}", b);
             let index = b.inner();
             Block { name, index }
+        }
+    }
+
+    impl fmt::Display for Block {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.name)
         }
     }
 
