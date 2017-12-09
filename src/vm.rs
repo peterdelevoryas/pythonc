@@ -190,7 +190,7 @@ pub mod func {
 
             for (block, data) in &function.cfg.blocks {
                 let name = Block::from(block);
-                let body: Vec<Inst> = self.convert_stmts(&data.body);
+                let body: Vec<Inst> = self.convert_stmts(&data.body).collect();
                 let term = data.term.as_ref().map(|term| self.convert_term(term));
                 let term = match data.term {
                     Some(ref term) => self.convert_term(term),
@@ -259,8 +259,12 @@ pub mod func {
             Some(inst)
         }
 
-        fn convert_stmts(&self, stmts: &[Stmt]) -> Vec<Inst> {
-            stmts.iter().filter_map(|stmt| self.convert_stmt(stmt)).collect()
+        fn convert_stmts<'stmts, I>(&'stmts self, stmts: I) -> impl Iterator<Item=Inst> + 'stmts
+        where
+            I: IntoIterator<Item=&'stmts Stmt>,
+            <I as IntoIterator>::IntoIter: 'stmts,
+        {
+            stmts.into_iter().filter_map(move |stmt| self.convert_stmt(stmt))
         }
 
         fn convert_term(&self, term: &cfg::Term) -> Term {
