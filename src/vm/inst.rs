@@ -11,6 +11,7 @@ pub struct Inst {
     pub data: Data,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Unary {
     Mov,
     Neg,
@@ -19,6 +20,7 @@ pub enum Unary {
     Pop,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Binary {
     Add,
     Sub,

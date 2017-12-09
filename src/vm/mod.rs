@@ -35,6 +35,8 @@ pub use self::block::Block;
 pub use self::block::Data as BlockData;
 
 pub mod liveness;
+pub use self::liveness::Lvals;
+pub use self::liveness::Liveness;
 
 pub mod util;
 pub use self::util::fmt_indented;
