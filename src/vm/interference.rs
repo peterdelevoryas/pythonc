@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use vm::Reg;
 use vm::Var;
 use vm::FuncData;
+use vm::BlockData;
 use vm::Visit;
 use vm;
 
@@ -35,34 +36,80 @@ pub enum DSaturResult {
 }
 
 impl Graph {
+    fn new() -> Graph {
+        let mut graph = UnGraphMap::new();
+        let unspillable = HashSet::new();
+        let colors = HashMap::new();
+        Graph { graph, unspillable, colors }
+    }
+
     pub fn build(func: &FuncData) -> Graph {
-        let mut builder = Builder::new();
+        let mut graph = Graph::new();
 
-        builder.visit_func(func);
+        for (_, block) in &func.blocks {
+            let vars = referenced_vars(block);
+            for var in vars {
 
-        Graph {
-            graph: builder.graph,
-            unspillable: builder.unspillable,
-            colors: builder.colors,
+            }
         }
+
+        unimplemented!()
+    }
+
+    fn add_node(&mut self, node: Node) {
+        self.graph.add_node(node);
     }
 }
 
-struct Builder {
-    graph: UnGraphMap<Node, ()>,
-    unspillable: HashSet<Var>,
-    colors: HashMap<Var, Color>,
-}
+fn referenced_vars(block: &BlockData) -> HashSet<Var> {
+    struct ReferencedVars {
+        vars: HashSet<Var>
+    }
 
-impl Builder {
-    fn new() -> Self {
-        Self {
-            graph: UnGraphMap::new(),
-            unspillable: HashSet::new(),
-            colors: HashMap::new(),
+    impl Visit for ReferencedVars {
+        fn visit_inst(&mut self, i: &vm::Inst) {
+            use vm::InstData::*;
+            self.vars = &self.vars | &lval(&i.dst);
+            self.vars = &self.vars | &inst(&i.data);
+        }
+
+        fn visit_term(&mut self, term: &vm::Term) {
+            use vm::Term::*;
+            match *term {
+                Return { ref var } => {
+                    if let Some(var) = *var {
+                        self.vars = &self.vars | &hash_set!(var);
+                    }
+                }
+                Goto { .. } => {}
+                Switch { cond, .. } => {
+                    self.vars = &self.vars | &hash_set!(cond);
+                }
+            }
         }
     }
-}
 
-impl Visit for Builder {
+    fn rval(rval: &vm::Rval) -> HashSet<Var> {
+        match *rval {
+            vm::Rval::Imm(_) => HashSet::new(),
+            vm::Rval::Lval(ref v) => lval(v),
+        }
+    }
+
+    fn lval(lval: &vm::Lval) -> HashSet<Var> {
+        match *lval {
+            vm::Lval::Var(var) => hash_set!(var),
+            vm::Lval::Reg(_) => HashSet::new(),
+            vm::Lval::StackSlot(_) => HashSet::new(),
+        }
+    }
+
+    fn inst(inst: &vm::InstData) -> HashSet<Var> {
+        unimplemented!()
+    }
+
+    let mut referenced = ReferencedVars { vars: HashSet::new() };
+    referenced.visit_block(block);
+
+    referenced.vars
 }
