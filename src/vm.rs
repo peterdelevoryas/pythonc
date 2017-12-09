@@ -282,6 +282,22 @@ pub mod func {
                         right: Rval::Imm(ex::MASK),
                     }
                 }
+                Expr::ProjectTo(var, ty) => {
+                    let arg = Rval::Lval(Lval::Var(self.convert_var(var)));
+                    match ty {
+                        ex::Ty::Int | ex::Ty::Bool => InstData::Binary {
+                            opcode: Shr,
+                            left: arg,
+                            right: Rval::Imm(ex::SHIFT),
+                        },
+                        ex::Ty::Big => InstData::Binary {
+                            opcode: And,
+                            left: arg,
+                            right: Rval::Imm(!ex::MASK),
+                        },
+                        _ => panic!("Cannot project {} to {}", var, ty),
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
