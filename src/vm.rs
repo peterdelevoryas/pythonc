@@ -264,6 +264,16 @@ pub mod func {
                     };
                     Inst::unary(opcode, Rval::Lval(Lval::Var(arg)))
                 }
+                Expr::BinOp(op, left, right) => {
+                    let left = Rval::Lval(Lval::Var(self.convert_var(left)));
+                    let right = Rval::Lval(Lval::Var(self.convert_var(right)));
+                    let opcode = match op {
+                        flat::BinOp::ADD => Add,
+                        flat::BinOp::EQ => Sete,
+                        flat::BinOp::NOTEQ => Setne,
+                    };
+                    InstData::Binary { opcode, left, right }
+                }
                 _ => unimplemented!(),
             }
         }
