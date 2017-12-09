@@ -32,9 +32,19 @@ pub fn gens_kills(block: &BlockData) -> (Lvals, Lvals) {
     let mut gens = Lvals::new();
     let mut kills = Lvals::new();
     for inst in &block.body {
-
+        let uses = inst.uses();
+        let defs = inst.defs();
+        for used in &uses {
+            if !kills.contains(&used) {
+                gens.insert(used.clone());
+            }
+        }
+        for defined in &defs {
+            kills.insert(defined.clone());
+        }
     }
-    unimplemented!()
+
+    (gens, kills)
 }
 
 pub trait Uses {
