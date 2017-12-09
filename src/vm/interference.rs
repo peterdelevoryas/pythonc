@@ -6,6 +6,7 @@ use vm::Var;
 use vm::FuncData;
 use vm::BlockData;
 use vm::Visit;
+use vm::StackSlot;
 use vm;
 
 pub struct Graph {
@@ -16,11 +17,15 @@ pub struct Graph {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Node {
-    Forced(Reg),
+    Reg(Reg),
     Var(Var),
 }
 
-pub type Color = Reg;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Color {
+    Reg(Reg),
+    StackSlot(StackSlot),
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Saturation {

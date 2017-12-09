@@ -25,8 +25,6 @@ pub use self::inst::Binary;
 
 pub mod stack;
 pub use self::stack::Slot as StackSlot;
-pub use self::stack::Data as StackSlotData;
-pub use self::stack::Layout as StackLayout;
 
 pub mod term;
 pub use self::term::Term;

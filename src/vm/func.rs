@@ -4,7 +4,6 @@ use vm::Var;
 use vm::VarEnv;
 use vm::Block;
 use vm::BlockData;
-use vm::StackLayout;
 use vm::Inst;
 use vm::Term;
 use explicate::VarData;
@@ -29,7 +28,6 @@ pub struct Data {
     pub name: Func,
     pub args: Vec<Var>,
     pub blocks: HashMap<Block, BlockData>,
-    pub stack: StackLayout,
 }
 
 impl Func {
@@ -80,12 +78,10 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
             name: function.name,
         };
         let args: Vec<Var> = self.convert_vars(&function.args).collect();
-        let stack = StackLayout::new();
 
         let mut ret = Data {
             name: name,
             args: args,
-            stack: stack,
             blocks: HashMap::new(),
         };
 
