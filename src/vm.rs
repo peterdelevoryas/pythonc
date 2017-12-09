@@ -244,16 +244,27 @@ pub mod func {
                 // Only add side-effecting discards
                 Stmt::Discard(Expr::CallFunc(var, ref args)) => {
                     let var = self.convert_var(var);
-                    let args = self.convert_vars(args);
-                    let args = args.into_iter().map(|v| Rval::Lval(Lval::Var(v))).collect();
+                    let args = self.convert_vars(args)
+                        .map(|v| Rval::Lval(Lval::Var(v)))
+                        .collect();
                     let call = Inst::call_indirect(Lval::Var(var), args);
                     call.dst(Lval::Reg(EAX))
                 }
                 Stmt::Discard(Expr::RuntimeFunc(ref name, ref args)) => {
-                    let args = self.convert_vars(args);
-                    unimplemented!()
+                    let func = name.clone();
+                    let args = self.convert_vars(args)
+                        .map(|v| Rval::Lval(Lval::Var(v)))
+                        .collect();
+                    Inst::call(func, args).dst(Lval::Reg(EAX))
                 }
-                Stmt::Discard(_) => return None
+                Stmt::Discard(Expr::UnaryOp(_, _))
+                    | Stmt::Discard(Expr::BinOp(_, _, _))
+                    | Stmt::Discard(Expr::GetTag(_))
+                    | Stmt::Discard(Expr::ProjectTo(_, _))
+                    | Stmt::Discard(Expr::InjectFrom(_, _))
+                    | Stmt::Discard(Expr::Const(_))
+                    | Stmt::Discard(Expr::LoadFunctionPointer(_))
+                    | Stmt::Discard(Expr::Copy(_)) => return None
             };
 
             Some(inst)
@@ -371,6 +382,7 @@ pub mod inst {
         },
         Call {
             func: String,
+            args: Vec<Rval>,
         },
     }
 
@@ -392,6 +404,10 @@ pub mod inst {
     impl Inst {
         pub fn call_indirect(target: Lval, args: Vec<Rval>) -> Data {
             Data::CallIndirect { target, args }
+        }
+
+        pub fn call(func: String, args: Vec<Rval>) -> Data {
+            Data::Call { func, args }
         }
     }
 
