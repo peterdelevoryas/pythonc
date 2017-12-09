@@ -3,6 +3,7 @@ pub use self::module::Module;
 
 pub mod var;
 pub use self::var::Var;
+pub use self::var::Data as VarData;
 pub use self::var::Env as VarEnv;
 
 pub mod func;

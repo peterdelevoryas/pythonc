@@ -1,36 +1,37 @@
 use std::fmt;
 use explicate::var;
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Var {
-    inner: Inner,
     index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum Inner {
+pub enum Data {
     Temp,
     User { name: String },
 }
 
 impl Var {
-    pub fn temp(index: usize) -> Self {
-        Var {
-            inner: Inner::Temp,
-            index: index,
-        }
+    pub fn from(var: var::Var) -> Var {
+        Var { index: var.inner() }
+    }
+}
+
+impl Data {
+    pub fn temp() -> Self {
+        Data::Temp
     }
 
-    pub fn user(index: usize, name: String) -> Self {
-        Var {
-            inner: Inner::User { name },
-            index: index,
-        }
+    pub fn user(name: String) -> Self {
+        Data::User { name }
     }
 }
 
 pub struct Env {
     next: usize,
+    pub map: HashMap<Var, Data>,
 }
 
 impl Env {
@@ -41,15 +42,21 @@ impl Env {
             .max()
             .map(|max| max + 1)
             .unwrap_or(0);
-        Env { next }
+        let mut map = HashMap::new();
+        for (var, data) in var_data {
+            let var = Var { index: var.inner() };
+            let data = match *data {
+                var::Data::User { ref source_name } => Data::user(source_name.clone()),
+                var::Data::Temp => Data::temp(),
+            };
+            map.insert(var, data);
+        }
+        Env { next, map }
     }
 }
 
 impl fmt::Display for Var {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.inner {
-            Inner::Temp => write!(f, "_{}", self.index),
-            Inner::User { ref name } => write!(f, "{}", name),
-        }
+        write!(f, "_{}", self.index)
     }
 }

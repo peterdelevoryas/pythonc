@@ -123,11 +123,7 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
     }
 
     fn convert_var(&self, var: ex::Var) -> Var {
-        let index = var.inner();
-        match self.var_data[var] {
-            ex::var::Data::Temp => Var::temp(index),
-            ex::var::Data::User { ref source_name } => Var::user(index, source_name.clone()),
-        }
+        Var::from(var)
     }
 
     fn convert_vars<'v, I>(&'v self, vars: I) -> impl 'v + Iterator<Item = Var>
