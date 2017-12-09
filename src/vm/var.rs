@@ -49,7 +49,7 @@ impl fmt::Display for Var {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.inner {
             Inner::Temp => write!(f, "_{}", self.index),
-            Inner::User { ref name } => write!(f, "{}.{}", name, self.index),
+            Inner::User { ref name } => write!(f, "{}", name),
         }
     }
 }
