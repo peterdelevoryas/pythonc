@@ -36,7 +36,11 @@ pub mod module {
         fn new(var_data: &'var_data VarData) -> Self {
             let vars = VarEnv::from(var_data);
             let funcs = HashMap::new();
-            Builder { var_data, vars, funcs }
+            Builder {
+                var_data,
+                vars,
+                funcs,
+            }
         }
 
         fn visit_function(&mut self, f: raise::Func, function: cfg::Function, _is_main: bool) {
@@ -77,9 +81,7 @@ pub mod var {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     enum Inner {
         Temp,
-        User {
-            name: String,
-        },
+        User { name: String },
     }
 
     impl Var {
@@ -104,7 +106,8 @@ pub mod var {
 
     impl Env {
         pub fn from(var_data: &var::Slab<var::Data>) -> Env {
-            let next = var_data.iter()
+            let next = var_data
+                .iter()
                 .map(|(v, _)| v.inner())
                 .max()
                 .map(|max| max + 1)
@@ -116,12 +119,8 @@ pub mod var {
     impl fmt::Display for Var {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match self.inner {
-                Inner::Temp => {
-                    write!(f, "_{}", self.index)
-                }
-                Inner::User { ref name } => {
-                    write!(f, "{}.{}", name, self.index)
-                }
+                Inner::Temp => write!(f, "_{}", self.index),
+                Inner::User { ref name } => write!(f, "{}.{}", name, self.index),
             }
         }
     }
@@ -195,10 +194,15 @@ pub mod func {
                 let term = data.term.as_ref().map(|term| self.convert_term(term));
                 let term = match data.term {
                     Some(ref term) => self.convert_term(term),
-                    None => panic!("control flow graph block didn't have a terminator!")
+                    None => panic!("control flow graph block didn't have a terminator!"),
                 };
                 let pred = self.convert_blocks(&data.pred).collect();
-                let block_data = BlockData { name: name.clone(), body, term, pred };
+                let block_data = BlockData {
+                    name: name.clone(),
+                    body,
+                    term,
+                    pred,
+                };
 
                 ret.blocks.insert(name, block_data);
             }
@@ -210,9 +214,9 @@ pub mod func {
             Block::from(block)
         }
 
-        fn convert_blocks<'blocks, I>(&self, blocks: I) -> impl Iterator<Item=Block>
+        fn convert_blocks<'blocks, I>(&self, blocks: I) -> impl Iterator<Item = Block>
         where
-            I: IntoIterator<Item=&'blocks cfg::Block>
+            I: IntoIterator<Item = &'blocks cfg::Block>,
         {
             blocks.into_iter().map(|&b| Block::from(b))
         }
@@ -221,15 +225,13 @@ pub mod func {
             let index = var.inner();
             match self.var_data[var] {
                 ex::var::Data::Temp => Var::temp(index),
-                ex::var::Data::User { ref source_name } => {
-                    Var::user(index, source_name.clone())
-                }
+                ex::var::Data::User { ref source_name } => Var::user(index, source_name.clone()),
             }
         }
 
-        fn convert_vars<'v, I>(&'v self, vars: I) -> impl 'v + Iterator<Item=Var>
+        fn convert_vars<'v, I>(&'v self, vars: I) -> impl 'v + Iterator<Item = Var>
         where
-            I: IntoIterator<Item=&'v ex::Var>,
+            I: IntoIterator<Item = &'v ex::Var>,
             <I as IntoIterator>::IntoIter: 'v,
         {
             vars.into_iter().map(move |&var| self.convert_var(var))
@@ -251,7 +253,7 @@ pub mod func {
                         .collect();
                     Inst::call(func, args)
                 }
-                _ => unimplemented!()
+                _ => unimplemented!(),
             }
         }
 
@@ -264,31 +266,31 @@ pub mod func {
                     self.convert_expr(rhs).dst(Lval::Var(dst))
                 }
                 // Only add side-effecting discards
-                Stmt::Discard(ref e @ Expr::CallFunc(_, _)) => {
-                    self.convert_expr(e).dst(Lval::Reg(EAX))
-                }
+                Stmt::Discard(ref e @ Expr::CallFunc(_, _)) |
                 Stmt::Discard(ref e @ Expr::RuntimeFunc(_, _)) => {
                     self.convert_expr(e).dst(Lval::Reg(EAX))
                 }
-                Stmt::Discard(Expr::UnaryOp(_, _))
-                    | Stmt::Discard(Expr::BinOp(_, _, _))
-                    | Stmt::Discard(Expr::GetTag(_))
-                    | Stmt::Discard(Expr::ProjectTo(_, _))
-                    | Stmt::Discard(Expr::InjectFrom(_, _))
-                    | Stmt::Discard(Expr::Const(_))
-                    | Stmt::Discard(Expr::LoadFunctionPointer(_))
-                    | Stmt::Discard(Expr::Copy(_)) => return None
+                Stmt::Discard(Expr::UnaryOp(_, _)) |
+                Stmt::Discard(Expr::BinOp(_, _, _)) |
+                Stmt::Discard(Expr::GetTag(_)) |
+                Stmt::Discard(Expr::ProjectTo(_, _)) |
+                Stmt::Discard(Expr::InjectFrom(_, _)) |
+                Stmt::Discard(Expr::Const(_)) |
+                Stmt::Discard(Expr::LoadFunctionPointer(_)) |
+                Stmt::Discard(Expr::Copy(_)) => return None,
             };
 
             Some(inst)
         }
 
-        fn convert_stmts<'stmts, I>(&'stmts self, stmts: I) -> impl Iterator<Item=Inst> + 'stmts
+        fn convert_stmts<'stmts, I>(&'stmts self, stmts: I) -> impl Iterator<Item = Inst> + 'stmts
         where
-            I: IntoIterator<Item=&'stmts Stmt>,
+            I: IntoIterator<Item = &'stmts Stmt>,
             <I as IntoIterator>::IntoIter: 'stmts,
         {
-            stmts.into_iter().filter_map(move |stmt| self.convert_stmt(stmt))
+            stmts.into_iter().filter_map(
+                move |stmt| self.convert_stmt(stmt),
+            )
         }
 
         fn convert_term(&self, term: &cfg::Term) -> Term {
@@ -380,23 +382,14 @@ pub mod inst {
     }
 
     pub enum Data {
-        Unary {
-            opcode: Unary,
-            arg: Rval
-        },
+        Unary { opcode: Unary, arg: Rval },
         Binary {
             opcode: Binary,
             left: Rval,
-            right: Rval
+            right: Rval,
         },
-        CallIndirect {
-            target: Lval,
-            args: Vec<Rval>,
-        },
-        Call {
-            func: String,
-            args: Vec<Rval>,
-        },
+        CallIndirect { target: Lval, args: Vec<Rval> },
+        Call { func: String, args: Vec<Rval> },
     }
 
     pub type Imm = i32;
@@ -452,17 +445,11 @@ pub mod stack {
     }
 
     pub enum Data {
-        Param {
-            index: usize,
-        },
-        Spill {
-            index: usize,
-        },
+        Param { index: usize },
+        Spill { index: usize },
     }
 
-    pub struct Layout {
-
-    }
+    pub struct Layout {}
 
     impl Layout {
         pub fn new() -> Self {
@@ -480,12 +467,8 @@ pub mod term {
     use vm::Var;
 
     pub enum Term {
-        Return {
-            var: Option<Var>,
-        },
-        Goto {
-            block: Block,
-        },
+        Return { var: Option<Var> },
+        Goto { block: Block },
         Switch {
             cond: Var,
             then: Block,
@@ -548,7 +531,7 @@ use std::fmt;
 
 pub fn fmt_indented<T>(data: &T) -> String
 where
-    T: fmt::Display
+    T: fmt::Display,
 {
     let s = format!("{}", data);
     indented(&s)
@@ -575,9 +558,9 @@ pub fn indented(s: &str) -> String {
             c if !eol => {
                 indented.push(c);
             }
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
-    return indented
+    return indented;
 }
