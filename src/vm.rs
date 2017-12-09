@@ -325,6 +325,7 @@ pub mod func {
                         _ => panic!("Cannot inject {} from {}", var, ty),
                     }
                 }
+                Expr::Const(i) => InstData::Unary { opcode: Mov, arg: Rval::Imm(i) },
                 _ => unimplemented!(),
             }
         }
