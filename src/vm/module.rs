@@ -6,6 +6,7 @@ use vm::Func;
 use vm::FuncData;
 use vm::func::Builder as FuncBuilder;
 use explicate::VarData;
+use vm::liveness::Liveness;
 use raise;
 
 pub struct Module {
@@ -65,6 +66,7 @@ impl<'var_data> Builder<'var_data> {
 impl fmt::Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (_, func) in &self.funcs {
+            let liveness = Liveness::new(&func);
             write!(f, "{}", func)?;
         }
         Ok(())

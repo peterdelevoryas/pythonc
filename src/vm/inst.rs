@@ -6,6 +6,7 @@ use vm::Func;
 use cfg::Stmt;
 use flatten::Expr;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Inst {
     pub dst: Lval,
     pub data: Data,
@@ -31,6 +32,7 @@ pub enum Binary {
     Shl,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Data {
     Unary { opcode: Unary, arg: Rval },
     Binary {

@@ -40,3 +40,6 @@ pub use self::liveness::Liveness;
 
 pub mod util;
 pub use self::util::fmt_indented;
+
+pub mod visit;
+pub use self::visit::Visit;

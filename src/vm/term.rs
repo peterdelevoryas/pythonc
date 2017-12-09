@@ -2,6 +2,7 @@ use std::fmt;
 use vm::Block;
 use vm::Var;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Term {
     Return { var: Option<Var> },
     Goto { block: Block },

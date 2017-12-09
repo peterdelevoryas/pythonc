@@ -38,6 +38,24 @@ impl Func {
     }
 }
 
+impl Data {
+    pub fn root(&self) -> &BlockData {
+        let mut root = None;
+        for (_, block) in &self.blocks {
+            if block.pred.is_empty() {
+                assert!(root.is_none());
+                root = Some(block);
+            }
+        }
+
+        root.unwrap()
+    }
+
+    pub fn block(&self, block: &Block) -> &BlockData {
+        &self.blocks[block]
+    }
+}
+
 pub struct Builder<'vars, 'var_data> {
     vars: &'vars mut VarEnv,
     var_data: &'var_data VarData,

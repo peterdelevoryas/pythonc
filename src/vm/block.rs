@@ -11,6 +11,7 @@ pub struct Block {
     index: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Data {
     pub name: Block,
     pub body: Vec<Inst>,
