@@ -39,18 +39,23 @@ macro_rules! impl_ref {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $ident(usize);
 
-        #[derive(Debug, Clone)]
-        pub struct Slab<T> {
-            inner: ::slab::Slab<T>,
-        }
-
-        pub struct Iter<'slab, T: 'slab> {
-            inner: ::slab::Iter<'slab, T>,
-        }
+        pub type Slab<T> = $crate::slab::Slab<T, $ident>;
 
         #[derive(Debug, Clone)]
         pub struct Gen {
             next: usize,
+        }
+
+        impl From<usize> for $ident {
+            fn from(u: usize) -> $ident {
+                $ident::new(u)
+            }
+        }
+
+        impl Into<usize> for $ident {
+            fn into(self) -> usize {
+                self.0
+            }
         }
 
         impl $ident {
@@ -71,80 +76,12 @@ macro_rules! impl_ref {
             }
         }
 
-        impl<T> Slab<T> {
-            pub fn new() -> Self {
-                Slab {
-                    inner: ::slab::Slab::new(),
-                }
-            }
-
-            pub fn len(&self) -> usize {
-                self.inner.len()
-            }
-
-            pub fn is_empty(&self) -> bool {
-                self.inner.is_empty()
-            }
-
-            pub fn insert(&mut self, data: T) -> $ident {
-                let i = self.inner.insert(data);
-                $ident::new(i)
-            }
-
-            pub fn iter(&self) -> Iter<T> {
-                Iter {
-                    inner: self.inner.iter(),
-                }
-            }
-
-            pub fn get(&self, index: $ident) -> Option<&T> {
-                self.inner.get(index.inner())
-            }
-
-            /// Panics if index not full
-            pub fn remove(&mut self, index: $ident) -> T {
-                self.inner.remove(index.inner())
-            }
-
-            pub fn contains(&mut self, index: $ident) -> bool {
-                self.inner.contains(index.inner())
-            }
-        }
-
         impl Iterator for Gen {
             type Item = $ident;
             fn next(&mut self) -> Option<Self::Item> {
                 let next = self.next;
                 self.next += 1;
                 Some($ident::new(next))
-            }
-        }
-
-        impl<T> ::std::ops::Index<$ident> for Slab<T> {
-            type Output = T;
-            fn index(&self, index: $ident) -> &T {
-                self.inner.index(index.inner())
-            }
-        }
-
-        impl<T> ::std::ops::IndexMut<$ident> for Slab<T> {
-            fn index_mut(&mut self, index: $ident) -> &mut T {
-                self.inner.index_mut(index.inner())
-            }
-        }
-
-        impl<'slab, T> ::std::iter::Iterator for Iter<'slab, T> {
-            type Item = ($ident, &'slab T);
-            fn next(&mut self) -> Option<Self::Item> {
-                self.inner.next().map(|(i, data)| ($ident::new(i), data))
-            }
-        }
-
-        impl<'slab, T> IntoIterator for &'slab Slab<T> {
-            type Item = ($ident, &'slab T);
-            type IntoIter = Iter<'slab, T>;
-            fn into_iter(self) -> Self::IntoIter {
-                self.iter()
             }
         }
 

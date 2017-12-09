@@ -1,3 +1,5 @@
+pub extern crate slab;
+
 #[macro_use]
 pub mod impl_wrapper_enum;
 #[macro_use]

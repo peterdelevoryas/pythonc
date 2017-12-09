@@ -6,7 +6,6 @@ extern crate util;
 extern crate clap;
 #[macro_use]
 extern crate log;
-extern crate slab;
 extern crate ast;
 extern crate petgraph;
 extern crate tempfile;

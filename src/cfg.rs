@@ -204,13 +204,13 @@ pub mod block {
         }
     }
 }
-use self::block::Block;
-use self::block::Blocks;
-use self::block::Data as BlockData;
+pub use self::block::Block;
+pub use self::block::Blocks;
+pub use self::block::Data as BlockData;
 
 /// Control flow graph
 pub struct Cfg {
-    blocks: Blocks,
+    pub blocks: Blocks,
 }
 
 impl Cfg {

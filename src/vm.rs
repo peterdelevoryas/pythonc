@@ -39,9 +39,9 @@ pub mod module {
             Builder { var_data, vars, funcs }
         }
 
-        fn visit_function(&mut self, f: raise::Func, function: cfg::Function, is_main: bool) {
-            let mut b = FuncBuilder::new(&mut self.vars, self.var_data);
-            let func_data = b.build(f, function, is_main);
+        fn visit_function(&mut self, f: raise::Func, function: cfg::Function, _is_main: bool) {
+            let b = FuncBuilder::new(&mut self.vars, self.var_data);
+            let func_data = b.build(f, function);
             self.funcs.insert(func_data.name.clone(), func_data);
         }
 
@@ -82,6 +82,22 @@ pub mod var {
         },
     }
 
+    impl Var {
+        pub fn temp(index: usize) -> Self {
+            Var {
+                inner: Inner::Temp,
+                index: index,
+            }
+        }
+
+        pub fn user(index: usize, name: String) -> Self {
+            Var {
+                inner: Inner::User { name },
+                index: index,
+            }
+        }
+    }
+
     pub struct Env {
         next: usize,
     }
@@ -91,6 +107,7 @@ pub mod var {
             let next = var_data.iter()
                 .map(|(v, _)| v.inner())
                 .max()
+                .map(|max| max + 1)
                 .unwrap_or(0);
             Env { next }
         }
@@ -120,12 +137,22 @@ pub mod func {
     use vm::Block;
     use vm::BlockData;
     use vm::StackLayout;
+    use vm::Inst;
+    use vm::Term;
     use explicate::VarData;
+    use explicate::var;
+    use explicate as ex;
     use cfg;
+    use cfg::Stmt;
+    use flatten::Expr;
     use raise;
+    use vm::Lval;
+    use vm::Rval;
+    use vm::Reg::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Func {
+        index: usize,
         name: String,
     }
 
@@ -143,11 +170,112 @@ pub mod func {
 
     impl<'vars, 'var_data> Builder<'vars, 'var_data> {
         pub fn new(vars: &'vars mut VarEnv, var_data: &'var_data VarData) -> Self {
-            unimplemented!()
+            Builder { vars, var_data }
         }
 
-        pub fn build(self, f: raise::Func, function: cfg::Function, is_main: bool) -> Data {
-            unimplemented!()
+        pub fn build(self, f: raise::Func, function: cfg::Function) -> Data {
+            let name = Func {
+                index: f.inner(),
+                name: function.name,
+            };
+            let args: Vec<Var> = self.convert_vars(&function.args);
+            let mut stack = StackLayout::new();
+
+            let mut ret = Data {
+                name: name,
+                args: args,
+                stack: stack,
+                blocks: HashMap::new(),
+            };
+
+            for (block, data) in &function.cfg.blocks {
+                let name = Block::from(block);
+                let body: Vec<Inst> = self.convert_stmts(&data.body);
+                let term = data.term.as_ref().map(|term| self.convert_term(term));
+                let term = match data.term {
+                    Some(ref term) => self.convert_term(term),
+                    None => panic!("control flow graph block didn't have a terminator!")
+                };
+                let pred = self.convert_blocks(&data.pred).collect();
+                let block_data = BlockData { name: name.clone(), body, term, pred };
+
+                ret.blocks.insert(name, block_data);
+            }
+
+            ret
+        }
+
+        fn convert_block(&self, block: cfg::Block) -> Block {
+            Block::from(block)
+        }
+
+        fn convert_blocks<'blocks, I>(&self, blocks: I) -> impl Iterator<Item=Block>
+        where
+            I: IntoIterator<Item=&'blocks cfg::Block>
+        {
+            blocks.into_iter().map(|&b| Block::from(b))
+        }
+
+        fn convert_var(&self, var: ex::Var) -> Var {
+            let index = var.inner();
+            match self.var_data[var] {
+                ex::var::Data::Temp => Var::temp(index),
+                ex::var::Data::User { ref source_name } => {
+                    Var::user(index, source_name.clone())
+                }
+            }
+        }
+
+        fn convert_vars(&self, vars: &[ex::Var]) -> Vec<Var> {
+            vars.iter().map(|&var| self.convert_var(var)).collect()
+        }
+
+        /// Returns None (if a non-side-effecting stmt) or
+        /// the stmt converted into an instruction.
+        fn convert_stmt(&self, stmt: &Stmt) -> Option<Inst> {
+            let inst = match *stmt {
+                Stmt::Def { lhs, ref rhs } => {
+                    unimplemented!()
+                }
+                // Only add side-effecting discards
+                Stmt::Discard(Expr::CallFunc(var, ref args)) => {
+                    let var = self.convert_var(var);
+                    let args = self.convert_vars(args);
+                    let args = args.into_iter().map(|v| Rval::Lval(Lval::Var(v))).collect();
+                    let call = Inst::call_indirect(Lval::Var(var), args);
+                    call.dst(Lval::Reg(EAX))
+                }
+                Stmt::Discard(Expr::RuntimeFunc(ref name, ref args)) => {
+                    let args = self.convert_vars(args);
+                    unimplemented!()
+                }
+                Stmt::Discard(_) => return None
+            };
+
+            Some(inst)
+        }
+
+        fn convert_stmts(&self, stmts: &[Stmt]) -> Vec<Inst> {
+            stmts.iter().filter_map(|stmt| self.convert_stmt(stmt)).collect()
+        }
+
+        fn convert_term(&self, term: &cfg::Term) -> Term {
+            match *term {
+                cfg::Term::Return(ref var) => {
+                    let var = var.map(|var| self.convert_var(var));
+                    Term::Return { var }
+                }
+                cfg::Term::Goto(block) => {
+                    let block = Block::from(block);
+                    Term::Goto { block }
+                }
+                cfg::Term::Switch { cond, then, else_ } => {
+                    let cond = self.convert_var(cond);
+                    let then = self.convert_block(then);
+                    let else_ = self.convert_block(else_);
+                    Term::Switch { cond, then, else_ }
+                }
+            }
         }
     }
 
@@ -185,12 +313,15 @@ pub mod reg {
     }
 }
 pub use self::reg::Reg;
+pub use self::reg::Reg::*;
 
 pub mod inst {
     use std::fmt;
     use vm::Reg;
     use vm::StackSlot;
     use vm::Var;
+    use cfg::Stmt;
+    use flatten::Expr;
 
     pub struct Inst {
         pub dst: Lval,
@@ -227,7 +358,8 @@ pub mod inst {
             right: Rval
         },
         CallIndirect {
-            arg: Rval,
+            target: Lval,
+            args: Vec<Rval>,
         },
         Call {
             func: String,
@@ -247,6 +379,21 @@ pub mod inst {
     pub enum Rval {
         Imm(Imm),
         Lval(Lval),
+    }
+
+    impl Inst {
+        pub fn call_indirect(target: Lval, args: Vec<Rval>) -> Data {
+            Data::CallIndirect { target, args }
+        }
+    }
+
+    impl Data {
+        pub fn dst(self, dst: Lval) -> Inst {
+            Inst {
+                dst: dst,
+                data: self,
+            }
+        }
     }
 
     impl fmt::Display for Inst {
@@ -278,6 +425,12 @@ pub mod stack {
 
     pub struct Layout {
 
+    }
+
+    impl Layout {
+        pub fn new() -> Self {
+            Layout {}
+        }
     }
 }
 pub use self::stack::Slot as StackSlot;
@@ -317,10 +470,12 @@ pub mod block {
     use vm::fmt_indented;
     use vm::Inst;
     use vm::Term;
+    use cfg;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Block {
         name: String,
+        index: usize,
     }
 
     pub struct Data {
@@ -328,6 +483,14 @@ pub mod block {
         pub body: Vec<Inst>,
         pub term: Term,
         pub pred: HashSet<Block>,
+    }
+
+    impl Block {
+        pub fn from(b: cfg::Block) -> Block {
+            let name = format!("{}", b);
+            let index = b.inner();
+            Block { name, index }
+        }
     }
 
     impl fmt::Display for Data {

@@ -5,3 +5,4 @@ authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>"]
 license = "MIT"
 
 [dependencies]
+slab = { git = "https://github.com/peterdelevoryas/slab" }
