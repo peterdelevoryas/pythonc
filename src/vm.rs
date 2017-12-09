@@ -274,6 +274,14 @@ pub mod func {
                     };
                     InstData::Binary { opcode, left, right }
                 }
+                Expr::GetTag(var) => {
+                    let var = self.convert_var(var);
+                    InstData::Binary {
+                        opcode: And,
+                        left: Rval::Lval(Lval::Var(var)),
+                        right: Rval::Imm(ex::MASK),
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
