@@ -348,7 +348,13 @@ pub mod func {
                     let func = self.convert_func_name(f);
                     InstData::MovFuncLabel { func }
                 }
-                _ => unimplemented!(),
+                Expr::Copy(var) => {
+                    let var = self.convert_var(var);
+                    InstData::Unary {
+                        opcode: Mov,
+                        arg: Rval::Lval(Lval::Var(var)),
+                    }
+                }
             }
         }
 
