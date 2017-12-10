@@ -109,6 +109,9 @@ impl Graph {
                     for l in &live | &inst.defs() {
                         graph.add_interference(l, d.clone());
                     }
+                    for u in inst.uses() {
+                        graph.add_interference(u, d.clone());
+                    }
                 }
                 live = &inst.uses() | &(&live - &inst.defs());
             }
