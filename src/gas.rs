@@ -106,8 +106,8 @@ where
                     vm::Binary::Sete |
                     vm::Binary::Setne => {
                         use vm::Reg::*;
-                        writeln!(self.dst, "    movl $0, {}", inst.dst).unwrap();
                         writeln!(self.dst, "    cmpl {}, {}", left, right).unwrap();
+                        writeln!(self.dst, "    movl $0, {}", inst.dst).unwrap();
                         let dst = match inst.dst {
                             vm::Lval::Var(_) => panic!(),
                             vm::Lval::StackSlot(s) => format!("{}", s),
