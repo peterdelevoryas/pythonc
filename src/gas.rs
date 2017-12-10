@@ -50,7 +50,7 @@ where
     popl %esi
     popl %edi
     popl %ebx
-", func=func.name()).unwrap();
+    ret", func=func.name()).unwrap();
     
     }
 }
