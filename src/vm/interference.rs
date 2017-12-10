@@ -224,6 +224,55 @@ impl Graph {
             Node::Reg(r) => Some(Color::Reg(r)),
         }
     }
+
+    pub fn assign_homes(&self, func: &mut FuncData) {
+        use vm::InstData::*;
+        for (_, block) in &mut func.blocks {
+            for inst in &mut block.body {
+                self.color_lval(&mut inst.dst);
+                match inst.data {
+                    Unary { ref mut arg, .. } => self.color_rval(arg),
+                    Binary { ref mut left, ref mut right, .. } => {
+                        self.color_rval(left);
+                        self.color_rval(right);
+                    }
+                    CallIndirect { ref mut target, ref mut args } => {
+                        self.color_lval(target);
+                        for arg in args.iter_mut() {
+                            self.color_rval(arg);
+                        }
+                    }
+                    Call { ref mut args, .. } => {
+                        for arg in args.iter_mut() {
+                            self.color_rval(arg);
+                        }
+                    }
+                    ShiftLeftThenOr { ref mut arg, .. } => {
+                        self.color_rval(arg);
+                    }
+                    MovFuncLabel { .. } => {}
+                }
+            }
+        }
+    }
+
+    fn color_rval(&self, rval: &mut Rval) {
+        match *rval {
+            Rval::Imm(_) => {}
+            Rval::Lval(ref mut lval) => self.color_lval(lval),
+        }
+    }
+
+    fn color_lval(&self, lval: &mut Lval) {
+        let colored = match *lval {
+            Lval::Var(var) => match self.var_color(var).unwrap() {
+                Color::Reg(r) => Lval::Reg(r),
+                Color::StackSlot(s) => Lval::StackSlot(s),
+            },
+            Lval::StackSlot(_) | Lval::Reg(_) => return,
+        };
+        *lval = colored;
+    }
 }
 
 fn referenced_vars(block: &BlockData) -> HashSet<Var> {

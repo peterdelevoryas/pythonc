@@ -49,8 +49,23 @@ impl Data {
         root.unwrap()
     }
 
+    pub fn root_mut(&mut self) -> &mut BlockData {
+        let mut root = None;
+        for (_, block) in &mut self.blocks {
+            if block.pred.is_empty() {
+                assert!(root.is_none());
+                root = Some(block)
+            }
+        }
+        root.unwrap()
+    }
+
     pub fn block(&self, block: &Block) -> &BlockData {
         &self.blocks[block]
+    }
+
+    pub fn block_mut(&mut self, block: &Block) -> &mut BlockData {
+        self.blocks.get_mut(block).unwrap()
     }
 
     pub fn name(&self) -> &str {
