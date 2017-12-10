@@ -167,10 +167,10 @@ impl Unary {
     pub fn as_str(&self) -> &'static str {
         use self::Unary::*;
         match *self {
-            Mov => "mov",
-            Neg => "neg",
-            Not => "not",
-            Push => "push",
+            Mov => "movl",
+            Neg => "negl",
+            Not => "notl",
+            Push => "pushl",
         }
     }
 }
@@ -185,8 +185,8 @@ impl Binary {
     pub fn as_str(&self) -> &'static str {
         use self::Binary::*;
         match *self {
-            Add => "add",
-            Sub => "sub",
+            Add => "addl",
+            Sub => "subl",
             Sete => "sete",
             Setne => "setne",
             Or => "or",

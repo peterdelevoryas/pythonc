@@ -9,8 +9,8 @@ pub enum Slot {
 impl fmt::Display for Slot {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Slot::Param { index } => write!(f, "[param {}]", index),
-            Slot::Spill { index } => write!(f, "[spill {}]", index),
+            Slot::Param { index } => write!(f, "{}(%ebp)", 4 * (index + 5)),
+            Slot::Spill { index } => write!(f, "{}(%ebp)", -4 * index as i32),
         }
     }
 }
