@@ -72,6 +72,15 @@ impl Graph {
                 }
                 graph.add_spillable(var);
             }
+            for inst in &block.body {
+                use vm::Unary::Mov;
+                use vm::InstData::Unary;
+                if let Unary { opcode: Mov, arg: Rval::Lval(Lval::StackSlot(_)) } = inst.data {
+                    if let Lval::Var(var) = inst.dst {
+                        graph.add_unspillable(var);
+                    }
+                }
+            }
         }
 
         let liveness = ::vm::Liveness::new(func);
@@ -149,14 +158,17 @@ impl Graph {
 
         loop {
             let uncolored_nodes: Vec<Var> = self.uncolored_nodes().collect();
-            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(
-                |&var| self.saturation(Node::Var(*var)),
+            let (u, r) = if let Some(u) = uncolored_nodes.into_iter().max_by_key(
+                |&var| self.saturation(Node::Var(var)),
             )
             {
                 let free_regs = &reg_pool - &self.adjacent_registers(Node::Var(u));
                 let r = match free_regs.iter().next() {
                     Some(&r) => Color::Reg(r),
-                    None => return DSaturResult::Spill(u),
+                    None => {
+                        println!("spilling {}", u);
+                        return DSaturResult::Spill(u)
+                    }
                 };
                 (u, r)
             } else {
@@ -371,6 +383,15 @@ impl fmt::Display for Node {
         match *self {
             Node::Var(var) => write!(f, "{}", var),
             Node::Reg(reg) => write!(f, "{}", reg),
+        }
+    }
+}
+
+impl fmt::Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Color::Reg(r) => write!(f, "{}", r),
+            Color::StackSlot(slot) => write!(f, "{}", slot),
         }
     }
 }

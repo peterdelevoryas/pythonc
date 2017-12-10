@@ -82,6 +82,7 @@ impl Data {
             match g.run_dsatur() {
                 Success => {
                     g.assign_homes(self);
+                    break;
                 }
                 Spill(u) => {
                     self.spill(u);

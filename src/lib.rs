@@ -236,7 +236,8 @@ impl Pythonc {
         }
 
 
-        {
+
+        if stop_stage == Stage::ig {
             let mut buf = Vec::new();
             for (_, func) in &vm.funcs {
                 use std::io::Write;
@@ -248,6 +249,19 @@ impl Pythonc {
                 }
             }
             let s = String::from_utf8(buf).unwrap();
+            return write_out(&s, out_path)
+        }
+
+        let mut vm = vm;
+        for (_, func) in &mut vm.funcs {
+            func.allocate_registers(&mut vm.vars);
+        }
+        if stop_stage == Stage::asm {
+            let s = {
+                let mut buf = Vec::new();
+                ::vm::util::write(&mut buf, &vm);
+                String::from_utf8(buf).unwrap()
+            };
             return write_out(&s, out_path)
         }
 
