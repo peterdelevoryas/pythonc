@@ -147,12 +147,12 @@ where
                     writeln!(self.dst, "    movl {}, %eax", rval).unwrap();
                 }
                 writeln!(self.dst,
-"    goto {func}.ret",
+"    jmp {func}.ret",
                 func=self.func.name()).unwrap();
             }
             Goto { ref block } => {
                 writeln!(self.dst,
-"    goto {func}.{block}",
+"    jmp {func}.{block}",
                 func=self.func.name(), block=self.func.block(block).name()).unwrap();
             }
             Switch { ref cond, ref then, ref else_ } => {

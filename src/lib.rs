@@ -266,6 +266,30 @@ impl Pythonc {
             return write_out(&s, out_path)
         }
 
+        let obj_file = tempfile::NamedTempFile::new().chain_err(
+            || "Could not create obj from assembly"
+        )?;
+
+        emit_obj(&vm, &asm_path, obj_file.path()).chain_err(
+            || "Could not create obj from assembly"
+        )?;
+
+        let runtime = match runtime {
+            Some(path) => path,
+            None => {
+                let pythonc_runtime = ::std::env::var("PYTHONC_RUNTIME").map(PathBuf::from);
+                if let Ok(path) = pythonc_runtime {
+                    path
+                } else {
+                    bail!("Emitting binary requires specifying runtime library path")
+                }
+            }
+        };
+
+        emit_bin(obj_file.path(), &runtime, out_path)
+            .chain_err(|| "Could not create binary from obj file")?;
+        obj_file.close().chain_err(|| "Failed to close and remove obj file")?;
+
         Ok(())
     }
 }
@@ -364,15 +388,14 @@ fn fmt_out<F: util::fmt::Fmt>(data: &F, out_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn emit_obj(asm: &vasm::Module, asm_path: &Path, out: &Path) -> Result<()> {
+fn emit_obj(asm: &vm::Module, asm_path: &Path, out: &Path) -> Result<()> {
     use std::process::Command;
     use std::io::Write;
 
     let asm = {
         let mut buf = Vec::new();
-        let mut f = util::fmt::Formatter::new(buf);
-        f.fmt(asm).chain_err(|| "Error fmt'ing asm")?;
-        String::from_utf8(f.into_inner()).unwrap()
+        ::gas::write_gas(&mut buf, asm);
+        String::from_utf8(buf).unwrap()
     };
     {
         let mut file = ::std::fs::File::create(asm_path).chain_err(
