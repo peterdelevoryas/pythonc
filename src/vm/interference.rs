@@ -141,6 +141,89 @@ impl Graph {
         );
         self.colors.insert(var, color);
     }
+
+    pub fn run_dsatur(&mut self) -> DSaturResult {
+        use self::Reg::*;
+
+        let reg_pool = hash_set!(EAX, EBX, ECX, EDX, ESI, EDI);
+
+        loop {
+            let uncolored_nodes: Vec<Var> = self.uncolored_nodes().collect();
+            let (u, r) = if let Some(&u) = uncolored_nodes.iter().max_by_key(
+                |&var| self.saturation(Node::Var(*var)),
+            )
+            {
+                let free_regs = &reg_pool - &self.adjacent_registers(Node::Var(u));
+                let r = match free_regs.iter().next() {
+                    Some(&r) => Color::Reg(r),
+                    None => return DSaturResult::Spill(u),
+                };
+                (u, r)
+            } else {
+                break;
+            };
+            self.write_color(u, r);
+        }
+
+        DSaturResult::Success
+    }
+
+    pub fn uncolored_nodes<'graph>(&'graph self) -> impl 'graph + Iterator<Item=Var> {
+        self.graph
+            .nodes()
+            .filter_map(|n| match n {
+                Node::Var(var) => Some(var),
+                Node::Reg(_) => None,
+            })
+            .filter_map(move |var| match self.var_color(var) {
+                None => Some(var),
+                Some(_) => None,
+            })
+    }
+
+    fn saturation(&self, node: Node) -> Saturation {
+        match node {
+            Node::Var(var) => {
+                let unspillable = self.unspillable.contains(&var);
+                let count = self.count_adjacent_colored(node);
+                if unspillable {
+                    Saturation::Unspillable(count)
+                } else {
+                    Saturation::Spillable(count)
+                }
+            }
+            Node::Reg(_) => Saturation::Forced,
+        }
+    }
+
+    fn adjacent_registers(&self, node: Node) -> HashSet<Reg> {
+        self.graph
+            .neighbors(node)
+            .filter_map(|n| self.node_color(n))
+            .filter_map(|c| match c {
+                Color::Reg(r) => Some(r),
+                Color::StackSlot(_) => None,
+            })
+            .collect()
+    }
+
+    fn count_adjacent_colored(&self, node: Node) -> usize {
+        self.graph
+            .neighbors(node)
+            .map(|n| if self.node_color(n).is_some() { 1 } else { 0 })
+            .sum()
+    }
+
+    pub fn var_color(&self, var: Var) -> Option<Color> {
+        self.colors.get(&var).map(|&c| c)
+    }
+
+    fn node_color(&self, node: Node) -> Option<Color> {
+        match node {
+            Node::Var(var) => self.var_color(var),
+            Node::Reg(r) => Some(Color::Reg(r)),
+        }
+    }
 }
 
 fn referenced_vars(block: &BlockData) -> HashSet<Var> {
