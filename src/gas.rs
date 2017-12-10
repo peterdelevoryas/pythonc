@@ -127,7 +127,7 @@ where
             }
             CallIndirect { ref target, ref args } => {
                 let args_size = args.len() * 4;
-                for arg in args {
+                for arg in args.iter().rev() {
                     writeln!(self.dst, "    pushl {}", arg).unwrap();
                 }
                 writeln!(self.dst, "    call *{}", target).unwrap();
@@ -136,7 +136,7 @@ where
             }
             Call { ref func, ref args } => {
                 let args_size = args.len() * 4;
-                for arg in args {
+                for arg in args.iter().rev() {
                     writeln!(self.dst, "    pushl {}", arg).unwrap();
                 }
                 writeln!(self.dst, "    call {}", func).unwrap();
@@ -145,8 +145,8 @@ where
             }
             ShiftLeftThenOr { ref arg, shift, or } => {
                 writeln!(self.dst, "    movl {}, {}", arg, inst.dst).unwrap();
-                writeln!(self.dst, "    shl ${}, {}", shift, inst.dst).unwrap();
-                writeln!(self.dst, "    or ${}, {}", or, inst.dst).unwrap();
+                writeln!(self.dst, "    shll ${}, {}", shift, inst.dst).unwrap();
+                writeln!(self.dst, "    orl ${}, {}", or, inst.dst).unwrap();
             }
             MovFuncLabel { ref func } => {
                 writeln!(self.dst, "    movl ${}, {}", func, inst.dst).unwrap();
