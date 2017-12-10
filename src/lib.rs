@@ -23,6 +23,7 @@ pub mod graph;
 pub mod regalloc;
 pub mod cfg;
 pub mod vm;
+pub mod gas;
 
 use flatten::Flatten;
 
@@ -259,7 +260,7 @@ impl Pythonc {
         if stop_stage == Stage::asm {
             let s = {
                 let mut buf = Vec::new();
-                ::vm::util::write(&mut buf, &vm);
+                ::gas::write_gas(&mut buf, &vm);
                 String::from_utf8(buf).unwrap()
             };
             return write_out(&s, out_path)
