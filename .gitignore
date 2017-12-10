@@ -21,3 +21,4 @@ pythonc-ast/src/parse.rs
 *.cfg
 *.vm
 *.ig
+*.reg
