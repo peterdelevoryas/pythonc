@@ -105,8 +105,23 @@ where
                     }
                     vm::Binary::Sete |
                     vm::Binary::Setne => {
+                        use vm::Reg::*;
+                        writeln!(self.dst, "    movl $0, {}", inst.dst).unwrap();
                         writeln!(self.dst, "    cmpl {}, {}", left, right).unwrap();
-                        writeln!(self.dst, "    {} {}", opcode, inst.dst).unwrap();
+                        let dst = match inst.dst {
+                            vm::Lval::Var(_) => panic!(),
+                            vm::Lval::StackSlot(s) => format!("{}", s),
+                            vm::Lval::Reg(r) => {
+                                match r {
+                                    EAX => "%al",
+                                    ECX => "%cl",
+                                    EDX => "%dl",
+                                    EBX => "%bl",
+                                    _ => panic!()
+                                }.into()
+                            }
+                        };
+                        writeln!(self.dst, "    {} {}", opcode, dst).unwrap();
                     }
                 }
             }
@@ -156,7 +171,7 @@ where
                 func=self.func.name(), block=self.func.block(block).name()).unwrap();
             }
             Switch { ref cond, ref then, ref else_ } => {
-                writeln!(self.dst, "    cmpl {cond}, $0\n    jnz {func}.{then}\n    jmp {func}.{else_}",
+                writeln!(self.dst, "    cmpl $0, {cond}\n    jnz {func}.{then}\n    jmp {func}.{else_}",
                 cond=cond,
                 func=self.func.name(),
                 then=self.func.block(then).name(),

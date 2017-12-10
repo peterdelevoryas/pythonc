@@ -50,6 +50,7 @@ pub enum Stage {
     vm,
     liveness,
     ig,
+    reg,
     asm,
     obj,
     bin,
@@ -68,6 +69,7 @@ impl Stage {
             "vm",
             "liveness",
             "ig",
+            "reg",
             "asm",
             "obj",
             "bin",
@@ -90,6 +92,7 @@ impl ::std::str::FromStr for Stage {
             "vm" => vm,
             "liveness" => liveness,
             "ig" => ig,
+            "reg" => reg,
             "asm" => asm,
             "obj" => obj,
             "bin" => bin,
@@ -257,6 +260,16 @@ impl Pythonc {
         for (_, func) in &mut vm.funcs {
             func.allocate_registers(&mut vm.vars);
         }
+        if stop_stage == Stage::reg {
+            let s = {
+                use std::io::Write;
+                let mut buf = Vec::new();
+                writeln!(&mut buf, "{}", vm)?;
+                String::from_utf8(buf).unwrap()
+            };
+            return write_out(&s, out_path)
+        }
+
         if stop_stage == Stage::asm {
             let s = {
                 let mut buf = Vec::new();
@@ -308,6 +321,7 @@ impl Stage {
             vm => "vm",
             liveness => "liveness",
             ig => "ig",
+            reg => "reg",
             asm => "s",
             obj => "o",
             bin => "bin",

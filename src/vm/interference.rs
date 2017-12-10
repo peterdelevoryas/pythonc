@@ -74,11 +74,25 @@ impl Graph {
             }
             for inst in &block.body {
                 use vm::Unary::Mov;
+                use vm::Binary::Sete;
+                use vm::Binary::Setne;
                 use vm::InstData::Unary;
+                use vm::InstData::Binary;
+                use vm::Lval;
                 if let Unary { opcode: Mov, arg: Rval::Lval(Lval::StackSlot(_)) } = inst.data {
                     if let Lval::Var(var) = inst.dst {
                         graph.add_unspillable(var);
                     }
+                }
+                match inst.data {
+                    Binary { opcode: Sete, .. } |
+                    Binary { opcode: Setne, .. } => {
+                        // sete and setne need to use an 8-bit register,
+                        // esi and edi don't have lower registers, so can't use them!
+                        graph.add_interference(inst.dst.clone(), Lval::Reg(ESI));
+                        graph.add_interference(inst.dst.clone(), Lval::Reg(EDI));
+                    }
+                    _ => {}
                 }
             }
         }
