@@ -6,7 +6,10 @@ use vm::Var;
 use vm::FuncData;
 use vm::BlockData;
 use vm::Visit;
+use vm::liveness::Defs;
 use vm::StackSlot;
+use vm::Lval;
+use vm::Rval;
 use vm;
 
 #[derive(Debug)]
@@ -69,7 +72,42 @@ impl Graph {
             }
         }
 
+        let liveness = ::vm::Liveness::new(func);
+
+        // See this set of slides for info on algorithm! (Page 6/10)
+        // https://www2.cs.arizona.edu/~collberg/Teaching/553/2011/Handouts/Handout-23.pdf
+        for (b, block) in &func.blocks {
+            let mut live = liveness.out[&b].clone();
+            for inst in block.body.iter().rev() {
+                for d in &inst.defs() {
+                    for l in &live | &inst.defs() {
+                        graph.add_interference(l, d.clone());
+                    }
+                }
+            }
+        }
+
+
         graph
+    }
+
+    fn add_interference(&mut self, left: Lval, right: Lval) {
+        use self::Lval::*;
+        let (l, r) = match (left, right) {
+            (StackSlot(_), _) |
+            (_, StackSlot(_)) => return,
+            (ref l, ref r) if l == r => return,
+            (Reg(l), Reg(r)) => return,
+            (Reg(l), Var(r)) => (Node::Reg(l), Node::Var(r)),
+            (Var(l), Reg(r)) => (Node::Var(l), Node::Reg(r)),
+            (Var(l), Var(r)) => (Node::Var(l), Node::Var(r)),
+        };
+        self.add_edge(l, r);
+    }
+
+    fn add_edge(&mut self, l: Node, r: Node) {
+        assert_ne!(l, r, "Trying to add an edge from a node to itself");
+        self.graph.add_edge(l, r, ());
     }
 
     fn add_spillable(&mut self, var: Var) {
