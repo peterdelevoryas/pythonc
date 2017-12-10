@@ -242,7 +242,10 @@ impl Pythonc {
                 use std::io::Write;
                 writeln!(&mut buf, "interference for func {}:", func.name())?;
                 let ig = vm::interference::Graph::build(func);
-                writeln!(&mut buf, "{:#?}", ig)?;
+                writeln!(&mut buf, "edges:")?;
+                for (source, target, _) in ig.all_edges() {
+                    writeln!(&mut buf, "    {} <----> {}", source, target)?;
+                }
             }
             let s = String::from_utf8(buf).unwrap();
             return write_out(&s, out_path)

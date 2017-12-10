@@ -30,6 +30,6 @@ impl fmt::Display for Reg {
             ESP => "esp",
             EBP => "ebp",
         };
-        write!(f, "{}", s)
+        write!(f, "%{}", s)
     }
 }

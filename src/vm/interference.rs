@@ -11,6 +11,8 @@ use vm::StackSlot;
 use vm::Lval;
 use vm::Rval;
 use vm;
+use std::fmt;
+use std::ops::Deref;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -125,7 +127,7 @@ impl Graph {
 
     fn add_param(&mut self, param: Var, stack_slot: StackSlot) {
         self.add_node(Node::Var(param));
-
+        self.write_color(param, Color::StackSlot(stack_slot));
     }
 
     fn add_node(&mut self, node: Node) {
@@ -211,4 +213,20 @@ fn referenced_vars(block: &BlockData) -> HashSet<Var> {
     referenced.visit_block(block);
 
     referenced.vars
+}
+
+impl Deref for Graph {
+    type Target = UnGraphMap<Node, ()>;
+    fn deref(&self) -> &Self::Target {
+        &self.graph
+    }
+}
+
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Node::Var(var) => write!(f, "{}", var),
+            Node::Reg(reg) => write!(f, "{}", reg),
+        }
+    }
 }
