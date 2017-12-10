@@ -130,7 +130,7 @@ where
                 for arg in args {
                     writeln!(self.dst, "    pushl {}", arg).unwrap();
                 }
-                writeln!(self.dst, "    call* {}", target).unwrap();
+                writeln!(self.dst, "    call *{}", target).unwrap();
                 writeln!(self.dst, "    addl ${}, %esp", args_size).unwrap();
                 writeln!(self.dst, "    movl %eax, {}", inst.dst).unwrap();
             }
