@@ -1,6 +1,6 @@
 [package]
 name = "pythonc"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Peter Delevoryas <peter.delevoryas@colorado.edu>",
            "William Temple <william.temple@colorado.edu>"]
 license = "MIT"
