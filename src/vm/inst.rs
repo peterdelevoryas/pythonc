@@ -85,6 +85,23 @@ impl Inst {
     pub fn unary(opcode: Unary, arg: Rval) -> Data {
         Data::Unary { opcode, arg }
     }
+
+    pub fn is_stack_to_stack(&self) -> bool {
+        use vm::Rval::*;
+        use vm::Lval::*;
+        match self.dst {
+            StackSlot(_) => {}
+            _ => return false,
+        }
+        use self::Data::*;
+        match self.data {
+            Unary { arg: Lval(StackSlot(_)), .. } |
+            Binary { left: Lval(StackSlot(_)), .. } |
+            Binary { right: Lval(StackSlot(_)), .. } |
+            ShiftLeftThenOr { arg: Lval(StackSlot(_)), .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl Data {

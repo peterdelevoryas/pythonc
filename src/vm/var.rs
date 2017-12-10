@@ -53,6 +53,14 @@ impl Env {
         }
         Env { next, map }
     }
+
+    pub fn new_temp(&mut self) -> Var {
+        let temp = Data::Temp;
+        let var = Var { index: self.next };
+        self.next += 1;
+        self.map.insert(var, temp);
+        var
+    }
 }
 
 impl fmt::Display for Var {

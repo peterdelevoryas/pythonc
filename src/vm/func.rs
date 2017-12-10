@@ -153,7 +153,33 @@ impl Data {
     }
 
     pub fn replace_stack_to_stack_ops(&mut self, env: &mut VarEnv) {
-        unimplemented!()
+        use std::mem;
+        use vm::Unary::Mov;
+
+        for (_, block) in &mut self.blocks {
+            let mut transformed = Vec::new();
+            for inst in &block.body {
+                if inst.is_stack_to_stack() {
+                    let tmp = env.new_temp();
+                    let mut inst = inst.clone();
+                    let dst = mem::replace(&mut inst.dst, Lval::Var(tmp));
+                    let store = Inst {
+                        dst: dst,
+                        data: InstData::Unary {
+                            opcode: Mov,
+                            arg: Rval::Lval(Lval::Var(tmp)),
+                        },
+                    };
+                    transformed.push(inst);
+                    transformed.push(store);
+                } else {
+                    transformed.push(inst.clone());
+                }
+            }
+            block.body = transformed;
+
+            // XXX Term doesn't need to be modified...I think...
+        }
     }
 
 }
