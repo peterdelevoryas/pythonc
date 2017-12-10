@@ -1,13 +1,14 @@
 use std::fmt;
 use vm::Block;
 use vm::Var;
+use vm::Rval;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Term {
-    Return { var: Option<Var> },
+    Return { rval: Option<Rval> },
     Goto { block: Block },
     Switch {
-        cond: Var,
+        cond: Rval,
         then: Block,
         else_: Block,
     },
@@ -16,10 +17,10 @@ pub enum Term {
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Term::Return { ref var } => {
+            Term::Return { ref rval } => {
                 write!(f, "return")?;
-                if let Some(ref var) = *var {
-                    write!(f, " {}", var)?;
+                if let Some(ref rval) = *rval {
+                    write!(f, " {}", rval)?;
                 }
                 Ok(())
             }

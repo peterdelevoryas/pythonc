@@ -227,6 +227,7 @@ impl Graph {
 
     pub fn assign_homes(&self, func: &mut FuncData) {
         use vm::InstData::*;
+        use vm::Term::*;
         for (_, block) in &mut func.blocks {
             for inst in &mut block.body {
                 self.color_lval(&mut inst.dst);
@@ -251,6 +252,17 @@ impl Graph {
                         self.color_rval(arg);
                     }
                     MovFuncLabel { .. } => {}
+                }
+            }
+            match block.term {
+                Return { ref mut rval } => {
+                    if let Some(ref mut rval) = *rval {
+                        self.color_rval(rval);
+                    }
+                }
+                Goto { .. } => {}
+                Switch { ref mut cond, .. } => {
+                    self.color_rval(cond);
                 }
             }
         }
@@ -289,14 +301,14 @@ fn referenced_vars(block: &BlockData) -> HashSet<Var> {
         fn visit_term(&mut self, term: &vm::Term) {
             use vm::Term::*;
             match *term {
-                Return { ref var } => {
-                    if let Some(var) = *var {
-                        self.vars = &self.vars | &hash_set!(var);
+                Return { rval: ref r } => {
+                    if let Some(ref r) = *r {
+                        self.vars = &self.vars | &rval(r);
                     }
                 }
                 Goto { .. } => {}
-                Switch { cond, .. } => {
-                    self.vars = &self.vars | &hash_set!(cond);
+                Switch { ref cond, .. } => {
+                    self.vars = &self.vars | &rval(cond);
                 }
             }
         }

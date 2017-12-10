@@ -44,3 +44,4 @@ pub mod visit;
 pub use self::visit::Visit;
 
 pub mod interference;
+pub use self::interference::Graph as InterferenceGraph;

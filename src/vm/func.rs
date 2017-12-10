@@ -17,6 +17,7 @@ use vm::Lval;
 use vm::Rval;
 use vm::Reg::*;
 use vm::InstData;
+use vm::StackSlot;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Func {
@@ -27,6 +28,7 @@ pub struct Func {
 pub struct Data {
     pub name: Func,
     pub args: Vec<Var>,
+    pub stack_slots: usize,
     pub blocks: HashMap<Block, BlockData>,
 }
 
@@ -71,6 +73,89 @@ impl Data {
     pub fn name(&self) -> &str {
         &self.name.name
     }
+
+    pub fn allocate_registers(&mut self, env: &mut VarEnv) {
+        loop {
+            use vm::interference::DSaturResult::*;
+            use vm::InterferenceGraph;
+            let mut g = InterferenceGraph::build(self);
+            match g.run_dsatur() {
+                Success => {
+                    g.assign_homes(self);
+                }
+                Spill(u) => {
+                    self.spill(u);
+                    self.replace_stack_to_stack_ops(env);
+                }
+            }
+        }
+    }
+
+    pub fn spill(&mut self, var: Var) {
+        fn spill_rval(rval: &mut Rval, var: Var, slot: StackSlot) {
+            match *rval {
+                Rval::Imm(_) => {}
+                Rval::Lval(ref mut lval) => spill_lval(lval, var, slot),
+            }
+        }
+
+        fn spill_lval(lval: &mut Lval, var: Var, slot: StackSlot) {
+            match *lval {
+                Lval::StackSlot(_) | Lval::Reg(_) => return,
+                Lval::Var(v) if v != var => return,
+                Lval::Var(_) => {}
+            }
+            *lval = Lval::StackSlot(slot);
+        }
+
+        use vm::InstData::*;
+        use vm::Term::*;
+        let slot = StackSlot::Spill { index: self.stack_slots };
+        for (_, block) in &mut self.blocks {
+            for inst in &mut block.body {
+                spill_lval(&mut inst.dst, var, slot);
+                match inst.data {
+                    Unary { ref mut arg, .. } => spill_rval(arg, var, slot),
+                    Binary { ref mut left, ref mut right, .. } => {
+                        spill_rval(left, var, slot);
+                        spill_rval(right, var, slot);
+                    }
+                    CallIndirect { ref mut target, ref mut args } => {
+                        spill_lval(target, var, slot);
+                        for arg in args.iter_mut() {
+                            spill_rval(arg, var, slot);
+                        }
+                    }
+                    Call { ref mut args, .. } => {
+                        for arg in args.iter_mut() {
+                            spill_rval(arg, var, slot);
+                        }
+                    }
+                    ShiftLeftThenOr { ref mut arg, .. } => {
+                        spill_rval(arg, var, slot);
+                    }
+                    MovFuncLabel { .. } => {}
+                }
+            }
+            match block.term {
+                Return { ref mut rval } => {
+                    if let Some(ref mut rval) = *rval {
+                        spill_rval(rval, var, slot);
+                    }
+                }
+                Goto { .. } => {}
+                Switch { ref mut cond, .. } => {
+                    spill_rval(cond, var, slot);
+                }
+            }
+        }
+        self.stack_slots += 1;
+    }
+
+    pub fn replace_stack_to_stack_ops(&mut self, env: &mut VarEnv) {
+        unimplemented!()
+    }
+
 }
 
 pub struct Builder<'vars, 'var_data> {
@@ -97,6 +182,7 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
         let mut ret = Data {
             name: name,
             args: args,
+            stack_slots: 0,
             blocks: HashMap::new(),
         };
 
@@ -292,7 +378,8 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
         match *term {
             cfg::Term::Return(ref var) => {
                 let var = var.map(|var| self.convert_var(var));
-                Term::Return { var }
+                let rval = var.map(|var| Rval::Lval(Lval::Var(var)));
+                Term::Return { rval }
             }
             cfg::Term::Goto(block) => {
                 let block = Block::from(block);
@@ -300,6 +387,7 @@ impl<'vars, 'var_data> Builder<'vars, 'var_data> {
             }
             cfg::Term::Switch { cond, then, else_ } => {
                 let cond = self.convert_var(cond);
+                let cond = Rval::Lval(Lval::Var(cond));
                 let then = self.convert_block(then);
                 let else_ = self.convert_block(else_);
                 Term::Switch { cond, then, else_ }
