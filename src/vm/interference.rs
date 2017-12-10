@@ -98,6 +98,7 @@ impl Graph {
         }
 
         let liveness = ::vm::Liveness::new(func);
+        use vm::liveness::Uses;
 
         // See this set of slides for info on algorithm! (Page 6/10)
         // https://www2.cs.arizona.edu/~collberg/Teaching/553/2011/Handouts/Handout-23.pdf
@@ -109,6 +110,7 @@ impl Graph {
                         graph.add_interference(l, d.clone());
                     }
                 }
+                live = &inst.uses() | &(&live - &inst.defs());
             }
         }
 
