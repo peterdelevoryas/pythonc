@@ -55,6 +55,10 @@ pub enum Data {
     /// XXX Another oof!
     MovFuncLabel {
         func: Func,
+    },
+
+    Phi {
+        vars: Vec<Var>,
     }
 }
 

@@ -109,6 +109,49 @@ pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData
     df.insert(n.clone(), s);
 }
 
+pub fn place_phi(func: &mut FuncData) {
+    use vm::liveness::Lvals;
+    use vm::liveness::Defs;
+    use vm::Lval;
+    use vm::Var;
+
+    let ds = compute_dominators(func);
+    let mut df = DominanceFrontiers::new();
+    compute_dominance_frontier(func.root().name.clone(), &ds, func, &mut df);
+
+    let a_orig: HashMap<Block, HashSet<Var>> = func.blocks.iter()
+        .map(|(n, b)| {
+            let var_defs: HashSet<Var> = b.defs().into_iter().filter_map(|lval| {
+                match lval { Lval::Var(v) => Some(v), _ => None }
+            }).collect();
+            (n.clone(), var_defs)
+        })
+        .collect();
+    let mut defsites: HashMap<Var, HashSet<Block>> = HashMap::new();
+    for (n, _) in &mut func.blocks {
+        for &a in &a_orig[n] {
+            if let Some(set) = defsites.get_mut(&a) {
+                set.insert(n.clone());
+            }
+            defsites.insert(a, hash_set!(n.clone()));
+        }
+    }
+
+    // blocks that var a needs to have phi function in
+    let mut a_phi: HashMap<Var, HashSet<Block>> = HashMap::new();
+    for (a, worklist) in defsites {
+        let mut worklist: Vec<Block> = worklist.into_iter().collect();
+        while !worklist.is_empty() {
+            let n = worklist.pop().unwrap();
+            for y in &df[&n] {
+                if !a_phi[&a].contains(y) {
+                    // insert phi node
+                }
+            }
+        }
+    }
+}
+
 pub fn convert_to_ssa(func: FuncData) -> FuncData {
     unimplemented!()
 }

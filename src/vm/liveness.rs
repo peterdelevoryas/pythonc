@@ -166,6 +166,16 @@ where
     val.defs()
 }
 
+impl Defs for BlockData {
+    fn defs(&self) -> Lvals {
+        let mut defs = Lvals::new();
+        for inst in &self.body {
+            defs = &defs | &inst.defs();
+        }
+        defs
+    }
+}
+
 impl Defs for Inst {
     fn defs(&self) -> Lvals {
         let mut defs = hash_set!(self.dst.clone());
