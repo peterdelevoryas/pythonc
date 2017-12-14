@@ -109,8 +109,20 @@ impl Graph {
                     for l in &live | &inst.defs() {
                         graph.add_interference(l, d.clone());
                     }
-                    for u in inst.uses() {
-                        graph.add_interference(u, d.clone());
+                    //for u in inst.uses() {
+                        //graph.add_interference(u, d.clone());
+                    //}
+                }
+                if let vm::InstData::Binary { opcode, ref left, ref right } = inst.data {
+                    match opcode {
+                        vm::Binary::Sub => {
+                            panic!("This shouldn't be reachable!")
+                        }
+                        vm::Binary::Shr |
+                        vm::Binary::Shl => {
+                            assert!(right.is_imm());
+                        }
+                        _ => {}
                     }
                 }
                 live = &inst.uses() | &(&live - &inst.defs());

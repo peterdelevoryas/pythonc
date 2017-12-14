@@ -73,6 +73,15 @@ pub enum Rval {
     Lval(Lval),
 }
 
+impl Rval {
+    pub fn is_imm(&self) -> bool {
+        match *self {
+            Rval::Imm(_) => true,
+            Rval::Lval(_) => false,
+        }
+    }
+}
+
 impl Inst {
     pub fn call_indirect(target: Lval, args: Vec<Rval>) -> Data {
         Data::CallIndirect { target, args }

@@ -100,6 +100,14 @@ where
                     vm::Binary::And |
                     vm::Binary::Shr |
                     vm::Binary::Shl => {
+                        if let vm::Rval::Lval(ref r) = *right {
+                            if r == &inst.dst {
+                                println!("right == dst: {}", inst);
+                                writeln!(self.dst, "    movl {}, {}", right, inst.dst).unwrap();
+                                writeln!(self.dst, "    {} {}, {}", opcode, left, inst.dst).unwrap();
+                                return;
+                            }
+                        }
                         writeln!(self.dst, "    movl {}, {}", left, inst.dst).unwrap();
                         writeln!(self.dst, "    {} {}, {}", opcode, right, inst.dst).unwrap();
                     }
