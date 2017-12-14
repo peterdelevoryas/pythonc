@@ -51,6 +51,8 @@ where
     dst: &'dst mut W,
     // this is really hacky!!!
     liveness: Option<::vm::Liveness>,
+    ds: Option<::vm::ssa::AllDominators>,
+    df: Option<::vm::ssa::DominanceFrontiers>,
 }
 
 impl<'dst, W> Visit for Writer<'dst, W>
@@ -61,6 +63,10 @@ where
         let liveness = ::vm::Liveness::new(func);
         assert!(self.liveness.is_none());
         self.liveness = Some(liveness);
+        self.ds = Some(::vm::ssa::compute_dominators(func));
+        let mut df = ::vm::ssa::DominanceFrontiers::new();
+        ::vm::ssa::compute_dominance_frontier(func.root().name.clone(), &self.ds.as_ref().unwrap(), func, &mut df);
+        self.df = Some(df);
         let r: io::Result<()> = do catch {
             writeln!(
                 self.dst,
@@ -92,6 +98,15 @@ where
                     ::itertools::join(&liveness.out[&block.name], ", "))?;
             }
 
+            {
+                let ds = self.ds.as_ref().unwrap();
+                let df = self.df.as_ref().unwrap();
+                let ds = &ds[&block.name];
+                let df = &df[&block.name];
+                writeln!(self.dst, "ds:  ({})", ::itertools::join(ds, ", "))?;
+                writeln!(self.dst, "df:  ({})", ::itertools::join(df, ", "))?;
+            }
+
             self.traverse_block(block);
 
             Ok(())
@@ -120,6 +135,6 @@ pub fn write<W>(dst: &mut W, module: &Module)
 where
     W: io::Write,
 {
-    let mut writer = Writer { dst, liveness: None };
+    let mut writer = Writer { dst, liveness: None, ds: None, df: None };
     writer.visit_module(module);
 }

@@ -144,16 +144,32 @@ pub fn place_phi(func: &mut FuncData) {
         while !worklist.is_empty() {
             let n = worklist.pop().unwrap();
             for y in &df[&n] {
+                if !a_phi.contains_key(&a) {
+                    a_phi.insert(a, HashSet::new());
+                }
                 if !a_phi[&a].contains(y) {
                     // insert phi node
+                    let n_pred = func.block(y).pred.len();
+                    let phi = ::vm::Inst {
+                        dst: Lval::Var(a),
+                        data: ::vm::InstData::Phi {
+                            lvals: ::std::iter::repeat(Lval::Var(a)).take(n_pred).collect(),
+                        },
+                    };
+                    func.block_mut(y).body.insert(0, phi);
+                    a_phi.get_mut(&a).unwrap().insert(y.clone());
+                    if !a_orig[&y].contains(&a) {
+                        worklist.push(y.clone());
+                    }
                 }
             }
         }
     }
 }
 
-pub fn convert_to_ssa(func: FuncData) -> FuncData {
-    unimplemented!()
+pub fn convert_to_ssa(mut func: FuncData) -> FuncData {
+    place_phi(&mut func);
+    func
 }
 
 #[cfg(test)]
