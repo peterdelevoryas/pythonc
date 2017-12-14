@@ -13,6 +13,7 @@ pub fn regalloc(mut function: vasm::Function, vars: &mut Vars) -> vasm::Function
                 return function
             }
             Spill(u) => {
+                println!("spilling {}", u);
                 function.spill(u);
                 function = function.replace_stack_to_stack_ops(vars);
             }
