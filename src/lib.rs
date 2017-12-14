@@ -273,8 +273,20 @@ impl Pythonc {
             for (_, func) in &vm.funcs {
                 let d = ::vm::ssa::compute_dominators(func);
                 println!("dominators for {}:", func.name());
+                let mut df = ::vm::ssa::DominanceFrontiers::new();
+                ::vm::ssa::compute_dominance_frontier(func.root().name.clone(), &d, func, &mut df);
+                for (b, df) in &df {
+                    print!("DF[{}] = {{", b);
+                    for b in df {
+                        print!("{}, ", b);
+                    }
+                    print!("}}");
+                    println!();
+                }
 
-                for (b, doms) in &d {
+                for (b, _) in &d {
+                    
+                    /*
                     print!("dominators for {}: ", b);
                     for d in doms {
                         print!("{}, ", d);
@@ -290,6 +302,7 @@ impl Pythonc {
                         print!("{}, ", c);
                     }
                     println!();
+                    */
                 }
             }
 

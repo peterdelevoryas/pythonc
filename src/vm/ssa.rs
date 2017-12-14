@@ -79,12 +79,24 @@ pub fn children(n: Block, all: &AllDominators, func: &FuncData) -> HashSet<Block
     children
 }
 
-pub fn dominance_frontiers(all_dominators: &AllDominators) -> DominanceFrontiers {
-    let mut dfp = DominanceFrontiers::new();
-    let mut df = DominanceFrontiers::new();
-    let mut df_local = DominanceFrontiers::new();
-    let mut df_up = DominanceFrontiers::new();
-    unimplemented!()
+/// call this initially on the root of the cfg
+pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData, df: &mut DominanceFrontiers) {
+    let mut s = DominanceFrontier::new();
+    for y in func.block(&n).successors() {
+        if idom(all, y.clone()) != n {
+            s = &s | &hash_set!(y.clone());
+        }
+    }
+    for c in children(n.clone(), all, func) {
+        compute_dominance_frontier(c.clone(), all, func, df);
+        for w in &df[&c] {
+            // if the dominators of w don't contain n...
+            if !all[&w].contains(&n) {
+                s = &s | &hash_set!(w.clone());
+            }
+        }
+    }
+    df.insert(n.clone(), s);
 }
 
 pub fn convert_to_ssa(func: FuncData) -> FuncData {
