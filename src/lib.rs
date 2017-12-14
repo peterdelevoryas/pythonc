@@ -261,19 +261,38 @@ impl Pythonc {
 
         // This is where SSA-form happens!
         let mut vm = vm;
+        /*
         vm.funcs = vm.funcs
             .into_iter()
             .map(|(f, func)| {
                 (f, ::vm::convert_to_ssa(func))
             })
             .collect();
+            */
         if stop_stage == Stage::ssa {
+            for (_, func) in &vm.funcs {
+                let d = ::vm::ssa::compute_dominators(func);
+                println!("dominators for {}:", func);
+
+                for (b, doms) in &d {
+                    println!("dominators for {}", b);
+
+                    for d in doms {
+                        print!("{}, ", d);
+                    }
+
+                    println!();
+                }
+            }
+
+            unimplemented!();
+
             let s = {
                 let mut buf = Vec::new();
                 ::vm::util::write(&mut buf, &vm);
                 String::from_utf8(buf).unwrap()
             };
-            return write_out(&s, out_path)
+            return write_out(&s, out_path);
         }
 
         let mut vm = vm;

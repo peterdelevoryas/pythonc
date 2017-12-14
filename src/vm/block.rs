@@ -11,6 +11,12 @@ pub struct Block {
     index: usize,
 }
 
+impl Block {
+    pub fn new(name: String, index: usize) -> Block {
+        Block { name, index }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Data {
     pub name: Block,
