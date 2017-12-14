@@ -50,6 +50,7 @@ pub enum Stage {
     vm,
     liveness,
     ig,
+    ssa,
     reg,
     asm,
     obj,
@@ -69,6 +70,7 @@ impl Stage {
             "vm",
             "liveness",
             "ig",
+            "ssa",
             "reg",
             "asm",
             "obj",
@@ -92,6 +94,7 @@ impl ::std::str::FromStr for Stage {
             "vm" => vm,
             "liveness" => liveness,
             "ig" => ig,
+            "ssa" => ssa,
             "reg" => reg,
             "asm" => asm,
             "obj" => obj,
@@ -256,6 +259,23 @@ impl Pythonc {
             return write_out(&s, out_path)
         }
 
+        // This is where SSA-form happens!
+        let mut vm = vm;
+        vm.funcs = vm.funcs
+            .into_iter()
+            .map(|(f, func)| {
+                (f, ::vm::convert_to_ssa(func))
+            })
+            .collect();
+        if stop_stage == Stage::ssa {
+            let s = {
+                let mut buf = Vec::new();
+                ::vm::util::write(&mut buf, &vm);
+                String::from_utf8(buf).unwrap()
+            };
+            return write_out(&s, out_path)
+        }
+
         let mut vm = vm;
         for (_, func) in &mut vm.funcs {
             func.allocate_registers(&mut vm.vars);
@@ -320,6 +340,7 @@ impl Stage {
             vasm => "vasm",
             vm => "vm",
             liveness => "liveness",
+            ssa => "ssa",
             ig => "ig",
             reg => "reg",
             asm => "s",

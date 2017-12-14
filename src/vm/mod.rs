@@ -45,3 +45,6 @@ pub use self::visit::Visit;
 
 pub mod interference;
 pub use self::interference::Graph as InterferenceGraph;
+
+pub mod ssa;
+pub use self::ssa::convert_to_ssa;
