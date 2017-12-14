@@ -295,6 +295,11 @@ impl Graph {
                         self.color_rval(arg);
                     }
                     MovFuncLabel { .. } => {}
+                    Phi { ref mut lvals } => {
+                        for v in lvals.iter_mut() {
+                            self.color_lval(v);
+                        }
+                    }
                 }
             }
             match block.term {
@@ -393,6 +398,13 @@ fn referenced_vars(block: &BlockData) -> HashSet<Var> {
             }
             ShiftLeftThenOr { ref arg, .. } => rval(arg),
             MovFuncLabel { .. } => HashSet::new(),
+            Phi { ref lvals } => {
+                let mut vars = HashSet::new();
+                for v in lvals {
+                    vars.extend(lval(v));
+                }
+                vars
+            }
         }
     }
 

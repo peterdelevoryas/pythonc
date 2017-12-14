@@ -159,6 +159,10 @@ where
             MovFuncLabel { ref func } => {
                 writeln!(self.dst, "    movl ${}, {}", func, inst.dst).unwrap();
             }
+            Phi { ref lvals } => {
+                println!("WARNING: phi node in assembly output");
+                writeln!(self.dst, "    phi({})", ::itertools::join(lvals, ", ")).unwrap();
+            }
         }
     }
 

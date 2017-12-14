@@ -136,6 +136,11 @@ impl Data {
                         spill_rval(arg, var, slot);
                     }
                     MovFuncLabel { .. } => {}
+                    Phi { ref mut lvals } => {
+                        for v in lvals.iter_mut() {
+                            spill_lval(v, var, slot);
+                        }
+                    }
                 }
             }
             match block.term {

@@ -58,7 +58,7 @@ pub enum Data {
     },
 
     Phi {
-        vars: Vec<Var>,
+        lvals: Vec<Lval>,
     }
 }
 
@@ -152,6 +152,9 @@ impl fmt::Display for Data {
             }
             Data::MovFuncLabel { ref func } => {
                 write!(f, "mov ${}", func)
+            }
+            Data::Phi { ref lvals } => {
+                write!(f, "phi({})", ::itertools::join(lvals, ", "))
             }
         }
     }

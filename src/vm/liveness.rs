@@ -140,6 +140,9 @@ impl Uses for InstData {
                 arg.uses()
             }
             MovFuncLabel { .. } => Lvals::new(),
+            Phi { ref lvals } => {
+                lvals.clone().into_iter().collect()
+            }
         }
     }
 }
@@ -195,7 +198,8 @@ impl Defs for InstData {
             Unary { .. } |
             Binary { .. } |
             ShiftLeftThenOr { .. } |
-            MovFuncLabel { .. } => Lvals::new(),
+            MovFuncLabel { .. } |
+            Phi { .. } => Lvals::new(),
         }
     }
 }
