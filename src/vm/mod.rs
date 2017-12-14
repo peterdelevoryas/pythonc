@@ -48,3 +48,6 @@ pub use self::interference::Graph as InterferenceGraph;
 
 pub mod ssa;
 pub use self::ssa::convert_to_ssa;
+
+pub mod ssa2;
+pub use self::ssa2::convert_to_ssa2;

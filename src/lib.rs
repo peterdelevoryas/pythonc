@@ -261,12 +261,9 @@ impl Pythonc {
 
         // This is where SSA-form happens!
         let mut vm = vm;
-        vm.funcs = vm.funcs
-            .into_iter()
-            .map(|(f, func)| {
-                (f, ::vm::convert_to_ssa(func))
-            })
-            .collect();
+        for (f, func) in &mut vm.funcs {
+            ::vm::convert_to_ssa2(func, &mut vm.vars);
+        }
         if stop_stage == Stage::ssa {
             let s = {
                 let mut buf = Vec::new();
