@@ -6,6 +6,8 @@ use std::collections::HashSet;
 
 pub type Dominators = HashSet<Block>;
 pub type AllDominators = HashMap<Block, Dominators>;
+pub type DominanceFrontier = HashSet<Block>;
+pub type DominanceFrontiers = HashMap<Block, DominanceFrontier>;
 
 pub fn compute_dominators(func: &FuncData) -> HashMap<Block, HashSet<Block>> {
     let mut d: HashMap<Block, HashSet<Block>> = HashMap::new();
@@ -62,6 +64,27 @@ pub fn idom(all_dominators: &AllDominators, n: Block) -> Block {
         return n_dominator.clone()
     }
     panic!("Could not find idom for block {}!", n)
+}
+
+pub fn children(n: Block, all: &AllDominators, func: &FuncData) -> HashSet<Block> {
+    let mut children = HashSet::new();
+    for (b, _) in &func.blocks {
+        if *b == func.root().name {
+            continue;
+        }
+        if idom(all, b.clone()) == n {
+            children.insert(b.clone());
+        }
+    }
+    children
+}
+
+pub fn dominance_frontiers(all_dominators: &AllDominators) -> DominanceFrontiers {
+    let mut dfp = DominanceFrontiers::new();
+    let mut df = DominanceFrontiers::new();
+    let mut df_local = DominanceFrontiers::new();
+    let mut df_up = DominanceFrontiers::new();
+    unimplemented!()
 }
 
 pub fn convert_to_ssa(func: FuncData) -> FuncData {

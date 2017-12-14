@@ -275,7 +275,7 @@ impl Pythonc {
                 println!("dominators for {}:", func.name());
 
                 for (b, doms) in &d {
-                    println!("dominators for {}", b);
+                    print!("dominators for {}: ", b);
                     for d in doms {
                         print!("{}, ", d);
                     }
@@ -284,6 +284,12 @@ impl Pythonc {
                     if *b != func.root().name {
                         println!("idom for {} = {}", b, ::vm::ssa::idom(&d, b.clone()));
                     }
+                    let children = ::vm::ssa::children(b.clone(), &d, func);
+                    print!("children: ");
+                    for c in children {
+                        print!("{}, ", c);
+                    }
+                    println!();
                 }
             }
 
