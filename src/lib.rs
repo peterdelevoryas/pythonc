@@ -284,9 +284,8 @@ impl Pythonc {
                     println!();
                 }
 
-                for (b, _) in &d {
+                for (b, doms) in &d {
                     
-                    /*
                     print!("dominators for {}: ", b);
                     for d in doms {
                         print!("{}, ", d);
@@ -302,7 +301,6 @@ impl Pythonc {
                         print!("{}, ", c);
                     }
                     println!();
-                    */
                 }
             }
 

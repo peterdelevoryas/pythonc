@@ -15,6 +15,10 @@ impl Block {
     pub fn new(name: String, index: usize) -> Block {
         Block { name, index }
     }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -83,6 +83,9 @@ pub fn children(n: Block, all: &AllDominators, func: &FuncData) -> HashSet<Block
 pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData, df: &mut DominanceFrontiers) {
     let mut s = DominanceFrontier::new();
     for y in func.block(&n).successors() {
+        if n.index() == 1 {
+            println!("y = {}", y);
+        }
         if idom(all, y.clone()) != n {
             s = &s | &hash_set!(y.clone());
         }
@@ -91,7 +94,14 @@ pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData
         compute_dominance_frontier(c.clone(), all, func, df);
         for w in &df[&c] {
             // if the dominators of w don't contain n...
-            if !all[&w].contains(&n) {
+            if n.index() == 1 {
+                println!("w = {}", w);
+            }
+            // XXX AAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH Is this because we care
+            // that it doesn't strictly dominate????????????????? Adding
+            // w == n makes the example from the textbook add the second
+            // block to the dominance frontier of itself, so I think so!!
+            if !all[&w].contains(&n) || *w == n {
                 s = &s | &hash_set!(w.clone());
             }
         }
