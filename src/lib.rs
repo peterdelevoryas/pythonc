@@ -272,16 +272,18 @@ impl Pythonc {
         if stop_stage == Stage::ssa {
             for (_, func) in &vm.funcs {
                 let d = ::vm::ssa::compute_dominators(func);
-                println!("dominators for {}:", func);
+                println!("dominators for {}:", func.name());
 
                 for (b, doms) in &d {
                     println!("dominators for {}", b);
-
                     for d in doms {
                         print!("{}, ", d);
                     }
-
                     println!();
+
+                    if *b != func.root().name {
+                        println!("idom for {} = {}", b, ::vm::ssa::idom(&d, b.clone()));
+                    }
                 }
             }
 

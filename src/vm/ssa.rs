@@ -4,12 +4,14 @@ use vm::Block;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+pub type Dominators = HashSet<Block>;
+pub type AllDominators = HashMap<Block, Dominators>;
+
 pub fn compute_dominators(func: &FuncData) -> HashMap<Block, HashSet<Block>> {
     let mut d: HashMap<Block, HashSet<Block>> = HashMap::new();
     let mut d_p: HashMap<Block, HashSet<Block>> = HashMap::new();
     let all_blocks: HashSet<Block> = func.blocks.iter().map(|(b, _)| b.clone()).collect();
     let root = func.root().name.clone();
-    println!("root: {}", root);
     for (block, _) in &func.blocks {
         if *block == root {
             d.insert(root.clone(), hash_set!(root.clone()));
@@ -21,8 +23,6 @@ pub fn compute_dominators(func: &FuncData) -> HashMap<Block, HashSet<Block>> {
     }
 
     loop {
-        println!("d = {:?}", d);
-        println!("dp = {:?}", d_p);
         for (n, data) in &func.blocks {
             if n == &root {
                 continue
@@ -47,6 +47,21 @@ pub fn compute_dominators(func: &FuncData) -> HashMap<Block, HashSet<Block>> {
     }
 
     d
+}
+
+pub fn idom(all_dominators: &AllDominators, n: Block) -> Block {
+    let n_dominators = &all_dominators[&n];
+    for n_dominator in n_dominators {
+        if *n_dominator == n {
+            continue;
+        }
+        // if n_dominator is a dominator of any of the other n_dominators, then not idom
+        if n_dominators.iter().any(|d| *d != n && d != n_dominator && all_dominators[d].contains(n_dominator)) {
+            continue
+        }
+        return n_dominator.clone()
+    }
+    panic!("Could not find idom for block {}!", n)
 }
 
 pub fn convert_to_ssa(func: FuncData) -> FuncData {
