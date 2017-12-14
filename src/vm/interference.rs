@@ -335,7 +335,7 @@ impl Graph {
     }
 }
 
-fn referenced_vars(block: &BlockData) -> HashSet<Var> {
+pub fn referenced_vars(block: &BlockData) -> HashSet<Var> {
     struct ReferencedVars {
         vars: HashSet<Var>
     }

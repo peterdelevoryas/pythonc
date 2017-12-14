@@ -83,9 +83,6 @@ pub fn children(n: Block, all: &AllDominators, func: &FuncData) -> HashSet<Block
 pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData, df: &mut DominanceFrontiers) {
     let mut s = DominanceFrontier::new();
     for y in func.block(&n).successors() {
-        if n.index() == 1 {
-            println!("y = {}", y);
-        }
         if idom(all, y.clone()) != n {
             s = &s | &hash_set!(y.clone());
         }
@@ -93,10 +90,6 @@ pub fn compute_dominance_frontier(n: Block, all: &AllDominators, func: &FuncData
     for c in children(n.clone(), all, func) {
         compute_dominance_frontier(c.clone(), all, func, df);
         for w in &df[&c] {
-            // if the dominators of w don't contain n...
-            if n.index() == 1 {
-                println!("w = {}", w);
-            }
             // XXX AAAAAAAAHHHHHHHHHHHHHHHHHHHHHHHH Is this because we care
             // that it doesn't strictly dominate????????????????? Adding
             // w == n makes the example from the textbook add the second
@@ -118,13 +111,23 @@ pub fn place_phi(func: &mut FuncData) {
     let ds = compute_dominators(func);
     let mut df = DominanceFrontiers::new();
     compute_dominance_frontier(func.root().name.clone(), &ds, func, &mut df);
+    // apparently the first block must contain def of every var???!!?!?
+    let all_vars: HashSet<Var> = func.blocks.iter()
+        .flat_map(|(_, data)| {
+            ::vm::interference::referenced_vars(data).into_iter()
+        })
+        .collect();
 
     let a_orig: HashMap<Block, HashSet<Var>> = func.blocks.iter()
         .map(|(n, b)| {
-            let var_defs: HashSet<Var> = b.defs().into_iter().filter_map(|lval| {
-                match lval { Lval::Var(v) => Some(v), _ => None }
-            }).collect();
-            (n.clone(), var_defs)
+            if *n == func.root().name {
+                (n.clone(), all_vars.clone())
+            } else {
+                let var_defs: HashSet<Var> = b.defs().into_iter().filter_map(|lval| {
+                    match lval { Lval::Var(v) => Some(v), _ => None }
+                }).collect();
+                (n.clone(), var_defs)
+            }
         })
         .collect();
     let mut defsites: HashMap<Var, HashSet<Block>> = HashMap::new();
@@ -139,14 +142,14 @@ pub fn place_phi(func: &mut FuncData) {
 
     // blocks that var a needs to have phi function in
     let mut a_phi: HashMap<Var, HashSet<Block>> = HashMap::new();
+    for (a, _) in &defsites {
+        a_phi.insert(*a, HashSet::new());
+    }
     for (a, worklist) in defsites {
         let mut worklist: Vec<Block> = worklist.into_iter().collect();
         while !worklist.is_empty() {
             let n = worklist.pop().unwrap();
             for y in &df[&n] {
-                if !a_phi.contains_key(&a) {
-                    a_phi.insert(a, HashSet::new());
-                }
                 if !a_phi[&a].contains(y) {
                     // insert phi node
                     let n_pred = func.block(y).pred.len();
