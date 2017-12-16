@@ -105,7 +105,6 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 let curr = self.curr;
                 let ret = var.as_ref().map(|&var| Rval::Val(self.read_curr(var)));
                 self.term_block(curr, Term::Ret { ret });
-                self.seal_block(curr);
                 return true;
             }
             While(cond, ref header, ref body) => {
@@ -136,22 +135,22 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
             }
             If(cond, ref then, ref else_) => {
                 let if_entry = self.curr;
-                self.seal_block(if_entry);
                 let cond = Rval::Val(self.read_curr(cond));
+                self.seal_block(if_entry);
 
                 let then_start = self.create_block();
                 self.enter(then_start);
-                self.fill_curr(then);
-                let then_end = self.curr;
-                if then_end != then_start {
+                let then_end = self.fill_curr(then);
+                self.seal_block(then_start);
+                if then_start != then_end {
                     self.seal_block(then_end);
                 }
 
                 let else_start = self.create_block();
                 self.enter(else_start);
-                self.fill_curr(else_);
-                let else_end = self.curr;
-                if else_end != else_start {
+                let else_end = self.fill_curr(else_);
+                self.seal_block(else_start);
+                if else_start != else_end {
                     self.seal_block(else_end);
                 }
 
@@ -166,12 +165,14 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         false
     }
 
-    pub fn fill_curr(&mut self, flat_stmts: &[FlatStmt]) {
+    pub fn fill_curr(&mut self, flat_stmts: &[FlatStmt]) -> Block {
         for flat_stmt in flat_stmts {
             if self.visit_stmt(flat_stmt) {
                 break
             }
         }
+        let curr = self.curr;
+        curr
     }
 
     pub fn enter(&mut self, block: Block) -> Block {
@@ -182,8 +183,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         assert!(self.func_data.blocks.get(&block).unwrap().term.is_none());
         self.func_data.blocks.get_mut(&block).unwrap().term = Some(term);
         for succ in self.func_data.blocks[&block].successors() {
-            self.func_data.blocks.get_mut(&block).unwrap()
-                .preds.insert(succ);
+            self.func_data.blocks.get_mut(&succ).unwrap().preds.insert(block);
         }
     }
 
@@ -406,11 +406,11 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     }
 
     pub fn seal_block(&mut self, block: Block) {
-        for (var, val) in self.func_data.incomplete_phis[&block].clone() {
+        for (var, val) in self.func_data.incomplete_phis.entry(block).or_insert(map!()).clone() {
             self.add_phi_operands(var, val);
         }
         if self.func_data.sealed_blocks.insert(block) {
-            panic!("{} already sealed", block)
+            println!("WARNING {} already sealed", block)
         }
     }
 

@@ -49,13 +49,9 @@ impl Builder {
         let mut func_data = FuncData::new(&flat_function.args, is_main);
         {
             let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
-            for stmt in &flat_function.body {
-                if builder.visit_stmt(stmt) {
-                    break
-                }
-            }
-            let last = builder.curr;
+            let last = builder.fill_curr(&flat_function.body);
             builder.term_block(last, ::ssa::Term::Ret { ret: None });
+            builder.seal_block(last);
             builder.complete();
         }
 
