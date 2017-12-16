@@ -8,7 +8,7 @@ impl_ref!(Block, "bb");
 pub struct BlockData {
     pub body: Vec<Inst>,
     pub term: Option<Term>,
-    pub pred: HashSet<Block>,
+    pub preds: HashSet<Block>,
 }
 
 pub type BlockGen = Gen;
@@ -18,12 +18,12 @@ impl BlockData {
         Self {
             body: vec![],
             term: None,
-            pred: set!(),
+            preds: set!(),
         }
     }
 
-    pub fn predecessors(&self) -> impl Iterator<Item=Block> {
-        self.pred.clone().into_iter()
+    pub fn preds_iter(&self) -> impl Iterator<Item=Block> {
+        self.preds.clone().into_iter()
     }
 
     pub fn successors(&self) -> Box<Iterator<Item=Block>> {

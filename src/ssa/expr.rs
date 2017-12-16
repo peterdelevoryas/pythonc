@@ -1,6 +1,7 @@
 use ssa::Rval;
 use ssa::Func;
 use ssa::Val;
+use ssa::Block;
 use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -21,6 +22,7 @@ pub enum Binary {
     Shl,
 }
 
+#[derive(Debug, Clone)]
 pub enum Expr {
     Unary { opcode: Unary, arg: Rval },
     Binary {
@@ -46,6 +48,7 @@ pub enum Expr {
     },
 
     Phi {
+        block: Block,
         vals: Vec<Val>,
     },
 
@@ -56,7 +59,9 @@ pub enum Expr {
         ///     z = LoadParam(2)
         ///     ...
         position: usize,
-    }
+    },
+
+    Undef,
 }
 
 impl fmt::Display for Unary {
@@ -102,11 +107,14 @@ impl fmt::Display for Expr {
             MovFuncLabel { func } => {
                 write!(f, "${}", func)
             }
-            Phi { ref vals } => {
-                write!(f, "phi({})", join(vals, ", "))
+            Phi { block, ref vals } => {
+                write!(f, "{}.phi({})", block, join(vals, ", "))
             }
             LoadParam { position } => {
                 write!(f, "load param {}", position)
+            }
+            Undef => {
+                write!(f, "undefined")
             }
         }
     }
