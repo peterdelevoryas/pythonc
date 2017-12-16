@@ -74,6 +74,10 @@ macro_rules! impl_ref {
                     next: 0,
                 }
             }
+
+            pub fn gen(&mut self) -> $ident {
+                self.next().unwrap()
+            }
         }
 
         impl Iterator for Gen {

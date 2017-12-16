@@ -1,8 +1,9 @@
 use ssa::Inst;
 
-impl_ref!(BB, "bb");
+impl_ref!(Block, "bb");
 
-#[derive(Debug, Clone)]
-pub struct Data {
+pub struct BlockData {
     pub body: Vec<Inst>,
 }
+
+pub type BlockGen = Gen;
