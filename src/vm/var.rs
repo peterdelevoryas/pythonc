@@ -35,6 +35,13 @@ pub struct Env {
 }
 
 impl Env {
+    pub fn new() -> Env {
+        Env {
+            next: 0,
+            map: HashMap::new()
+        }
+    }
+
     pub fn from(var_data: &var::Slab<var::Data>) -> Env {
         let next = var_data
             .iter()
