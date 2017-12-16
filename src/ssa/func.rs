@@ -1,7 +1,9 @@
 use ssa::Block;
 use ssa::BlockData;
+use ssa::BlockGen;
 use ssa::Val;
 use ssa::ValGen;
+use ssa::Expr;
 use std::collections::HashMap;
 use explicate::Var;
 use raise::Func as FlatFunc;
@@ -12,41 +14,58 @@ impl_ref!(Func, "fn");
 pub struct FuncData {
     pub main: bool,
     pub args: Vec<Val>,
+    pub block_gen: BlockGen,
     pub blocks: HashMap<Block, BlockData>,
+    pub defs: HashMap<Block, HashMap<Var, Expr>>,
+    pub val_gen: ValGen,
 }
 
 pub type FuncGen = Gen;
 
-pub struct Builder<'a> {
-    func_map: &'a HashMap<FlatFunc, Func>,
-    is_main: bool,
-    args: Vec<Val>,
-    val_gen: ValGen,
-    var_map: HashMap<Block, HashMap<Var, Val>>,
-    blocks: HashMap<Block, BlockData>,
+impl FuncData {
+    pub fn new(args: &[Var], is_main: bool) -> FuncData {
+        let mut block_gen = BlockGen::new();
+        let mut blocks = map!();
+        let mut defs = map!();
+        let mut val_gen = ValGen::new();
+
+        let root = block_gen.gen();
+        let root_data = BlockData {
+            body: vec![],
+        };
+        blocks.insert(root, root_data);
+        defs.insert(root, HashMap::new());
+
+        let mut arg_vals = vec![];
+        for (position, &arg) in args.iter().enumerate() {
+            let val = val_gen.gen();
+            defs.get_mut(&root)
+                .unwrap()
+                .insert(arg, Expr::LoadParam { position });
+            arg_vals.push(val);
+        }
+
+        FuncData {
+            main: is_main,
+            args: arg_vals,
+            block_gen: block_gen,
+            blocks: blocks,
+            defs: defs,
+            val_gen: val_gen,
+        }
+    }
 }
 
-impl<'a> Builder<'a> {
-    pub fn new(func_map: &'a HashMap<FlatFunc, Func>, is_main: bool) -> Self {
-        Builder {
-            func_map,
-            is_main,
-            args: vec![],
-            val_gen: ValGen::new(),
-            var_map: HashMap::new(),
-            blocks: HashMap::new(),
-        }
+pub struct Builder<'flat_func_map, 'func_data> {
+    flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>,
+    func_data: &'func_data mut FuncData,
+}
+
+impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
+    pub fn new(flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>, func_data: &'func_data mut FuncData) -> Self
+    {
+        Builder { flat_func_map, func_data }
     }
 
-    pub fn args(&mut self, args: &[Var]) {
-        unimplemented!()
-    }
-
-    pub fn complete(self) -> FuncData {
-        FuncData {
-            main: self.is_main,
-            args: self.args,
-            blocks: self.blocks,
-        }
-    }
+    pub fn complete(self) {}
 }

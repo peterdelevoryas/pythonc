@@ -46,5 +46,14 @@ pub enum Expr {
 
     Phi {
         vals: Vec<Val>,
+    },
+
+    LoadParam {
+        /// func(x, y, z, ...)
+        ///     x = LoadParam(0)
+        ///     y = LoadParam(1)
+        ///     z = LoadParam(2)
+        ///     ...
+        position: usize,
     }
 }

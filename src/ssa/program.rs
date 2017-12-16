@@ -26,37 +26,40 @@ impl Program {
 
 struct Builder {
     // translates FlatFunc's to Func's
-    func_map: HashMap<FlatFunc, Func>,
+    flat_func_map: HashMap<FlatFunc, Func>,
     completed_funcs: HashMap<Func, FuncData>,
 }
 
 impl Builder {
     fn new(units: &HashMap<FlatFunc, FlatFunction>) -> Builder {
-        let mut trans = HashMap::new();
+        let mut flat_func_map = HashMap::new();
         let mut g = FuncGen::new();
-        for (&f, function) in units {
+        for (&flat_func, flat_function) in units {
             let func = g.gen();
-            trans.insert(f, func);
+            flat_func_map.insert(flat_func, func);
         }
 
         Builder {
-            func_map: trans,
+            flat_func_map,
             completed_funcs: HashMap::new(),
         }
     }
 
-    fn complete_func(&mut self, func: FlatFunc, function: FlatFunction, is_main: bool) {
-        let mut builder = FuncBuilder::new(&self.func_map, is_main);
-        builder.args(&function.args);
-        let func_data = builder.complete();
-        let func = self.translate_func_name(func);
+    fn complete_func(&mut self, flat_func: FlatFunc, flat_function: FlatFunction, is_main: bool) {
+        let mut func_data = FuncData::new(&flat_function.args, is_main);
+        {
+            let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
+            builder.complete();
+        }
+
+        let func = self.translate_flat_func(flat_func);
         self.completed_funcs.insert(func, func_data);
     }
 
-    fn translate_func_name(&self, func: FlatFunc) -> Func {
-        match self.func_map.get(&func) {
+    fn translate_flat_func(&self, flat_func: FlatFunc) -> Func {
+        match self.flat_func_map.get(&flat_func) {
             Some(&func) => func,
-            None => panic!("no func map entry for {}", func),
+            None => panic!("no flat func map entry for {}", flat_func),
         }
     }
 
