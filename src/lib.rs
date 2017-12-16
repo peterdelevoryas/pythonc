@@ -207,6 +207,11 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
+        let ssa = ssa::Program::from(flattener);
+        if stop_stage == Stage::ssa {
+            return write_out(&ssa, out_path);
+        }
+
         /*
         let obj_file = tempfile::NamedTempFile::new().chain_err(
             || "Could not create obj from assembly"
