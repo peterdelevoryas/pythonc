@@ -32,10 +32,7 @@ impl FuncData {
         let mut val_gen = ValGen::new();
 
         let root = block_gen.gen();
-        let root_data = BlockData {
-            body: vec![],
-            term: None,
-        };
+        let root_data = BlockData::new();
         blocks.insert(root, root_data);
         defs.insert(root, map!());
 
@@ -82,10 +79,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
 
     pub fn create_block(&mut self) -> Block {
         let block = self.func_data.block_gen.gen();
-        let block_data = BlockData {
-            body: vec![],
-            term: None,
-        };
+        let block_data = BlockData::new();
         self.func_data.blocks.insert(block, block_data);
         self.func_data.defs.insert(block, map!());
 
