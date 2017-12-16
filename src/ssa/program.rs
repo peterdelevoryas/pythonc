@@ -4,6 +4,7 @@ use std::fmt;
 use ssa::Func;
 use ssa::FuncData;
 use ssa::FuncGen;
+use ssa::FuncBuilder;
 use raise::Func as FlatFunc; // flatten uses raise::Func for ident
 use flatten::Function as FlatFunction;
 use std::collections::HashMap;
@@ -45,7 +46,18 @@ impl Builder {
     }
 
     fn complete_func(&mut self, func: FlatFunc, function: FlatFunction, is_main: bool) {
-        unimplemented!()
+        let mut builder = FuncBuilder::new(&self.func_map, is_main);
+        builder.args(&function.args);
+        let func_data = builder.complete();
+        let func = self.translate_func_name(func);
+        self.completed_funcs.insert(func, func_data);
+    }
+
+    fn translate_func_name(&self, func: FlatFunc) -> Func {
+        match self.func_map.get(&func) {
+            Some(&func) => func,
+            None => panic!("no func map entry for {}", func),
+        }
     }
 
     fn complete(self) -> Program {
