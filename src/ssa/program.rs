@@ -50,7 +50,9 @@ impl Builder {
         {
             let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
             for stmt in &flat_function.body {
-                builder.visit_stmt(stmt);
+                if builder.visit_stmt(stmt) {
+                    break
+                }
             }
             builder.complete();
         }

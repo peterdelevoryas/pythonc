@@ -8,6 +8,7 @@ use ssa::Inst;
 use ssa::Rval;
 use ssa::Unary;
 use ssa::Binary;
+use ssa::Term;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use explicate::Var;
@@ -87,14 +88,103 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         Builder { flat_func_map, func_data, curr }
     }
 
-    pub fn visit_stmt(&mut self, flat_stmt: &FlatStmt) {
+    /// If true, we can stop
+    pub fn visit_stmt(&mut self, flat_stmt: &FlatStmt) -> bool {
         use self::FlatStmt::*;
         match *flat_stmt {
             Def(var, ref flat_expr) => {
                 let val = self.def_expr(flat_expr);
                 self.write_curr(var, val);
             }
-            _ => unimplemented!()
+            Discard(ref flat_expr) => {
+                let _ = self.def_expr(flat_expr);
+                // don't need to write definition, like in above Def case,
+                // because there a var def to write.
+            }
+            Return(ref var) => {
+                let curr = self.curr;
+                let ret = var.as_ref().map(|&var| Rval::Val(self.read_curr(var)));
+                self.term_block(curr, Term::Ret { ret });
+                self.seal_block(curr);
+                return true;
+            }
+            While(cond, ref header, ref body) => {
+                let while_entry = self.curr;
+                self.seal_block(while_entry);
+                let header_start = self.create_block();
+                self.term_block(while_entry, Term::Goto { block: header_start });
+                self.enter(header_start);
+                self.fill_curr(header);
+                let header_end = self.curr;
+                if header_end != header_start {
+                    self.seal_block(header_end);
+                }
+
+                let body_start = self.create_block();
+                self.enter(body_start);
+                self.fill_curr(body);
+                let body_end = self.curr;
+                self.term_block(body_end, Term::Goto { block: header_start });
+                if body_end != body_start {
+                    self.seal_block(body_end);
+                }
+
+                let after_while = self.create_block();
+                self.enter(after_while);
+                let cond = Rval::Val(self.read_curr(cond));
+                self.term_block(header_end, Term::Switch { cond, then: body_start, else_: after_while });
+            }
+            If(cond, ref then, ref else_) => {
+                let if_entry = self.curr;
+                self.seal_block(if_entry);
+                let cond = Rval::Val(self.read_curr(cond));
+
+                let then_start = self.create_block();
+                self.enter(then_start);
+                self.fill_curr(then);
+                let then_end = self.curr;
+                if then_end != then_start {
+                    self.seal_block(then_end);
+                }
+
+                let else_start = self.create_block();
+                self.enter(else_start);
+                self.fill_curr(else_);
+                let else_end = self.curr;
+                if else_end != else_start {
+                    self.seal_block(else_end);
+                }
+
+                self.term_block(if_entry, Term::Switch { cond, then: then_start, else_: else_start });
+                let if_exit = self.create_block();
+                self.term_block(then_end, Term::Goto { block: if_exit });
+                self.term_block(else_end, Term::Goto { block: if_exit });
+                self.enter(if_exit);
+                self.seal_block(if_exit);
+            }
+        }
+
+        false
+    }
+
+    pub fn fill_curr(&mut self, flat_stmts: &[FlatStmt]) {
+        for flat_stmt in flat_stmts {
+            if self.visit_stmt(flat_stmt) {
+                break
+            }
+        }
+    }
+
+    pub fn enter(&mut self, block: Block) -> Block {
+        ::std::mem::replace(&mut self.curr, block)
+    }
+
+    pub fn term_block(&mut self, block: Block, term: Term) {
+        assert!(self.func_data.blocks.get(&block).unwrap().term.is_none());
+        self.func_data.blocks.get_mut(&block).unwrap().term = Some(term);
+        for succ in self.func_data.blocks[&block].successors() {
+            self.func_data.blocks.get_mut(&block).unwrap()
+                .preds.insert(succ);
         }
     }
 
@@ -322,7 +412,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         for (var, val) in self.func_data.incomplete_phis[&block].clone() {
             self.add_phi_operands(var, val);
         }
-        self.func_data.sealed_blocks.insert(block);
+        assert!(self.func_data.sealed_blocks.insert(block));
     }
 
     pub fn complete(self) {}
