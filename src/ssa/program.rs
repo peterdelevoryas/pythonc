@@ -11,6 +11,10 @@ impl Program {
     }
 }
 
+struct Builder {
+
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "ssa {{}}")?;
