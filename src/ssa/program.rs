@@ -72,7 +72,20 @@ impl Builder {
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "ssa {{}}")?;
+        use vm::util::fmt_indented;
+        use itertools::join;
+
+        for (func, func_data) in &self.funcs {
+            writeln!(f, "fn {}({}) {{", func, join(&func_data.args, ", "))?;
+            for (block, block_data) in &func_data.blocks {
+                writeln!(f, "block {}:", block)?;
+                for inst in &block_data.body {
+                    writeln!(f, "{}", fmt_indented(inst))?;
+                }
+            }
+            writeln!(f, "}}")?;
+        }
+
         Ok(())
     }
 }
