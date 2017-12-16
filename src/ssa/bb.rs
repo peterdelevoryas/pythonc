@@ -1,12 +1,14 @@
 use ssa::Inst;
 use ssa::Term;
+use ssa::Val;
 use std::collections::HashSet;
 use std::iter;
 
 impl_ref!(Block, "bb");
 
+#[derive(Clone)]
 pub struct BlockData {
-    pub body: Vec<Inst>,
+    pub body: Vec<Val>,
     pub term: Option<Term>,
     pub preds: HashSet<Block>,
 }

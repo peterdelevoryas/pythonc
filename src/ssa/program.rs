@@ -54,6 +54,8 @@ impl Builder {
                     break
                 }
             }
+            let last = builder.curr;
+            builder.term_block(last, ::ssa::Term::Ret { ret: None });
             builder.complete();
         }
 
@@ -79,13 +81,19 @@ impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use vm::util::fmt_indented;
         use itertools::join;
+        use itertools::sorted;
 
         for (func, func_data) in &self.funcs {
             writeln!(f, "fn {}({}) {{", func, join(&func_data.args, ", "))?;
-            for (block, block_data) in &func_data.blocks {
+
+            let mut blocks: Vec<_> = func_data.blocks.clone().into_iter().collect();
+            blocks.sort_by(|&(l, _), &(r, _)| {
+                l.inner().cmp(&r.inner())
+            });
+            for (block, block_data) in blocks {
                 writeln!(f, "block {}:", block)?;
-                for inst in &block_data.body {
-                    writeln!(f, "{}", fmt_indented(inst))?;
+                for val in &block_data.body {
+                    writeln!(f, "    {} = {}", val, func_data.vals[val])?;
                 }
                 match block_data.term {
                     Some(ref term) => writeln!(f, "{}", fmt_indented(term))?,

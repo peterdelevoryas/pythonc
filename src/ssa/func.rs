@@ -76,9 +76,9 @@ impl FuncData {
 }
 
 pub struct Builder<'flat_func_map, 'func_data> {
-    flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>,
-    func_data: &'func_data mut FuncData,
-    curr: Block,
+    pub flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>,
+    pub func_data: &'func_data mut FuncData,
+    pub curr: Block,
 }
 
 impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
@@ -160,7 +160,6 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 self.term_block(then_end, Term::Goto { block: if_exit });
                 self.term_block(else_end, Term::Goto { block: if_exit });
                 self.enter(if_exit);
-                self.seal_block(if_exit);
             }
         }
 
@@ -293,11 +292,11 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     }
 
     pub fn push_def(&mut self, expr: Expr) -> Val {
-        let def = self.gen_val();
-        let inst = Inst { def, expr };
+        let val = self.gen_val();
+        assert!(self.func_data.vals.insert(val, expr).is_none());
         let block = self.curr;
-        self.func_data.blocks.get_mut(&block).unwrap().body.push(inst);
-        def
+        self.func_data.blocks.get_mut(&block).unwrap().body.push(val);
+        val
     }
 
     pub fn read_curr(&mut self, var: Var) -> Val {
@@ -325,7 +324,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         let val;
         if !self.func_data.sealed_blocks.contains(&block) {
             val = self.new_phi(block);
-            self.func_data.incomplete_phis.get_mut(&block).unwrap().insert(var, val);
+            self.func_data.incomplete_phis.entry(block).or_insert(map!()).insert(var, val);
         } else if self.func_data.blocks[&block].preds.len() == 1 {
             let pred = self.func_data.blocks[&block].preds_iter().nth(0).unwrap();
             val = self.read(pred, var);
@@ -403,17 +402,18 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     }
 
     pub fn new_phi(&mut self, block: Block) -> Val {
-        let val = self.gen_val();
-        self.func_data.vals.insert(val, Expr::Phi { block, vals: vec![] });
-        val
+        self.push_def(Expr::Phi { block, vals: vec![] })
     }
 
     pub fn seal_block(&mut self, block: Block) {
         for (var, val) in self.func_data.incomplete_phis[&block].clone() {
             self.add_phi_operands(var, val);
         }
-        assert!(self.func_data.sealed_blocks.insert(block));
+        if self.func_data.sealed_blocks.insert(block) {
+            panic!("{} already sealed", block)
+        }
     }
 
-    pub fn complete(self) {}
+    pub fn complete(mut self) {
+    }
 }
