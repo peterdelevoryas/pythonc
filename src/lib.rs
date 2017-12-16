@@ -22,8 +22,9 @@ pub mod liveness;
 pub mod graph;
 pub mod regalloc;
 pub mod cfg;
-pub mod vm;
 pub mod gas;
+pub mod ssa;
+pub mod vm;
 
 use flatten::Flatten;
 
