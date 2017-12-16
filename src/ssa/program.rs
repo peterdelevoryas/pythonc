@@ -49,6 +49,9 @@ impl Builder {
         let mut func_data = FuncData::new(&flat_function.args, is_main);
         {
             let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
+            for stmt in &flat_function.body {
+                builder.visit_stmt(stmt);
+            }
             builder.complete();
         }
 
@@ -81,6 +84,10 @@ impl fmt::Display for Program {
                 writeln!(f, "block {}:", block)?;
                 for inst in &block_data.body {
                     writeln!(f, "{}", fmt_indented(inst))?;
+                }
+                match block_data.term {
+                    Some(ref term) => writeln!(f, "{}", fmt_indented(term))?,
+                    None => writeln!(f, "!! no term")?,
                 }
             }
             writeln!(f, "}}")?;

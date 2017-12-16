@@ -24,3 +24,6 @@ mod bb;
 pub use self::bb::Block;
 pub use self::bb::BlockData;
 pub use self::bb::BlockGen;
+
+mod term;
+pub use self::term::Term;
