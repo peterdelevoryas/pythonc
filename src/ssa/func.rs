@@ -4,12 +4,18 @@ use ssa::BlockGen;
 use ssa::Val;
 use ssa::ValGen;
 use ssa::Expr;
+use ssa::Inst;
+use ssa::Rval;
+use ssa::Unary;
+use ssa::Binary;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use explicate::Var;
 use raise::Func as FlatFunc;
 use flatten::Function as FlatFunction;
 use flatten::Stmt as FlatStmt;
+use flatten::Expr as FlatExpr;
+use explicate as ex;
 
 impl_ref!(Func, "fn");
 
@@ -84,7 +90,106 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     pub fn visit_stmt(&mut self, flat_stmt: &FlatStmt) {
         use self::FlatStmt::*;
         match *flat_stmt {
+            Def(var, ref flat_expr) => {
+                let val = self.def_expr(flat_expr);
+                self.write_curr(var, val);
+            }
             _ => unimplemented!()
+        }
+    }
+
+    pub fn def_expr(&mut self, flat_expr: &FlatExpr) -> Val {
+        use self::FlatExpr::*;
+        match *flat_expr {
+            UnaryOp(op, var) => {
+                let opcode = op.into();
+                let val = self.read_curr(var);
+                let arg = Rval::Val(val);
+                self.push_def(Expr::Unary { opcode, arg })
+            }
+            BinOp(op, l, r) => {
+                let opcode = op.into();
+                let left = Rval::Val(self.read_curr(l));
+                let right = Rval::Val(self.read_curr(r));
+                self.push_def(Expr::Binary { opcode, left, right })
+            }
+            CallFunc(target, ref args) => {
+                let target = self.read_curr(target);
+                let args = args.iter().map(|&arg| Rval::Val(self.read_curr(arg))).collect();
+                self.push_def(Expr::CallIndirect { target, args })
+            }
+            RuntimeFunc(ref name, ref args) => {
+                let func = name.clone();
+                let args = args.iter().map(|&arg| Rval::Val(self.read_curr(arg))).collect();
+                self.push_def(Expr::Call { func, args })
+            }
+            GetTag(var) => {
+                let val = self.read_curr(var);
+                self.push_def(Expr::Binary {
+                    opcode: Binary::And,
+                    left: Rval::Val(val),
+                    right: Rval::Imm(ex::MASK),
+                })
+            }
+            ProjectTo(var, ty) => {
+                let arg = Rval::Val(self.read_curr(var));
+                let expr = match ty {
+                    ex::Ty::Int | ex::Ty::Bool => Expr::Binary {
+                        opcode: Binary::Shr,
+                        left: arg,
+                        right: Rval::Imm(ex::SHIFT),
+                    },
+                    ex::Ty::Big => Expr::Binary {
+                        opcode: Binary::And,
+                        left: arg,
+                        right: Rval::Imm(!ex::MASK),
+                    },
+                    _ => panic!("Cannot project {} to {}", var, ty)
+                };
+                self.push_def(expr)
+            }
+            InjectFrom(var, ty) => {
+                let arg = Rval::Val(self.read_curr(var));
+                let expr = match ty {
+                    ex::Ty::Int => {
+                        Expr::ShiftLeftThenOr {
+                            arg: arg,
+                            shift: ex::SHIFT,
+                            or: ex::INT_TAG,
+                        }
+                    }
+                    ex::Ty::Bool => {
+                        Expr::ShiftLeftThenOr {
+                            arg: arg,
+                            shift: ex::SHIFT,
+                            or: ex::BOOL_TAG,
+                        }
+                    }
+                    ex::Ty::Big => {
+                        Expr::Binary {
+                            opcode: Binary::Or,
+                            left: arg,
+                            right: Rval::Imm(ex::BIG_TAG),
+                        }
+                    }
+                    _ => panic!("Cannot inject {} from {}", var, ty),
+                };
+                self.push_def(expr)
+            }
+            Const(i) => {
+                self.push_def(Expr::Unary { opcode: Unary::Mov, arg: Rval::Imm(i) })
+            }
+            LoadFunctionPointer(flat_func) => {
+                let func = match self.flat_func_map.get(&flat_func) {
+                    Some(&func) => func,
+                    None => panic!("no flat func map entry for {}", flat_func)
+                };
+                self.push_def(Expr::MovFuncLabel { func })
+            }
+            Copy(var) => {
+                let val = Rval::Val(self.read_curr(var));
+                self.push_def(Expr::Unary { opcode: Unary::Mov, arg: val })
+            }
         }
     }
 
@@ -95,6 +200,24 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         self.func_data.defs.insert(block, map!());
 
         block
+    }
+
+    pub fn push_def(&mut self, expr: Expr) -> Val {
+        let def = self.gen_val();
+        let inst = Inst { def, expr };
+        let block = self.curr;
+        self.func_data.blocks.get_mut(&block).unwrap().body.push(inst);
+        def
+    }
+
+    pub fn read_curr(&mut self, var: Var) -> Val {
+        let block = self.curr;
+        self.read(block, var)
+    }
+
+    pub fn write_curr(&mut self, var: Var, val: Val) {
+        let block = self.curr;
+        self.write(block, var, val);
     }
 
     pub fn write(&mut self, block: Block, var: Var, val: Val) {

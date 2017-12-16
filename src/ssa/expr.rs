@@ -119,3 +119,24 @@ impl fmt::Display for Expr {
         }
     }
 }
+
+use flatten::UnaryOp;
+impl From<UnaryOp> for Unary {
+    fn from(op: UnaryOp) -> Unary {
+        match op {
+            UnaryOp::NEGATE => Unary::Neg,
+            UnaryOp::NOT => Unary::Not,
+        }
+    }
+}
+
+use flatten::BinOp;
+impl From<BinOp> for Binary {
+    fn from(op: BinOp) -> Binary {
+        match op {
+            BinOp::ADD => Binary::Add,
+            BinOp::EQ => Binary::Sete,
+            BinOp::NOTEQ => Binary::Setne,
+        }
+    }
+}

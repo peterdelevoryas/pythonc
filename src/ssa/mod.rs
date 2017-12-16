@@ -19,6 +19,8 @@ pub use self::func::Builder as FuncBuilder;
 
 mod expr;
 pub use self::expr::Expr;
+pub use self::expr::Unary;
+pub use self::expr::Binary;
 
 mod bb;
 pub use self::bb::Block;
