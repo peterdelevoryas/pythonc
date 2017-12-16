@@ -206,143 +206,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let module = cfg::Module::new(flattener);
-        if stop_stage == Stage::cfg {
-            return write_out(&module, out_path);
-        }
-
-        if stop_stage == Stage::liveness {
-            use std::io::Write;
-            let mut formatter = ::util::fmt::Formatter::new(Vec::new());
-            for (f, function) in &module.functions {
-                let liveness = cfg::Liveness::new(&function.cfg);
-                write!(formatter, "fun {}(", function.name)?;
-                if !function.args.is_empty() {
-                    let first = cfg::Formatted::new(&module, &function.args[0]);
-                    for arg in &function.args[1..] {
-                        write!(formatter, ", ")?;
-                        formatter.fmt(&cfg::Formatted::new(&module, arg))?;
-                    }
-                }
-                writeln!(formatter, ") {{")?;
-                formatter.fmt(&cfg::Formatted::new(&module, &liveness))?;
-                writeln!(formatter, "}}")?;
-            }
-            let s = String::from_utf8(formatter.into_inner()).unwrap();
-            return write_out(&s, out_path);
-        }
-
-        let vm = vm::Module::new(module);
-        if stop_stage == Stage::vm {
-            let s = {
-                let mut buf = Vec::new();
-                ::vm::util::write(&mut buf, &vm);
-                String::from_utf8(buf).unwrap()
-            };
-            return write_out(&s, out_path)
-        }
-
-
-
-        if stop_stage == Stage::ig {
-            let mut buf = Vec::new();
-            for (_, func) in &vm.funcs {
-                use std::io::Write;
-                writeln!(&mut buf, "interference for func {}:", func.name())?;
-                let ig = vm::interference::Graph::build(func);
-                writeln!(&mut buf, "edges:")?;
-                for (source, target, _) in ig.all_edges() {
-                    writeln!(&mut buf, "    {} <----> {}", source, target)?;
-                }
-            }
-            let s = String::from_utf8(buf).unwrap();
-            return write_out(&s, out_path)
-        }
-
-        // This is where SSA-form happens!
-        let mut vm = vm;
-        for (f, func) in &mut vm.funcs {
-            ::vm::convert_to_ssa2(func, &mut vm.vars);
-        }
-        if stop_stage == Stage::ssa {
-            let s = {
-                let mut buf = Vec::new();
-                ::vm::util::write(&mut buf, &vm);
-                String::from_utf8(buf).unwrap()
-            };
-            return write_out(&s, out_path);
-        }
-
         /*
-        if stop_stage == Stage::ssa {
-            for (_, func) in &vm.funcs {
-                let d = ::vm::ssa::compute_dominators(func);
-                println!("dominators for {}:", func.name());
-                let mut df = ::vm::ssa::DominanceFrontiers::new();
-                ::vm::ssa::compute_dominance_frontier(func.root().name.clone(), &d, func, &mut df);
-                for (b, df) in &df {
-                    print!("DF[{}] = {{", b);
-                    for b in df {
-                        print!("{}, ", b);
-                    }
-                    print!("}}");
-                    println!();
-                }
-
-                for (b, doms) in &d {
-                    
-                    print!("dominators for {}: ", b);
-                    for d in doms {
-                        print!("{}, ", d);
-                    }
-                    println!();
-
-                    if *b != func.root().name {
-                        println!("idom for {} = {}", b, ::vm::ssa::idom(&d, b.clone()));
-                    }
-                    let children = ::vm::ssa::children(b.clone(), &d, func);
-                    print!("children: ");
-                    for c in children {
-                        print!("{}, ", c);
-                    }
-                    println!();
-                }
-            }
-
-            unimplemented!();
-
-            let s = {
-                let mut buf = Vec::new();
-                ::vm::util::write(&mut buf, &vm);
-                String::from_utf8(buf).unwrap()
-            };
-            return write_out(&s, out_path);
-        }
-        */
-
-        let mut vm = vm;
-        for (_, func) in &mut vm.funcs {
-            func.allocate_registers(&mut vm.vars);
-        }
-        if stop_stage == Stage::reg {
-            let s = {
-                use std::io::Write;
-                let mut buf = Vec::new();
-                writeln!(&mut buf, "{}", vm)?;
-                String::from_utf8(buf).unwrap()
-            };
-            return write_out(&s, out_path)
-        }
-
-        if stop_stage == Stage::asm {
-            let s = {
-                let mut buf = Vec::new();
-                ::gas::write_gas(&mut buf, &vm);
-                String::from_utf8(buf).unwrap()
-            };
-            return write_out(&s, out_path)
-        }
-
         let obj_file = tempfile::NamedTempFile::new().chain_err(
             || "Could not create obj from assembly"
         )?;
@@ -366,6 +230,7 @@ impl Pythonc {
         emit_bin(obj_file.path(), &runtime, out_path)
             .chain_err(|| "Could not create binary from obj file")?;
         obj_file.close().chain_err(|| "Failed to close and remove obj file")?;
+        */
 
         Ok(())
     }
