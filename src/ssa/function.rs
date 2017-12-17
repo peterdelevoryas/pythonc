@@ -41,6 +41,11 @@ impl<'a> Builder<'a> {
     }
 
     pub fn build(self) -> FunctionData {
+        for (block, block_data) in &self.blocks {
+            if block_data.end.is_none() {
+                panic!("{} does not have a terminating branch intruction", block)
+            }
+        }
         FunctionData {
             is_main: self.is_main,
             params: self.params,
