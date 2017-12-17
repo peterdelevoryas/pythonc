@@ -59,8 +59,12 @@ impl Builder {
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (function, function_data) in &self.functions {
-            writeln!(f, "function {}({}) {{",
-                function, itertools::join(&function_data.params, ", "))?;
+            let args = itertools::join(&function_data.params, ", ");
+            if function_data.is_main {
+                writeln!(f, "function main({})", args)?;
+            } else {
+                writeln!(f, "function {}({})", function, args)?;
+            }
 
             for (block, block_data) in &function_data.blocks {
                 writeln!(f, "{}:", block)?;
