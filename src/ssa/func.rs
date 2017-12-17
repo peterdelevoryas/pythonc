@@ -18,7 +18,7 @@ use flatten::Stmt as FlatStmt;
 use flatten::Expr as FlatExpr;
 use explicate as ex;
 
-impl_ref!(Func, "fn");
+impl_ref!(Func, "f");
 
 pub struct FuncData {
     pub main: bool,
@@ -50,15 +50,24 @@ impl FuncData {
         defs.insert(root, map!());
         incomplete_phis.insert(root, map!());
 
-        let mut arg_vals = vec![];
-        for (position, &arg) in args.iter().enumerate() {
-            let val = val_gen.gen();
-            vals.insert(val, Expr::LoadParam { position });
-            defs.get_mut(&root)
-                .unwrap()
-                .insert(arg, val);
-            arg_vals.push(val);
-        }
+        let arg_vals = if !is_main {
+            let mut arg_vals = vec![];
+            for (position, &arg) in args.iter().enumerate() {
+                let val = val_gen.gen();
+                vals.insert(val, Expr::LoadParam { position });
+                defs.get_mut(&root)
+                    .unwrap()
+                    .insert(arg, val);
+                arg_vals.push(val);
+                blocks.get_mut(&root).unwrap()
+                    .body.push(val);
+            }
+            arg_vals
+        } else {
+            assert!(args.len() == 1);
+            vec![]
+        };
+
 
         FuncData {
             main: is_main,
@@ -145,6 +154,9 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 self.seal_block(if_entry);
 
                 let then_start = self.create_block();
+                let else_start = self.create_block();
+                self.term_block(if_entry, Term::Switch { cond, then: then_start, else_: else_start });
+
                 self.enter(then_start);
                 let then_end = self.fill_curr(then);
                 self.seal_block(then_start);
@@ -152,7 +164,6 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                     self.seal_block(then_end);
                 }
 
-                let else_start = self.create_block();
                 self.enter(else_start);
                 let else_end = self.fill_curr(else_);
                 self.seal_block(else_start);
@@ -160,7 +171,6 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                     self.seal_block(else_end);
                 }
 
-                self.term_block(if_entry, Term::Switch { cond, then: then_start, else_: else_start });
                 let if_exit = self.create_block();
                 self.term_block(then_end, Term::Goto { block: if_exit });
                 self.term_block(else_end, Term::Goto { block: if_exit });
@@ -329,14 +339,12 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     pub fn read_recursive(&mut self, block: Block, var: Var) -> Val {
         let val;
         if !self.func_data.sealed_blocks.contains(&block) {
-            println!("creating phi for {}", block);
             val = self.new_phi(block);
             self.func_data.incomplete_phis.entry(block).or_insert(map!()).insert(var, val);
         } else if self.func_data.blocks[&block].preds.len() == 1 {
             let pred = self.func_data.blocks[&block].preds_iter().nth(0).unwrap();
             val = self.read(pred, var);
         } else {
-            println!("creating phi for {}", block);
             let phi = self.new_phi(block);
             self.write(block, var, phi);
             val = self.add_phi_operands(var, phi);
@@ -395,14 +403,17 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         }
 
         let same = match same {
-            Some(same) => same,
+            Some(same) => {
+                self.func_data.vals.insert(phi, Expr::Unary { opcode: Unary::Mov, arg: Rval::Val(same) });
+                same
+            }
             None => {
                 let val = self.gen_val();
                 self.func_data.vals.insert(val, Expr::Undef);
                 val
             }
         };
-        unimplemented!()
+        same
     }
 
     pub fn gen_val(&mut self) -> Val {
@@ -416,13 +427,33 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         val
     }
 
+    pub fn is_sealed(&self, block: Block) -> bool {
+        self.func_data.sealed_blocks.contains(&block)
+    }
+
     pub fn seal_block(&mut self, block: Block) {
+        if self.func_data.root == block {
+            assert!(
+                self.func_data.blocks[&block].preds.is_empty(),
+                "Root block shouldn't have any predecessors"
+            );
+            assert!(self.is_sealed(block));
+            return;
+        }
+        assert!(
+            !self.func_data.blocks[&block].preds.is_empty(),
+            "There should always be at least one predecessor for a block that's being sealed!"
+        );
+        for pred in self.func_data.blocks[&block].preds_iter() {
+            assert!(
+                self.is_sealed(pred),
+                "Predecessors must be sealed before sealing successor!!"
+            );
+        }
         for (var, val) in self.func_data.incomplete_phis.entry(block).or_insert(map!()).clone() {
             self.add_phi_operands(var, val);
         }
-        if self.func_data.sealed_blocks.insert(block) {
-            println!("WARNING {} already sealed", block)
-        }
+        self.func_data.sealed_blocks.insert(block);
     }
 
     pub fn complete(mut self) {

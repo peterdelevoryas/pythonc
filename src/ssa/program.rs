@@ -80,14 +80,14 @@ impl fmt::Display for Program {
         use itertools::sorted;
 
         for (func, func_data) in &self.funcs {
-            writeln!(f, "fn {}({}) {{", func, join(&func_data.args, ", "))?;
+            writeln!(f, "func {}({}) {{", func, join(&func_data.args, ", "))?;
 
             let mut blocks: Vec<_> = func_data.blocks.clone().into_iter().collect();
             blocks.sort_by(|&(l, _), &(r, _)| {
                 l.inner().cmp(&r.inner())
             });
             for (block, block_data) in blocks {
-                writeln!(f, "block {}:", block)?;
+                writeln!(f, "{}:", block)?;
                 for val in &block_data.body {
                     writeln!(f, "    {} = {}", val, func_data.vals[val])?;
                 }
