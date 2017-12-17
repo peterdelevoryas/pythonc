@@ -66,6 +66,37 @@ pub enum Expr {
     Function(Function),
 }
 
+use std::collections::HashSet;
+impl Expr {
+    pub fn used_values(&self) -> HashSet<Value> {
+        match *self {
+            Expr::Unary { arg, .. } => set!(arg),
+            Expr::Binary { left, right, .. } => set!(left, right),
+            Expr::Call { ref args, .. } => args.iter().map(|&value| value).collect(),
+            Expr::ShiftLeftThenOr { arg, .. } => set!(arg),
+            Expr::Phi(ref phi) => phi.args.iter().map(|&value| value).collect(),
+            Expr::LoadParam { .. } |
+            Expr::Undef |
+            Expr::Const(_) |
+            Expr::Function(_) => set!(),
+        }
+    }
+
+    pub fn has_side_effects(&self) -> bool {
+        match *self {
+            Expr::Unary { .. } |
+            Expr::Binary { .. } |
+            Expr::ShiftLeftThenOr { .. } |
+            Expr::Undef |
+            Expr::Const(_) |
+            Expr::LoadParam { .. } |
+            Expr::Function(_) |
+            Expr::Phi(_) => false,
+            Expr::Call { .. } => true
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Phi {
     pub block: Block,

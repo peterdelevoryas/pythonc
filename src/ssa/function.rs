@@ -40,11 +40,83 @@ impl FunctionData {
         let mut change_made;
         loop {
             change_made = false;
+
+            let mut visited = HashSet::new();
+            let mut used_values = HashSet::new();
+            for block in self.exit_blocks() {
+                let c = self.remove_unused_values_block(block, &mut visited, &mut used_values);
+                change_made |= c;
+            }
+
             if !change_made {
                 break;
             }
         }
     }
+
+    /// Returns "changes made"
+    fn remove_unused_values_block(&mut self,
+                                  block: Block,
+                                  visited: &mut HashSet<Block>,
+                                  used_values: &mut HashSet<Value>) -> bool
+    {
+        if visited.contains(&block) {
+            return false;
+        }
+        match *self.block(block).end.as_ref().unwrap() {
+            Branch::Ret(ref ret) => {
+                if let Some(value) = ret.value {
+                    used_values.insert(value);
+                }
+            }
+            Branch::Jmp(ref jmp) => {}
+            Branch::Jnz(ref jnz) => {
+                used_values.insert(jnz.cond);
+            }
+        }
+
+        let mut trimmed = vec![];
+        let body = mem::replace(&mut self.block_mut(block).body, vec![]);
+        for &value in body.iter().rev() {
+            if used_values.contains(&value) || self.values[value].has_side_effects() {
+                trimmed.push(value);
+            }
+            let used = self.values[value].used_values();
+            used_values.extend(used);
+        }
+
+        trimmed.reverse();
+        let mut changes_made = trimmed.len() < body.len();
+        self.block_mut(block).body = trimmed;
+
+        for pred in self.block(block).predecessors.clone() {
+            let c = self.remove_unused_values_block(pred, visited, used_values);
+            changes_made |= c;
+        }
+
+        changes_made
+    }
+
+    /// Set of blocks that have return branches (ends of control flow graph)
+    pub fn exit_blocks(&self) -> HashSet<Block> {
+        let mut blocks = HashSet::new();
+        for (block, block_data) in &self.blocks {
+            if let Branch::Ret(_) = *block_data.end.as_ref().unwrap() {
+                blocks.insert(block);
+            }
+        }
+        blocks
+    }
+
+    pub fn block(&self, block: Block) -> &BlockData {
+        &self.blocks[block]
+    }
+
+    pub fn block_mut(&mut self, block: Block) -> &mut BlockData {
+        &mut self.blocks[block]
+    }
+
+
 }
 
 pub struct Builder<'a> {
