@@ -23,10 +23,10 @@ pub use self::expr::Unary;
 pub use self::expr::Binary;
 pub use self::expr::CallTarget;
 
-mod bb;
-pub use self::bb::Block;
-pub use self::bb::BlockData;
-pub use self::bb::BlockGen;
+mod block;
+pub use self::block::Block;
+pub use self::block::BlockData;
+pub use self::block::BlockGen;
 
 mod term;
 pub use self::term::Term;

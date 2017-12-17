@@ -4,7 +4,7 @@ use ssa::Val;
 use std::collections::HashSet;
 use std::iter;
 
-impl_ref!(Block, "bb");
+impl_ref!(Block, "block");
 
 #[derive(Clone)]
 pub struct BlockData {
