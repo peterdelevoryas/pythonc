@@ -31,7 +31,38 @@ impl LiveSets {
             (gens, kills)
         };
 
-        unimplemented!()
+        let mut in_: HashMap<Block, LiveSet> = HashMap::new();
+        let mut out: HashMap<Block, LiveSet> = HashMap::new();
+        for (b, _) in &function.blocks {
+            in_.insert(b, set!());
+            out.insert(b, set!());
+        }
+
+        loop {
+            let mut change_made = false;
+            for n in function.reverse_order() {
+                let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
+                if in_n != in_[&n] {
+                    change_made |= true;
+                    in_.insert(n, in_n);
+                }
+
+                let mut out_n = LiveSet::new();
+                for s in function.block(n).successors() {
+                    out_n.extend(in_[&s].clone());
+                }
+                if out_n != out[&n] {
+                    change_made |= true;
+                    out.insert(n, out_n);
+                }
+            }
+            
+            if !change_made {
+                break;
+            }
+        }
+
+        LiveSets { gens, kills, in_, out }
     }
 }
 

@@ -108,6 +108,30 @@ impl FunctionData {
         blocks
     }
 
+    pub fn reverse_order(&self) -> Vec<Block> {
+        let mut blocks = Vec::new();
+        let mut visited = set!();
+        for block in self.exit_blocks() {
+            self.reverse_order_blocks(block, &mut visited, &mut blocks);
+        }
+        blocks
+    }
+
+    fn reverse_order_blocks(&self,
+                            block: Block,
+                            visited: &mut HashSet<Block>,
+                            blocks: &mut Vec<Block>)
+    {
+        if visited.contains(&block) {
+            return;
+        }
+        blocks.push(block);
+        visited.insert(block);
+        for pred in self.block(block).predecessors.clone() {
+            self.reverse_order_blocks(pred, visited, blocks);
+        }
+    }
+
     pub fn block(&self, block: Block) -> &BlockData {
         &self.blocks[block]
     }

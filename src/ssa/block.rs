@@ -24,4 +24,12 @@ impl BlockData {
             predecessors: HashSet::new(),
         }
     }
+
+    pub fn successors(&self) -> HashSet<Block> {
+        match *self.end.as_ref().unwrap() {
+            Branch::Ret(ref ret) => set!(),
+            Branch::Jmp(ref jmp) => set!(jmp.destination),
+            Branch::Jnz(ref jnz) => set!(jnz.jnz, jnz.jmp),
+        }
+    }
 }

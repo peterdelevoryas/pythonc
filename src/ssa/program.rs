@@ -65,6 +65,8 @@ impl fmt::Display for Program {
             } else {
                 writeln!(f, "function {}({})", function, args)?;
             }
+            writeln!(f, "reverse order: {}",
+                     itertools::join(&function_data.reverse_order(), ", "))?;
 
             for (block, block_data) in &function_data.blocks {
                 writeln!(f, "{}:", block)?;
