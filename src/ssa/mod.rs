@@ -38,6 +38,11 @@ pub use self::block::BlockData;
 pub use self::block::BlockMap;
 
 mod liveness;
+pub use self::liveness::LiveSets;
+pub use self::liveness::LiveSet;
+pub use self::liveness::LiveVal;
+
+mod solver;
 
 /*
 mod instruction;

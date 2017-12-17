@@ -3,6 +3,7 @@ use reg::*;
 use stack::Slot;
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LiveVal {
@@ -38,23 +39,39 @@ impl LiveSets {
             out.insert(b, set!());
         }
 
+        let exit_blocks = function.exit_blocks();
         loop {
+            for (b, set) in &in_ {
+                println!("{} in  = {}", b, ::itertools::join(set, ", "));
+            }
+            for (b, set) in &out {
+                println!("{} out = {}", b, ::itertools::join(set, ", "));
+            }
+
             let mut change_made = false;
             for n in function.reverse_order() {
-                let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
-                if in_n != in_[&n] {
-                    change_made |= true;
-                    in_.insert(n, in_n);
-                }
-
                 let mut out_n = LiveSet::new();
                 for s in function.block(n).successors() {
                     out_n.extend(in_[&s].clone());
                 }
+                println!("out[{}] = ({})", n,
+                         ::itertools::join(function.block(n).successors().into_iter().map(|s| 
+                                                                                          ::itertools::join(&in_[&s], ", "))
+                                           , " | "));
+
                 if out_n != out[&n] {
                     change_made |= true;
-                    out.insert(n, out_n);
                 }
+                out.insert(n, out_n);
+
+                println!("in[{}] = ({}) | (({}) - ({}))", n, ::itertools::join(&gens[&n], ", "),
+                         ::itertools::join(&out[&n], ", "),
+                         ::itertools::join(&kills[&n], ", "));
+                let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
+                if in_n != in_[&n] {
+                    change_made |= true;
+                }
+                in_.insert(n, in_n);
             }
             
             if !change_made {
@@ -123,6 +140,16 @@ pub fn defs(expr: &Expr) -> LiveSet {
 
         Expr::Call { .. } => {
             ::reg::caller_save().into_iter().map(LiveVal::Reg).collect()
+        }
+    }
+}
+
+impl fmt::Display for LiveVal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            LiveVal::Reg(r) => write!(f, "{}", r),
+            LiveVal::Value(v) => write!(f, "{}", v),
+            LiveVal::Stack(s) => write!(f, "{}", s),
         }
     }
 }

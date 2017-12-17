@@ -56,6 +56,8 @@ impl Builder {
     }
 }
 
+use ssa::LiveSets;
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (function, function_data) in &self.functions {
@@ -67,10 +69,23 @@ impl fmt::Display for Program {
             }
             writeln!(f, "reverse order: {}",
                      itertools::join(&function_data.reverse_order(), ", "))?;
+            let livesets = LiveSets::new(&function_data);
+            for b in function_data.reverse_order().into_iter().rev() {
+                let in_ = &livesets.in_[&b];
+                let out = &livesets.out[&b];
+                let gens = &livesets.gens[&b];
+                let kills = &livesets.kills[&b];
+                writeln!(f, "{}:", b)?;
+                writeln!(f, "   in    ({})", itertools::join(in_, ", "))?;
+                writeln!(f, "   out   ({})", itertools::join(out, ", "))?;
+                writeln!(f, "   gens  ({})", itertools::join(gens, ", "))?;
+                writeln!(f, "   kills ({})", itertools::join(kills, ", "))?;
+                writeln!(f, "   preds ({})", itertools::join(&function_data.block(b).predecessors, ", "))?;
+            }
+            writeln!(f)?;
 
             for (block, block_data) in &function_data.blocks {
                 writeln!(f, "{}:", block)?;
-                writeln!(f, "{}.predecessors: ({})", block, itertools::join(&block_data.predecessors, ", "))?;
                 for &value in &block_data.body {
                     writeln!(f, "    {} = {}", value, function_data.values[value])?;
                 }
