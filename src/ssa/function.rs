@@ -75,6 +75,14 @@ impl<'a> Builder<'a> {
         self.values.insert(expr)
     }
 
+    pub fn value(&self, value: Value) -> &Expr {
+        &self.values[value]
+    }
+
+    pub fn value_mut(&mut self, value: Value) -> &mut Expr {
+        &mut self.values[value]
+    }
+
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {
         self.defs.get_mut(&block).unwrap().insert(var, value);
         self.block_mut(block).body.push(value);
@@ -108,7 +116,56 @@ impl<'a> Builder<'a> {
         value
     }
 
+    fn phi(&self, phi: Value) -> &Phi {
+        match *self.value(phi) {
+            Expr::Phi(ref phi) => phi,
+            ref expr => panic!("non-phi value: {}", expr),
+        }
+    }
+
+    fn phi_mut(&mut self, phi: Value) -> &mut Phi {
+        match *self.value_mut(phi) {
+            Expr::Phi(ref mut phi) => phi,
+            ref expr => panic!("non-phi value: {}", expr),
+        }
+    }
+
     pub fn add_phi_operands(&mut self, var: Var, phi: Value) -> Value {
+        let phi_block = self.phi(phi).block;
+        let predecessors = self.predecessors(phi_block).clone().into_iter();
+        for pred in predecessors {
+            let value = self.use_var(pred, var);
+            self.phi_mut(phi).push(value);
+        }
+
+        self.try_remove_trivial_phi(phi)
+    }
+
+    pub fn try_remove_trivial_phi(&mut self, phi: Value) -> Value {
+        let mut same = None;
+        for &arg in &self.phi(phi).args {
+            // if the arg is the same arg we saw before, or the phi itself,
+            // we continue (ie, possibly trivial)
+            if Some(arg) == same || arg == phi {
+                continue
+            }
+            // if arg is not the same and not phi, then non-trivial, return
+            if same != None {
+                return phi
+            }
+            // save this arg to check for duplicates on next arg
+            same = Some(arg);
+        }
+        // no args, or arg == phi
+        if same == None {
+            panic!("phi value {} is undefined!", phi)
+        }
+        let users = self.replace_phi(phi, same);
+        unimplemented!()
+    }
+
+    // Returns the users that were themselves phi's
+    fn replace_phi(&mut self, phi: Value, same: Value) -> HashSet<Value> {
         unimplemented!()
     }
 

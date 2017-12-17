@@ -77,6 +77,10 @@ impl Phi {
             args: Vec::new(),
         }
     }
+
+    pub fn push(&mut self, value: Value) {
+        self.args.push(value);
+    }
 }
 
 pub struct Builder<'a> {
