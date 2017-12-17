@@ -159,7 +159,24 @@ impl<'a> Builder<'a> {
                 let value = self.use_var(block, var);
                 self.get_tag(block, value)
             }
-            _ => unimplemented!()
+            ProjectTo(var, ty) => {
+                let value = self.use_var(block, var);
+                self.project_to(block, value, ty)
+            }
+            InjectFrom(var, ty) => {
+                let value = self.use_var(block, var);
+                self.inject_from(block, value, ty)
+            }
+            Const(i) => {
+                Expr::Const(i)
+            }
+            LoadFunctionPointer(raise_func) => {
+                let function = self.program.function(raise_func);
+                Expr::Function(function)
+            }
+            Copy(var) => {
+                return self.use_var(block, var)
+            }
         };
         self.create_value(block, expr)
     }
@@ -221,6 +238,75 @@ impl<'a> Builder<'a> {
                     right: mask,
                 }
             },
+        }
+    }
+
+    pub fn project_to(&mut self, block: Block,
+                      value: Value, ty: ex::Ty) -> Expr
+    {
+        use explicate::Ty::*;
+        match self.values[value] {
+            Expr::Const(i) => {
+                match ty {
+                    Int | Bool => Expr::Const(i >> ex::SHIFT),
+                    Big => Expr::Const(i & (!ex::MASK)),
+                    _ => panic!()
+                }
+            }
+            _ => {
+                match ty {
+                    Int | Bool => Expr::Binary {
+                        opcode: Binary::Shr,
+                        left: value,
+                        right: self.create_value(block,
+                                                 Expr::Const(ex::SHIFT)),
+                    },
+                    Big => Expr::Binary {
+                        opcode: Binary::And,
+                        left: value,
+                        right: self.create_value(block,
+                                                 Expr::Const(!ex::MASK)),
+                    },
+                    _ => panic!()
+                }
+            }
+        }
+    }
+
+    pub fn inject_from(&mut self, block: Block,
+                       value: Value, ty: ex::Ty) -> Expr
+    {
+        use explicate::Ty::*;
+        match self.values[value] {
+            Expr::Const(i) => {
+                match ty {
+                    Int => Expr::Const((i << ex::SHIFT) | ex::INT_TAG),
+                    Bool => Expr::Const((i << ex::SHIFT) | ex::BOOL_TAG),
+                    Big => Expr::Const(i | ex::BIG_TAG),
+                    _ => panic!()
+                }
+            }
+            _ => {
+                match ty {
+                    Int => Expr::ShiftLeftThenOr {
+                        arg: value,
+                        shift: ex::SHIFT,
+                        or: ex::INT_TAG,
+                    },
+                    Bool => Expr::ShiftLeftThenOr {
+                        arg: value,
+                        shift: ex::SHIFT,
+                        or: ex::BOOL_TAG,
+                    },
+                    Big => Expr::Binary {
+                        opcode: Binary::Or,
+                        left: value,
+                        right: self.create_value(block,
+                                                 Expr::Const(ex::BIG_TAG)),
+                    },
+                    _ => panic!(),
+                }
+            }
         }
     }
 
