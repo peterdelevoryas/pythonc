@@ -9,12 +9,16 @@ use ssa::BlockData;
 use ssa::Block;
 use ssa::Phi;
 use ssa::Branch;
+use ssa::Jmp;
+use ssa::Ret;
+use ssa::Jnz;
 use ssa::Unary;
 use ssa::Binary;
 use ssa::CallTarget;
 use explicate::Var;
 use std::mem;
 use flatten::Expr as FlatExpr;
+use flatten::Stmt as FlatStmt;
 use explicate as ex;
 
 impl_ref!(Function, "f");
@@ -101,6 +105,80 @@ impl<'a> Builder<'a> {
             mem::replace(&mut self.block_mut(block).end,
             Some(branch)).is_none()
         );
+        // Now get the successors and add block to predecessors
+        for successor in self.successors(block) {
+            self.block_mut(block).predecessors.insert(block);
+        }
+    }
+
+    pub fn eval_flat_stmts(&mut self, mut current_block: Block, stmts: &[FlatStmt]) -> Block {
+        for stmt in stmts {
+            use flatten::Stmt::*;
+            match *stmt {
+                Def(var, ref expr) => {
+                    let value = self.eval_flat_expr(current_block, expr);
+                    self.def_var(current_block, var, value);
+                }
+                Discard(ref expr) => {
+                    let _ = self.eval_flat_expr(current_block, expr);
+                }
+                Return(ref var) => {
+                    let value = if let Some(var) = *var {
+                        Some(self.use_var(current_block, var))
+                    } else { None };
+                    self.end_block(current_block, ::ssa::Ret { value });
+                    break;
+                }
+                While(var, ref header, ref body) => {
+                    let before_while = current_block;
+                    // previous blocks will not be returned to
+                    self.seal_block(before_while);
+                    let header_entry = self.create_block();
+                    self.end_block(before_while, Jmp { destination: header_entry });
+                    // cannot seal header_entry, because while loop will go back to it
+
+                    let header_exit = self.eval_flat_stmts(header_entry, header);
+                    if header_exit != header_entry {
+                        self.seal_block(header_exit);
+                    }
+
+                    let body_entry = self.create_block();
+                    let after_while = self.create_block();
+                    let cond = self.use_var(header_exit, var);
+                    self.end_block(header_exit, Jnz { cond, jnz: body_entry, jmp: after_while });
+                    self.seal_block(body_entry);
+                    self.seal_block(after_while);
+                    let body_exit = self.eval_flat_stmts(body_entry, body);
+                    if body_exit != body_entry {
+                        self.seal_block(body_exit);
+                    }
+                    self.end_block(header_exit, Jmp { destination: header_entry });
+                    self.seal_block(header_entry);
+                    current_block = after_while;
+                }
+                If(cond, ref then, ref else_) => {
+                    let before_if = current_block;
+                    self.seal_block(before_if);
+                    let then_entry = self.create_block();
+                    let else_entry = self.create_block();
+                    let cond = self.use_var(before_if, cond);
+                    self.end_block(before_if, Jnz { cond, jnz: then_entry, jmp: else_entry });
+                    self.seal_block(then_entry);
+                    self.seal_block(else_entry);
+                    let then_exit = self.eval_flat_stmts(then_entry, then);
+                    self.seal_block(then_exit);
+                    let else_exit = self.eval_flat_stmts(else_entry, else_);
+                    self.seal_block(else_exit);
+                    let after_if = self.create_block();
+                    self.end_block(then_exit, Jmp { destination: after_if });
+                    self.end_block(else_exit, Jmp { destination: after_if });
+                    self.seal_block(after_if);
+                    current_block = after_if;
+                }
+            }
+        }
+
+        current_block
     }
 
     pub fn eval_flat_expr(&mut self,
@@ -448,6 +526,14 @@ impl<'a> Builder<'a> {
 
     pub fn predecessors(&self, block: Block) -> &HashSet<Block> {
         &self.block(block).predecessors
+    }
+
+    pub fn successors(&self, block: Block) -> HashSet<Block> {
+        match *self.block(block).end.as_ref().unwrap() {
+            Branch::Ret(ref ret) => set!(),
+            Branch::Jmp(ref jmp) => set!(jmp.destination),
+            Branch::Jnz(ref jnz) => set!(jnz.jnz, jnz.jmp),
+        }
     }
 
     pub fn build(self) -> FunctionData {
