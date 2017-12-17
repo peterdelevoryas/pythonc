@@ -403,7 +403,7 @@ fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
 
             // create a load def for each function parameter
             for (position, &var) in flat_function.args.iter().enumerate() {
-                let value = function_builder.create_value(Expr::LoadParam { position });
+                let value = function_builder.create_value(block0, Expr::LoadParam { position });
                 function_builder.def_var(block0, var, value);
             }
 

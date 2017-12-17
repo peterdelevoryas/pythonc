@@ -15,6 +15,7 @@ use ssa::CallTarget;
 use explicate::Var;
 use std::mem;
 use flatten::Expr as FlatExpr;
+use explicate as ex;
 
 impl_ref!(Function, "f");
 pub type FunctionGen = Gen;
@@ -77,8 +78,10 @@ impl<'a> Builder<'a> {
         unimplemented!()
     }
 
-    pub fn create_value(&mut self, expr: Expr) -> Value {
-        self.values.insert(expr)
+    pub fn create_value(&mut self, block: Block, expr: Expr) -> Value {
+        let value = self.values.insert(expr);
+        self.block_mut(block).body.push(value);
+        value
     }
 
     pub fn value(&self, value: Value) -> &Expr {
@@ -152,9 +155,13 @@ impl<'a> Builder<'a> {
                     .collect();
                 self.call(target, args)
             }
+            GetTag(var) => {
+                let value = self.use_var(block, var);
+                self.get_tag(block, value)
+            }
             _ => unimplemented!()
         };
-        self.create_value(expr)
+        self.create_value(block, expr)
     }
 
     pub fn unary(&mut self, opcode: Unary, value: Value) -> Expr {
@@ -203,9 +210,22 @@ impl<'a> Builder<'a> {
         Expr::Call { target, args }
     }
 
+    pub fn get_tag(&mut self, block: Block, value: Value) -> Expr {
+        match self.values[value] {
+            Expr::Const(i) => Expr::Const(i & ex::MASK),
+            _ => {
+                let mask = self.create_value(block, Expr::Const(ex::MASK));
+                Expr::Binary {
+                    opcode: Binary::And,
+                    left: value,
+                    right: mask,
+                }
+            },
+        }
+    }
+
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {
         self.defs.get_mut(&block).unwrap().insert(var, value);
-        self.block_mut(block).body.push(value);
     }
 
     pub fn use_var(&mut self, block: Block, var: Var) -> Value {
@@ -221,14 +241,14 @@ impl<'a> Builder<'a> {
         // we seal the block, we will fix-up the phi function with
         // the correct value).
         let value = if !self.is_sealed(block) {
-            let phi = self.create_value(Expr::Phi(Phi::new(block)));
+            let phi = self.create_value(block, Expr::Phi(Phi::new(block)));
             self.incomplete_phis.insert(phi);
             phi
         } else if self.predecessors(block).len() == 1 {
             let &pred = self.predecessors(block).iter().nth(0).unwrap();
             self.use_var(pred, var)
         } else {
-            let phi = self.create_value(Expr::Phi(Phi::new(block)));
+            let phi = self.create_value(block, Expr::Phi(Phi::new(block)));
             self.def_var(block, var, phi);
             self.add_phi_operands(var, phi)
         };
