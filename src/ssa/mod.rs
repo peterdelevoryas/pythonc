@@ -23,6 +23,7 @@ pub use self::expr::Expr;
 pub use self::expr::Unary;
 pub use self::expr::Binary;
 pub use self::expr::CallTarget;
+pub use self::expr::Phi;
 pub use self::expr::Builder as ExprBuilder;
 
 mod branch;

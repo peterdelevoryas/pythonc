@@ -70,6 +70,15 @@ pub struct Phi {
     pub args: Vec<Value>,
 }
 
+impl Phi {
+    pub fn new(block: Block) -> Phi {
+        Phi {
+            block: block,
+            args: Vec::new(),
+        }
+    }
+}
+
 pub struct Builder<'a> {
     block: &'a mut BlockData,
 }
@@ -130,6 +139,7 @@ impl fmt::Display for Expr {
             Undef => {
                 write!(f, "undefined")
             }
+            Const(i) => write!(f, "${}", i),
         }
     }
 }

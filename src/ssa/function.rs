@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use ssa::ProgramBuilder;
 use ssa::Value;
 use ssa::ValueMap;
@@ -6,6 +7,7 @@ use ssa::Expr;
 use ssa::BlockMap;
 use ssa::BlockData;
 use ssa::Block;
+use ssa::Phi;
 use explicate::Var;
 
 impl_ref!(Function, "f");
@@ -27,6 +29,8 @@ pub struct Builder<'a> {
     is_main: bool,
     defs: HashMap<Block, HashMap<Var, Value>>,
     blocks: BlockMap<BlockData>,
+    sealed: HashSet<Block>,
+    incomplete_phis: HashSet<Value>,
 }
 
 impl<'a> Builder<'a> {
@@ -38,6 +42,8 @@ impl<'a> Builder<'a> {
             values: ValueMap::new(),
             defs: HashMap::new(),
             blocks: BlockMap::new(),
+            sealed: HashSet::new(),
+            incomplete_phis: HashSet::new(),
         }
     }
 
@@ -55,7 +61,9 @@ impl<'a> Builder<'a> {
 
     pub fn create_block(&mut self) -> Block {
         let block = BlockData::new();
-        self.blocks.insert(block)
+        let block = self.blocks.insert(block);
+        self.defs.insert(block, HashMap::new());
+        block
     }
 
     /// All predecessors of `block` are known
@@ -68,8 +76,48 @@ impl<'a> Builder<'a> {
     }
 
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {
-        self.defs.entry(block).or_insert(HashMap::new()).insert(var, value);
+        self.defs.get_mut(&block).unwrap().insert(var, value);
         self.block_mut(block).body.push(value);
+    }
+
+    pub fn use_var(&mut self, block: Block, var: Var) -> Value {
+        if self.defs[&block].contains_key(&var) {
+            return self.defs[&block][&var];
+        }
+        self.use_var_recursive(block, var)
+    }
+
+    fn use_var_recursive(&mut self, block: Block, var: Var) -> Value {
+        // if block not sealed, then we do not try to read from it,
+        // placing a phi function temporarily (and then later, when
+        // we seal the block, we will fix-up the phi function with
+        // the correct value).
+        let value = if !self.is_sealed(block) {
+            let phi = self.create_value(Expr::Phi(Phi::new(block)));
+            self.incomplete_phis.insert(phi);
+            phi
+        } else if self.predecessors(block).len() == 1 {
+            let &pred = self.predecessors(block).iter().nth(0).unwrap();
+            self.use_var(pred, var)
+        } else {
+            let phi = self.create_value(Expr::Phi(Phi::new(block)));
+            self.def_var(block, var, phi);
+            self.add_phi_operands(var, phi)
+        };
+        self.def_var(block, var, value);
+        value
+    }
+
+    pub fn add_phi_operands(&mut self, var: Var, phi: Value) -> Value {
+        unimplemented!()
+    }
+
+    pub fn is_sealed(&self, block: Block) -> bool {
+        self.sealed.contains(&block)
+    }
+
+    pub fn predecessors(&self, block: Block) -> &HashSet<Block> {
+        &self.block(block).predecessors
     }
 
     pub fn build(self) -> FunctionData {
