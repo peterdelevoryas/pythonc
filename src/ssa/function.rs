@@ -180,10 +180,26 @@ impl<'a> Builder<'a> {
                 }
                 If(cond, ref then, ref else_) => {
                     let before_if = current_block;
+                    let cond = self.use_var(before_if, cond);
+
+                    if let Expr::Const(i) = self.values[cond] {
+                        let body = if i != 0 { then } else { else_ };
+                        self.seal_block(before_if);
+                        let body_entry = self.create_block();
+                        self.end_block(before_if, Jmp { destination: body_entry });
+                        self.seal_block(body_entry);
+                        let body_exit = self.eval_flat_stmts(body_entry, body);
+                        self.seal_block(body_exit);
+                        let after_if = self.create_block();
+                        self.end_block(body_exit, Jmp { destination: after_if });
+                        self.seal_block(after_if);
+                        current_block = after_if;
+                        continue
+                    }
+
                     self.seal_block(before_if);
                     let then_entry = self.create_block();
                     let else_entry = self.create_block();
-                    let cond = self.use_var(before_if, cond);
                     self.end_block(before_if, Jnz { cond, jnz: then_entry, jmp: else_entry });
                     self.seal_block(then_entry);
                     self.seal_block(else_entry);
