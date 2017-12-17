@@ -115,8 +115,6 @@ impl FunctionData {
     pub fn block_mut(&mut self, block: Block) -> &mut BlockData {
         &mut self.blocks[block]
     }
-
-
 }
 
 pub struct Builder<'a> {

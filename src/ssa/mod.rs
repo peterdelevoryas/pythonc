@@ -37,6 +37,8 @@ pub use self::block::Block;
 pub use self::block::BlockData;
 pub use self::block::BlockMap;
 
+mod liveness;
+
 /*
 mod instruction;
 pub use self::instruction::Inst;

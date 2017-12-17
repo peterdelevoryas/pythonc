@@ -25,6 +25,8 @@ pub mod cfg;
 pub mod gas;
 pub mod ssa;
 pub mod vm;
+pub mod reg;
+pub mod stack;
 
 use flatten::Flatten;
 
