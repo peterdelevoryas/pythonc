@@ -25,7 +25,7 @@ pub struct FuncData {
     /// Is this the main function?
     pub main: bool,
     /// Root block identifier (no predecessors, start of program)
-    pub root: Block,
+    pub root: Option<Block>,
     /// List of Val's that are arguments to the function.
     /// `vals` will contain <Val> => LoadParam { position } for each of these.
     pub args: Vec<Val>,
@@ -47,14 +47,21 @@ pub struct FuncData {
 pub type FuncGen = Gen;
 
 impl FuncData {
-    pub fn new(args: &[Var], is_main: bool) -> FuncData {
-        let mut block_gen = BlockGen::new();
-        let mut blocks = map!();
-        let mut defs = map!();
-        let mut vals = map!();
-        let mut val_gen = ValGen::new();
-        let mut incomplete_phis = map!();
-
+    pub fn new() -> FuncData {
+        FuncData {
+            main: false,
+            root: None,
+            args: vec![],
+            block_gen: BlockGen::new(),
+            blocks: map!(),
+            sealed_blocks: set!(),
+            defs: map!(),
+            vals: map!(),
+            val_gen: ValGen::new(),
+            incomplete_phis: map!(),
+        }
+    }
+    /*
         let root = block_gen.gen();
         let root_data = BlockData::new();
         blocks.insert(root, root_data);
@@ -93,19 +100,52 @@ impl FuncData {
             incomplete_phis: incomplete_phis,
         }
     }
+    */
 }
 
+/// XXX This is a terrible design for a builder. I wanted to try something
+/// a little different, and I thought constructing an initial FuncData and
+/// then modifying it iteratively would reduce code duplication, but it
+/// just increases it or makes it more difficult to do things properly,
+/// and to reason about the state.
 pub struct Builder<'flat_func_map, 'func_data> {
     pub flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>,
     pub func_data: &'func_data mut FuncData,
-    pub curr: Block,
+    pub curr: Option<Block>,
 }
 
 impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
-    pub fn new(flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>, func_data: &'func_data mut FuncData) -> Self
+    pub fn new(flat_func_map: &'flat_func_map HashMap<FlatFunc, Func>,
+               func_data: &'func_data mut FuncData) -> Self
     {
-        let curr = func_data.root;
-        Builder { flat_func_map, func_data, curr }
+        Builder { flat_func_map, func_data, curr: None }
+    }
+
+    pub fn curr_block(&self) -> Block {
+        self.curr.unwrap()
+    }
+
+    pub fn switch_to_block(&mut self, block: Block) {
+        self.curr = Some(block);
+    }
+
+    pub fn block(&self, block: Block) -> &BlockData {
+        &self.func_data.blocks[&block]
+    }
+
+    pub fn block_mut(&mut self, block: Block) -> &mut BlockData {
+        self.func_data.blocks.get_mut(&block).unwrap()
+    }
+
+    pub fn root(&self) -> &BlockData {
+        self.block(self.func_data.root.unwrap())
+    }
+
+    pub fn set_root(&mut self, root: Block) {
+        assert!(self.is_sealed(root));
+        assert!(self.predecessors(root).is_empty());
+        assert!(self.func_data.root.is_none());
+        self.func_data.root = Some(root);
     }
 
     /// Returns true if block is terminated by a return (and we can
@@ -124,18 +164,18 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 // because there a var def to write.
             }
             Return(ref var) => {
-                let curr = self.curr;
+                let curr = self.curr_block();
                 let ret = var.as_ref().map(|&var| self.read_curr(var));
                 self.term_block(curr, Term::Ret { ret });
                 return true;
             }
             While(cond, ref header, ref body) => {
-                let while_entry = self.curr;
+                let while_entry = self.curr_block();
                 self.seal_block(while_entry);
 
                 let header_start = self.create_block();
                 self.term_block(while_entry, Term::Goto { block: header_start });
-                self.enter(header_start);
+                self.switch_to_block(header_start);
 
                 let header_end = self.fill_curr(header);
 
@@ -148,7 +188,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 let after_while = self.create_block();
                 self.term_block(header_end, Term::Switch { cond, then: body_start, else_: after_while });
 
-                self.enter(body_start);
+                self.switch_to_block(body_start);
                 let body_end = self.fill_curr(body);
                 self.seal_block(body_start);
                 self.term_block(body_end, Term::Goto { block: header_start });
@@ -156,13 +196,13 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                     self.seal_block(body_end);
                 }
 
-                self.enter(header_start);
+                self.switch_to_block(header_start);
                 self.seal_block(header_start);
 
-                self.enter(after_while);
+                self.switch_to_block(after_while);
             }
             If(cond, ref then, ref else_) => {
-                let if_entry = self.curr;
+                let if_entry = self.curr_block();
                 let cond = self.read_curr(cond);
                 self.seal_block(if_entry);
 
@@ -170,14 +210,14 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 let else_start = self.create_block();
                 self.term_block(if_entry, Term::Switch { cond, then: then_start, else_: else_start });
 
-                self.enter(then_start);
+                self.switch_to_block(then_start);
                 let then_end = self.fill_curr(then);
                 self.seal_block(then_start);
                 if then_start != then_end {
                     self.seal_block(then_end);
                 }
 
-                self.enter(else_start);
+                self.switch_to_block(else_start);
                 let else_end = self.fill_curr(else_);
                 self.seal_block(else_start);
                 if else_start != else_end {
@@ -187,7 +227,7 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 let if_exit = self.create_block();
                 self.term_block(then_end, Term::Goto { block: if_exit });
                 self.term_block(else_end, Term::Goto { block: if_exit });
-                self.enter(if_exit);
+                self.switch_to_block(if_exit);
             }
         }
 
@@ -200,12 +240,8 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
                 break
             }
         }
-        let curr = self.curr;
+        let curr = self.curr_block();
         curr
-    }
-
-    pub fn enter(&mut self, block: Block) -> Block {
-        ::std::mem::replace(&mut self.curr, block)
     }
 
     pub fn term_block(&mut self, block: Block, term: Term) {
@@ -403,25 +439,25 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         let block_data = BlockData::new();
         self.func_data.blocks.insert(block, block_data);
         self.func_data.defs.insert(block, map!());
-
+        self.func_data.incomplete_phis.insert(block, map!());
         block
     }
 
     pub fn push_def(&mut self, expr: Expr) -> Val {
         let val = self.gen_val();
         assert!(self.func_data.vals.insert(val, expr).is_none());
-        let block = self.curr;
-        self.func_data.blocks.get_mut(&block).unwrap().body.push(val);
+        let block = self.curr_block();
+        self.block_mut(block).body.push(val);
         val
     }
 
     pub fn read_curr(&mut self, var: Var) -> Rval {
-        let block = self.curr;
+        let block = self.curr_block();
         self.read(block, var)
     }
 
     pub fn write_curr(&mut self, var: Var, rval: Rval) {
-        let block = self.curr;
+        let block = self.curr_block();
         self.write(block, var, rval);
     }
 
@@ -533,16 +569,8 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
     }
 
     pub fn seal_block(&mut self, block: Block) {
-        if self.func_data.root == block {
-            assert!(
-                self.func_data.blocks[&block].preds.is_empty(),
-                "Root block shouldn't have any predecessors"
-            );
-            assert!(self.is_sealed(block));
-            return;
-        }
         assert!(
-            !self.func_data.blocks[&block].preds.is_empty(),
+            !self.predecessors(block).is_empty(),
             "There should always be at least one predecessor for a block that's being sealed!"
         );
         for pred in self.func_data.blocks[&block].preds_iter() {
@@ -555,6 +583,10 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
             self.add_phi_operands(var, val);
         }
         self.func_data.sealed_blocks.insert(block);
+    }
+
+    pub fn predecessors(&self, block: Block) -> &HashSet<Block> {
+        &self.block(block).preds
     }
 
     pub fn complete(mut self) {

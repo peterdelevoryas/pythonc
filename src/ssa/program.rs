@@ -46,9 +46,12 @@ impl Builder {
     }
 
     fn complete_func(&mut self, flat_func: FlatFunc, flat_function: FlatFunction, is_main: bool) {
-        let mut func_data = FuncData::new(&flat_function.args, is_main);
+        let mut func_data = FuncData::new();
         {
             let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
+            let block0 = builder.create_block();
+            builder.seal_block(block0);
+
             let last = builder.fill_curr(&flat_function.body);
             builder.term_block(last, ::ssa::Term::Ret { ret: None });
             builder.seal_block(last);
