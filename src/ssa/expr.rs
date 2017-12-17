@@ -62,6 +62,8 @@ pub enum Expr {
     Undef,
 
     Const(i32),
+
+    Function(Function),
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +146,7 @@ impl fmt::Display for Expr {
                 write!(f, "undefined")
             }
             Const(i) => write!(f, "${}", i),
+            Function(function) => write!(f, "{}", function),
         }
     }
 }

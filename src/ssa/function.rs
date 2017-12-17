@@ -94,16 +94,63 @@ impl<'a> Builder<'a> {
         B: Into<Branch>
     {
         let branch = branch.into();
-        assert!(mem::replace(&mut self.block_mut(block).end, Some(branch)).is_none());
+        assert!(
+            mem::replace(&mut self.block_mut(block).end,
+            Some(branch)).is_none()
+        );
     }
 
-    pub fn eval_flat_expr(&mut self, block: Block, expr: &FlatExpr) -> Value {
+    pub fn eval_flat_expr(&mut self,
+                          block: Block,
+                          expr: &FlatExpr) -> Value
+    {
         use self::FlatExpr::*;
         let expr = match *expr {
             UnaryOp(op, var) => {
                 let opcode = op.into();
                 let value = self.use_var(block, var);
                 self.unary(opcode, value)
+            }
+            BinOp(op, left, right) => {
+                let opcode = op.into();
+                let left = self.use_var(block, left);
+                let right = self.use_var(block, right);
+                self.binary(opcode, left, right)
+            }
+            CallFunc(var, ref args) => {
+                let target = self.use_var(block, var);
+                let target = match self.values[target] {
+                    Expr::Function(function) => CallTarget::Direct(function),
+                    ref expr => panic!("call to non-const target: {}", expr),
+                };
+                let args = args.iter()
+                    .map(|&arg| self.use_var(block, arg))
+                    .collect();
+                self.call(target, args)
+            }
+            RuntimeFunc(ref name, ref args) => {
+                let name: &'static str = match name.as_str() {
+                    "is_true" => "is_true",
+                    "print_any" => "print_any",
+                    "input_int" => "input_int",
+                    "create_list" => "create_list",
+                    "create_dict" => "create_dict",
+                    "set_subscript" => "set_subscript",
+                    "get_subscript" => "get_subscript",
+                    "add" => "add",
+                    "equal" => "equal",
+                    "not_equal" => "not_equal",
+                    "create_closure" => "create_closure",
+                    "get_fun_ptr" => "get_fun_ptr",
+                    "get_free_vars" => "get_free_vars",
+                    "set_free_vars" => "set_free_vars",
+                    _ => panic!("unknown runtime function name: {}", name),
+                };
+                let target = CallTarget::Runtime(name);
+                let args = args.iter()
+                    .map(|&arg| self.use_var(block, arg))
+                    .collect();
+                self.call(target, args)
             }
             _ => unimplemented!()
         };
@@ -150,6 +197,10 @@ impl<'a> Builder<'a> {
                 }
             }
         }
+    }
+
+    pub fn call(&mut self, target: CallTarget, args: Vec<Value>) -> Expr {
+        Expr::Call { target, args }
     }
 
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {
