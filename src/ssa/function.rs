@@ -333,6 +333,21 @@ impl<'a> Builder<'a> {
     }
 
     pub fn call(&mut self, target: CallTarget, args: Vec<Value>) -> Expr {
+        match target {
+            CallTarget::Runtime(name) => {
+                match name {
+                    "is_true" => {
+                        assert_eq!(args.len(), 1);
+                        match self.values[args[0]] {
+                            Expr::Const(i) => return Expr::Const(if i != 0 { 1 } else { 0 }),
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
         Expr::Call { target, args }
     }
 
