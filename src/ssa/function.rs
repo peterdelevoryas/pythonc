@@ -157,16 +157,63 @@ impl<'a> Builder<'a> {
             same = Some(arg);
         }
         // no args, or arg == phi
-        if same == None {
-            panic!("phi value {} is undefined!", phi)
-        }
+        let same = match same {
+            Some(value) => value,
+            None => panic!("phi value {} is undefined!", phi),
+        };
         let users = self.replace_phi(phi, same);
-        unimplemented!()
+        for user in users {
+            if let Expr::Phi(_) = *self.value(user) {
+                self.try_remove_trivial_phi(user);
+            }
+        }
+
+        return same
     }
 
-    // Returns the users that were themselves phi's
+    /// Replaces all uses of `phi` with `same`
+    /// Returns the values it was removed from
     fn replace_phi(&mut self, phi: Value, same: Value) -> HashSet<Value> {
-        unimplemented!()
+        let mut users = HashSet::new();
+        for (value, expr) in &mut self.values {
+            if value == phi {
+                continue
+            }
+            match *expr {
+                Expr::Unary { ref mut arg, .. } if *arg == phi => {
+                    *arg = same;
+                }
+                Expr::Binary { ref mut left, ref mut right, .. } if *left == phi || *right == phi => {
+                    if *left == phi {
+                        *left = same;
+                    }
+                    if *right == phi {
+                        *right = same;
+                    }
+                }
+                Expr::Call { ref mut args, .. } if args.contains(&phi) => {
+                    for arg in args {
+                        if *arg == phi {
+                            *arg = same;
+                        }
+                    }
+                }
+                Expr::ShiftLeftThenOr { ref mut arg, .. } if *arg == phi => {
+                    *arg = same;
+                }
+                Expr::Phi(ref mut other) if other.args.contains(&phi) => {
+                    for arg in &mut other.args {
+                        if *arg == phi {
+                            *arg = same;
+                        }
+                    }
+                }
+                _ => continue,
+            }
+            users.insert(value);
+        }
+
+        users
     }
 
     pub fn is_sealed(&self, block: Block) -> bool {
