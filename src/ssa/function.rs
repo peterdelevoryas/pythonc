@@ -31,6 +31,7 @@ pub struct FunctionData {
     pub values: ValueMap<Expr>,
     pub defs: HashMap<Block, HashMap<Var, Value>>,
     pub blocks: BlockMap<BlockData>,
+    pub root: Block,
 }
 
 pub struct Builder<'a> {
@@ -38,10 +39,11 @@ pub struct Builder<'a> {
     values: ValueMap<Expr>,
     params: Vec<Value>,
     is_main: bool,
+    root: Option<Block>,
     defs: HashMap<Block, HashMap<Var, Value>>,
     blocks: BlockMap<BlockData>,
     sealed: HashSet<Block>,
-    incomplete_phis: HashSet<Value>,
+    incomplete_phis: HashMap<Block, HashMap<Var, Value>>,
 }
 
 impl<'a> Builder<'a> {
@@ -54,7 +56,8 @@ impl<'a> Builder<'a> {
             defs: HashMap::new(),
             blocks: BlockMap::new(),
             sealed: HashSet::new(),
-            incomplete_phis: HashSet::new(),
+            incomplete_phis: HashMap::new(),
+            root: None,
         }
     }
 
@@ -74,12 +77,31 @@ impl<'a> Builder<'a> {
         let block = BlockData::new();
         let block = self.blocks.insert(block);
         self.defs.insert(block, HashMap::new());
+        self.incomplete_phis.insert(block, HashMap::new());
         block
+    }
+
+    pub fn set_root(&mut self, block: Block) {
+        assert!(mem::replace(&mut self.root, Some(block)).is_none());
+    }
+
+    fn seal_root(&mut self, block: Block) {
+        assert!(self.predecessors(block).is_empty());
+        self.sealed.insert(block);
     }
 
     /// All predecessors of `block` are known
     pub fn seal_block(&mut self, block: Block) {
-        unimplemented!()
+        if Some(block) == self.root {
+            self.seal_root(block);
+            return
+        }
+        assert!(self.predecessors(block).len() == 1 || self.predecessors(block).len() == 2,
+            "wrong number of predecessors: {}: {}", block, self.predecessors(block).len());
+        for (var, phi) in self.incomplete_phis[&block].clone() {
+            self.add_phi_operands(var, phi);
+        }
+        self.sealed.insert(block);
     }
 
     pub fn create_value(&mut self, block: Block, expr: Expr) -> Value {
@@ -107,7 +129,7 @@ impl<'a> Builder<'a> {
         );
         // Now get the successors and add block to predecessors
         for successor in self.successors(block) {
-            self.block_mut(block).predecessors.insert(block);
+            self.block_mut(successor).predecessors.insert(block);
         }
     }
 
@@ -131,8 +153,8 @@ impl<'a> Builder<'a> {
                 }
                 While(var, ref header, ref body) => {
                     let before_while = current_block;
-                    // previous blocks will not be returned to
                     self.seal_block(before_while);
+                    // previous blocks will not be returned to
                     let header_entry = self.create_block();
                     self.end_block(before_while, Jmp { destination: header_entry });
                     // cannot seal header_entry, because while loop will go back to it
@@ -406,7 +428,7 @@ impl<'a> Builder<'a> {
         // the correct value).
         let value = if !self.is_sealed(block) {
             let phi = self.create_value(block, Expr::Phi(Phi::new(block)));
-            self.incomplete_phis.insert(phi);
+            self.incomplete_phis.get_mut(&block).unwrap().insert(var, phi);
             phi
         } else if self.predecessors(block).len() == 1 {
             let &pred = self.predecessors(block).iter().nth(0).unwrap();
@@ -548,6 +570,7 @@ impl<'a> Builder<'a> {
             values: self.values,
             defs: self.defs,
             blocks: self.blocks,
+            root: self.root.unwrap(),
         }
     }
 }

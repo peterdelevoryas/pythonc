@@ -399,6 +399,7 @@ fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
 
             // create root block
             let block0 = function_builder.create_block();
+            function_builder.set_root(block0);
             function_builder.seal_block(block0);
 
             // create a load def for each function parameter
