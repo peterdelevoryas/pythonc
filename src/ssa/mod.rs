@@ -23,6 +23,7 @@ pub use self::expr::Expr;
 pub use self::expr::Unary;
 pub use self::expr::Binary;
 pub use self::expr::CallTarget;
+pub use self::expr::Builder as ExprBuilder;
 
 mod branch;
 pub use self::branch::Branch;
@@ -34,6 +35,7 @@ mod block;
 pub use self::block::Block;
 pub use self::block::BlockData;
 pub use self::block::BlockMap;
+pub use self::block::Builder as BlockBuilder;
 
 /*
 mod instruction;

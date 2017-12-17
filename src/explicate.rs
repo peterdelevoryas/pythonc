@@ -31,6 +31,7 @@ pub mod var {
 }
 pub use self::var::Var;
 pub type VarData = var::Slab<var::Data>;
+pub type VarMap<T> = var::Slab<T>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Module {

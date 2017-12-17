@@ -2,6 +2,7 @@ use ssa::Function;
 use ssa::Value;
 use std::fmt;
 use ssa::Block;
+use ssa::BlockData;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Unary {
@@ -62,6 +63,13 @@ pub enum Expr {
     },
 
     Undef,
+}
+
+pub struct Builder<'a> {
+    block: &'a mut BlockData,
+}
+
+impl<'a> Builder<'a> {
 }
 
 impl fmt::Display for Unary {
