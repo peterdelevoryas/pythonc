@@ -207,7 +207,10 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let ssa = convert_to_ssa(flattener);
+        let mut ssa = convert_to_ssa(flattener);
+        for (_, function_data) in &mut ssa.functions {
+            function_data.remove_unused_values();
+        }
         if stop_stage == Stage::ssa {
             return write_out(&ssa, out_path);
         }

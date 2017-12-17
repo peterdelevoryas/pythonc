@@ -34,6 +34,19 @@ pub struct FunctionData {
     pub root: Block,
 }
 
+impl FunctionData {
+    /// Dead code pass!
+    pub fn remove_unused_values(&mut self) {
+        let mut change_made;
+        loop {
+            change_made = false;
+            if !change_made {
+                break;
+            }
+        }
+    }
+}
+
 pub struct Builder<'a> {
     program: &'a mut ProgramBuilder,
     values: ValueMap<Expr>,
