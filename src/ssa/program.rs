@@ -46,11 +46,18 @@ impl Builder {
     }
 
     fn complete_func(&mut self, flat_func: FlatFunc, flat_function: FlatFunction, is_main: bool) {
+        use ssa::Rval;
         let mut func_data = FuncData::new();
         {
             let mut builder = FuncBuilder::new(&self.flat_func_map, &mut func_data);
             let block0 = builder.create_block();
+            builder.switch_to_block(block0);
             builder.seal_block(block0);
+            for &arg in &flat_function.args {
+                let param = builder.add_func_param(arg);
+                let loaded = builder.load_param(param);
+                builder.write(block0, arg, Rval::Val(loaded));
+            }
 
             let last = builder.fill_curr(&flat_function.body);
             builder.term_block(last, ::ssa::Term::Ret { ret: None });

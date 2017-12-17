@@ -148,6 +148,12 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
         self.func_data.root = Some(root);
     }
 
+    // basically an alias for write(curr, var, val)
+    pub fn def_var(&mut self, var: Var, val: Val) {
+        let curr = self.curr_block();
+        self.write(curr, var, val);
+    }
+
     /// Returns true if block is terminated by a return (and we can
     /// skip remaining stmts in the block), returns false otherwise
     /// (and caller needs to terminated the block)
@@ -264,6 +270,20 @@ impl<'flat_func_map, 'func_data> Builder<'flat_func_map, 'func_data> {
             }
             Rval::Func(_) => panic!("Encounered Func in unary instruction: {} {}", opcode, arg)
         }
+    }
+
+    pub fn add_func_param(&mut self, param: Var) -> Val {
+        let val = self.gen_val();
+        self.func_data.args.push(val);
+        val
+    }
+
+    pub fn load_param(&mut self, param: Val) -> Val {
+        let position = match self.func_data.args.iter().position(|&a| a == param) {
+            Some(position) => position,
+            None => panic!("val is not a param: {}", param),
+        };
+        self.push_def(Expr::LoadParam { position })
     }
 
     pub fn binary(&mut self, opcode: Binary, left: Rval, right: Rval) -> Rval {
