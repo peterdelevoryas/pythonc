@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use ssa::ProgramBuilder;
 use ssa::Value;
 use ssa::ValueMap;
@@ -6,7 +7,6 @@ use ssa::BlockMap;
 use ssa::BlockData;
 use ssa::Block;
 use explicate::Var;
-use explicate::VarMap;
 
 impl_ref!(Function, "f");
 pub type FunctionGen = Gen;
@@ -16,7 +16,7 @@ pub struct FunctionData {
     pub is_main: bool,
     pub params: Vec<Value>,
     pub values: ValueMap<Expr>,
-    pub defs: BlockMap<VarMap<Value>>,
+    pub defs: HashMap<Block, HashMap<Var, Value>>,
     pub blocks: BlockMap<BlockData>,
 }
 
@@ -25,7 +25,7 @@ pub struct Builder<'a> {
     values: ValueMap<Expr>,
     params: Vec<Value>,
     is_main: bool,
-    defs: BlockMap<VarMap<Value>>,
+    defs: HashMap<Block, HashMap<Var, Value>>,
     blocks: BlockMap<BlockData>,
 }
 
@@ -36,7 +36,7 @@ impl<'a> Builder<'a> {
             is_main: false,
             params: vec![],
             values: ValueMap::new(),
-            defs: BlockMap::new(),
+            defs: HashMap::new(),
             blocks: BlockMap::new(),
         }
     }
@@ -56,6 +56,20 @@ impl<'a> Builder<'a> {
     pub fn create_block(&mut self) -> Block {
         let block = BlockData::new();
         self.blocks.insert(block)
+    }
+
+    /// All predecessors of `block` are known
+    pub fn seal_block(&mut self, block: Block) {
+        unimplemented!()
+    }
+
+    pub fn create_value(&mut self, expr: Expr) -> Value {
+        self.values.insert(expr)
+    }
+
+    pub fn def_var(&mut self, block: Block, var: Var, value: Value) {
+        self.defs.entry(block).or_insert(HashMap::new()).insert(var, value);
+        self.block_mut(block).body.push(value);
     }
 
     pub fn build(self) -> FunctionData {

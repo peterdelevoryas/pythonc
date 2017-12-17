@@ -35,7 +35,6 @@ mod block;
 pub use self::block::Block;
 pub use self::block::BlockData;
 pub use self::block::BlockMap;
-pub use self::block::Builder as BlockBuilder;
 
 /*
 mod instruction;

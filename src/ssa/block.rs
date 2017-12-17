@@ -1,6 +1,8 @@
 use ssa::Value;
 use ssa::Branch;
 use ssa::Function;
+use ssa::FunctionBuilder;
+use ssa::Expr;
 use std::collections::HashSet;
 use std::fmt;
 
@@ -22,12 +24,4 @@ impl BlockData {
             predecessors: HashSet::new(),
         }
     }
-}
-
-pub struct Builder<'a> {
-    pub function: &'a mut Function,
-    pub block: Block,
-}
-
-impl<'a> Builder<'a> {
 }

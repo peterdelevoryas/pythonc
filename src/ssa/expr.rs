@@ -47,10 +47,7 @@ pub enum Expr {
         or: i32,
     },
 
-    Phi {
-        block: Block,
-        args: Vec<Value>,
-    },
+    Phi(Phi),
 
     LoadParam {
         /// func(x, y, z, ...)
@@ -63,6 +60,14 @@ pub enum Expr {
     },
 
     Undef,
+
+    Const(i32),
+}
+
+#[derive(Debug, Clone)]
+pub struct Phi {
+    pub block: Block,
+    pub args: Vec<Value>,
 }
 
 pub struct Builder<'a> {
@@ -116,8 +121,8 @@ impl fmt::Display for Expr {
             ShiftLeftThenOr { arg, shift, or } => {
                 write!(f, "({} << {}) | {}", arg, shift, or)
             }
-            Phi { block, ref args } => {
-                write!(f, "{}.phi({})", block, join(args, ", "))
+            Phi(ref phi) => {
+                write!(f, "{}.phi({})", phi.block, join(&phi.args, ", "))
             }
             LoadParam { position } => {
                 write!(f, "load param {}", position)

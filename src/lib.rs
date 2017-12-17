@@ -396,6 +396,17 @@ fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
         let function_data = {
             let mut function_builder = FunctionBuilder::new(&mut program_builder);
             function_builder.is_main(is_main);
+
+            // create root block
+            let block0 = function_builder.create_block();
+            function_builder.seal_block(block0);
+
+            // create a load def for each function parameter
+            for (position, &var) in flat_function.args.iter().enumerate() {
+                let value = function_builder.create_value(Expr::LoadParam { position });
+                function_builder.def_var(block0, var, value);
+            }
+
             function_builder.build()
         };
         program_builder.add_function(raise_func, function_data);
