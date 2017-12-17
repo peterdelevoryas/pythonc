@@ -41,32 +41,18 @@ impl LiveSets {
 
         let exit_blocks = function.exit_blocks();
         loop {
-            for (b, set) in &in_ {
-                println!("{} in  = {}", b, ::itertools::join(set, ", "));
-            }
-            for (b, set) in &out {
-                println!("{} out = {}", b, ::itertools::join(set, ", "));
-            }
-
             let mut change_made = false;
             for n in function.reverse_order() {
                 let mut out_n = LiveSet::new();
                 for s in function.block(n).successors() {
                     out_n.extend(in_[&s].clone());
                 }
-                println!("out[{}] = ({})", n,
-                         ::itertools::join(function.block(n).successors().into_iter().map(|s| 
-                                                                                          ::itertools::join(&in_[&s], ", "))
-                                           , " | "));
 
                 if out_n != out[&n] {
                     change_made |= true;
                 }
                 out.insert(n, out_n);
 
-                println!("in[{}] = ({}) | (({}) - ({}))", n, ::itertools::join(&gens[&n], ", "),
-                         ::itertools::join(&out[&n], ", "),
-                         ::itertools::join(&kills[&n], ", "));
                 let in_n = &gens[&n] | &(&out[&n] - &kills[&n]);
                 if in_n != in_[&n] {
                     change_made |= true;
