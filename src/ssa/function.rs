@@ -9,8 +9,12 @@ use ssa::BlockData;
 use ssa::Block;
 use ssa::Phi;
 use ssa::Branch;
+use ssa::Unary;
+use ssa::Binary;
+use ssa::CallTarget;
 use explicate::Var;
 use std::mem;
+use flatten::Expr as FlatExpr;
 
 impl_ref!(Function, "f");
 pub type FunctionGen = Gen;
@@ -91,6 +95,61 @@ impl<'a> Builder<'a> {
     {
         let branch = branch.into();
         assert!(mem::replace(&mut self.block_mut(block).end, Some(branch)).is_none());
+    }
+
+    pub fn eval_flat_expr(&mut self, block: Block, expr: &FlatExpr) -> Value {
+        use self::FlatExpr::*;
+        let expr = match *expr {
+            UnaryOp(op, var) => {
+                let opcode = op.into();
+                let value = self.use_var(block, var);
+                self.unary(opcode, value)
+            }
+            _ => unimplemented!()
+        };
+        self.create_value(expr)
+    }
+
+    pub fn unary(&mut self, opcode: Unary, value: Value) -> Expr {
+        if let Expr::Const(i) = self.values[value] {
+            match opcode {
+                Unary::Mov => Expr::Const(i),
+                Unary::Neg => Expr::Const(-i),
+                Unary::Not => Expr::Const(!i),
+            }
+        } else {
+            Expr::Unary {
+                opcode: opcode,
+                arg: value,
+            }
+        }
+    }
+
+    pub fn binary(&mut self, opcode: Binary,
+                  left: Value, right: Value) -> Expr
+    {
+        match (&self.values[left], &self.values[right]) {
+            (&Expr::Const(left), &Expr::Const(right)) => {
+                match opcode {
+                    Binary::Add => Expr::Const(left + right),
+                    Binary::And => Expr::Const(left & right),
+                    Binary::Or => Expr::Const(left | right),
+                    Binary::Sete => Expr::Const(if left == right { 1 }
+                                                else { 0 }),
+                    Binary::Setne => Expr::Const(if left != right { 1 }
+                                                 else { 0 }),
+                    Binary::Shr => Expr::Const(left >> right),
+                    Binary::Shl => Expr::Const(left << right),
+                }
+            }
+            _ => {
+                Expr::Binary {
+                    opcode: opcode,
+                    left: left,
+                    right: right,
+                }
+            }
+        }
     }
 
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {

@@ -407,6 +407,17 @@ fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
                 function_builder.def_var(block0, var, value);
             }
 
+            let mut current_block = block0;
+            for stmt in &flat_function.body {
+                use flatten::Stmt::*;
+                match *stmt {
+                    Def(var, ref expr) => {
+                        let value = function_builder.eval_flat_expr(current_block, expr);
+                    }
+                    _ => {}
+                }
+            }
+
             function_builder.build()
         };
         program_builder.add_function(raise_func, function_data);
