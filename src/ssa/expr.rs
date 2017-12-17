@@ -3,6 +3,7 @@ use ssa::Value;
 use std::fmt;
 use ssa::Block;
 use ssa::BlockData;
+use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Unary {
@@ -64,6 +65,11 @@ pub enum Expr {
     Const(i32),
 
     Function(Function),
+
+    // Replaces phi nodes
+    JoinMov {
+        value: HashMap<Block, Value>,
+    },
 }
 
 use std::collections::HashSet;
@@ -79,6 +85,7 @@ impl Expr {
             Expr::Undef |
             Expr::Const(_) |
             Expr::Function(_) => set!(),
+            Expr::JoinMov { .. } => panic!(),
         }
     }
 
@@ -92,7 +99,8 @@ impl Expr {
             Expr::LoadParam { .. } |
             Expr::Function(_) |
             Expr::Phi(_) => false,
-            Expr::Call { .. } => true
+            Expr::Call { .. } => true,
+            Expr::JoinMov { .. } => panic!(),
         }
     }
 }
@@ -178,6 +186,9 @@ impl fmt::Display for Expr {
             }
             Const(i) => write!(f, "${}", i),
             Function(function) => write!(f, "{}", function),
+            JoinMov { ref value } => {
+                write!(f, "join {{{}}}", ::itertools::join(value.iter().map(|(k, v)| format!("{}:{}", k, v)), ", "))
+            }
         }
     }
 }

@@ -139,6 +139,41 @@ impl FunctionData {
     pub fn block_mut(&mut self, block: Block) -> &mut BlockData {
         &mut self.blocks[block]
     }
+
+    pub fn convert_out_of_ssa(&mut self) {
+        // must place assignments of v = k after k for all v for each k
+        let mut copies: HashMap<Value, HashSet<Value>> = HashMap::new();
+        for (block, block_data) in &mut self.blocks {
+            let mut converted = vec![];
+            for &value in &block_data.body {
+                match self.values[value] {
+                    Expr::Phi(ref phi) => {
+                        for &arg in &phi.args {
+                            copies.entry(arg)
+                                .or_insert(HashSet::new())
+                                .insert(value);
+                        }
+                    }
+                    _ => converted.push(value),
+                }
+            }
+            block_data.body = converted;
+        }
+        for (block, block_data) in &mut self.blocks {
+            for (&copy, dsts) in &copies {
+                if block_data.body.contains(&copy) {
+                    for &dst in dsts {
+                        block_data.body.push(dst);
+                        if let Expr::JoinMov { ref mut value } = self.values[dst] {
+                            value.insert(block, copy);
+                            continue
+                        }
+                        self.values[dst] = Expr::JoinMov { value: map!(block => copy) };
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub struct Builder<'a> {

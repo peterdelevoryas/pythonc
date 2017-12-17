@@ -217,6 +217,13 @@ impl Pythonc {
             return write_out(&ssa, out_path);
         }
 
+        for (_, function_data) in &mut ssa.functions {
+            function_data.convert_out_of_ssa();
+        }
+        if stop_stage == Stage::vm {
+            return write_out(&ssa, out_path);
+        }
+
         /*
         let obj_file = tempfile::NamedTempFile::new().chain_err(
             || "Could not create obj from assembly"

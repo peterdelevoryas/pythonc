@@ -25,7 +25,7 @@ impl LiveSets {
         let (gens, kills) = {
             let (mut gens, mut kills) = (map!(), map!());
             for (block, block_data) in &function.blocks {
-                let (g, k) = gens_kills(function, block_data);
+                let (g, k) = gens_kills(block, function, block_data);
                 gens.insert(block, g);
                 kills.insert(block, k);
             }
@@ -83,13 +83,14 @@ impl LiveSets {
     }
 }
 
-pub fn gens_kills(function: &FunctionData,
-                  block: &BlockData) -> (LiveSet, LiveSet)
+pub fn gens_kills(block: Block,
+                  function: &FunctionData,
+                  block_data: &BlockData) -> (LiveSet, LiveSet)
 {
     let mut gens = LiveSet::new();
     let mut kills = LiveSet::new();
-    for &value in &block.body {
-        let uses = uses(&function.values[value]);
+    for &value in &block_data.body {
+        let uses = uses(block, &function.values[value]);
         let defs = &defs(&function.values[value]) | &set!(value.into());
         for &used in &uses {
             if !kills.contains(&used) {
@@ -110,7 +111,7 @@ impl From<Value> for LiveVal {
     }
 }
 
-pub fn uses(expr: &Expr) -> LiveSet {
+pub fn uses(block: Block, expr: &Expr) -> LiveSet {
     match *expr {
         Expr::Unary { arg, .. } => set!(arg.into()),
         Expr::Binary { left, right, .. } => set!(left.into(), right.into()),
@@ -121,6 +122,9 @@ pub fn uses(expr: &Expr) -> LiveSet {
         Expr::Undef |
         Expr::Const(_) |
         Expr::Function(_) => set!(),
+        Expr::JoinMov { ref value } => {
+            set!(value[&block].into())
+        }
     }
 }
 
@@ -129,6 +133,7 @@ pub fn defs(expr: &Expr) -> LiveSet {
         Expr::Binary { opcode: Binary::Sete, .. } |
         Expr::Binary { opcode: Binary::Setne, .. } => set!(),
 
+        Expr::JoinMov { .. } |
         Expr::Unary { .. } |
         Expr::Binary { .. } |
         Expr::Phi(_) |
