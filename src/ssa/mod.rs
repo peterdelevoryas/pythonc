@@ -9,6 +9,13 @@ pub use self::value::ValueGen;
 
 mod program;
 pub use self::program::Program;
+pub use self::program::Builder as ProgramBuilder;
+
+mod function;
+pub use self::function::Function;
+pub use self::function::FunctionData;
+pub use self::function::FunctionMap;
+pub use self::function::Builder as FunctionBuilder;
 
 /*
 mod instruction;

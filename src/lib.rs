@@ -389,5 +389,16 @@ fn emit_bin(obj: &Path, runtime: &Path, out: &Path) -> Result<()> {
 }
 
 fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
-    unimplemented!()
+    use ssa::*;
+    let mut program_builder = ProgramBuilder::new(&flattener.units);
+    for (raise_func, flat_function) in flattener.units {
+        let is_main = flattener.main == raise_func;
+        let function_data = {
+            let mut function_builder = FunctionBuilder::new(&mut program_builder);
+            function_builder.is_main(is_main);
+            function_builder.build()
+        };
+        program_builder.add_function(raise_func, function_data);
+    }
+    program_builder.build()
 }
