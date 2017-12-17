@@ -8,7 +8,6 @@ use std::fmt;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LiveVal {
     Reg(Reg),
-    Stack(Slot),
     Value(Value),
 }
 pub type LiveSet = HashSet<LiveVal>;
@@ -140,7 +139,6 @@ impl fmt::Display for LiveVal {
         match *self {
             LiveVal::Reg(r) => write!(f, "{}", r),
             LiveVal::Value(v) => write!(f, "{}", v),
-            LiveVal::Stack(s) => write!(f, "{}", s),
         }
     }
 }
