@@ -1,8 +1,7 @@
-use ssa::Rval;
-use ssa::Func;
-use ssa::Val;
-use ssa::Block;
+use ssa::Function;
+use ssa::Value;
 use std::fmt;
+use ssa::Block;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Unary {
@@ -24,36 +23,32 @@ pub enum Binary {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum CallTarget {
-    Runtime {
-        func_name: &'static str,
-    },
-    Direct {
-        func: Func,
-    },
+    Runtime(&'static str),
+    Direct(Function),
 }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Unary { opcode: Unary, arg: Rval },
+    Unary { opcode: Unary, arg: Value },
     Binary {
         opcode: Binary,
-        left: Rval,
-        right: Rval,
+        left: Value,
+        right: Value,
     },
-    Call { target: CallTarget, args: Vec<Rval> },
+    Call { target: CallTarget, args: Vec<Value> },
 
     /// XXX Oof! This is unfortunately here for now,
     /// a product of InjectFrom requiring two binary
     /// instructions
     ShiftLeftThenOr {
-        arg: Rval,
+        arg: Value,
         shift: i32,
         or: i32,
     },
 
     Phi {
         block: Block,
-        args: Vec<Rval>,
+        args: Vec<Value>,
     },
 
     LoadParam {
@@ -93,6 +88,7 @@ impl fmt::Display for Binary {
     }
 }
 
+/*
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Expr::*;
@@ -125,6 +121,7 @@ impl fmt::Display for Expr {
         }
     }
 }
+*/
 
 use flatten::UnaryOp;
 impl From<UnaryOp> for Unary {

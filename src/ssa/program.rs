@@ -6,6 +6,7 @@ use ssa::FunctionMap;
 use raise::Func as RaiseFunc;
 use flatten::Function as FlatFunction;
 use flatten::Flattener;
+use itertools;
 
 pub struct Program {
     pub functions: FunctionMap<FunctionData>,
@@ -43,7 +44,7 @@ impl Builder {
 
     pub fn build(self) -> Program {
         let mut functions = FunctionMap::new();
-        for (function, function_data) in self.functions.into_iter() {
+        for (function, function_data) in self.functions {
             let function_data = match function_data {
                 Some(data) => data,
                 None => panic!("function is none"),
@@ -57,6 +58,13 @@ impl Builder {
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (function, function_data) in &self.functions {
+            writeln!(
+                f,
+                "function {}({}) {{",
+                function,
+                itertools::join(&function_data.params, ", "))?;
+        }
         Ok(())
     }
 }
