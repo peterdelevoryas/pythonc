@@ -207,7 +207,7 @@ impl Pythonc {
             return write_out(fmt, out_path);
         }
 
-        let ssa = ssa::Program::from(flattener);
+        let ssa = convert_to_ssa(flattener);
         if stop_stage == Stage::ssa {
             return write_out(&ssa, out_path);
         }
@@ -386,4 +386,8 @@ fn emit_bin(obj: &Path, runtime: &Path, out: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
+    unimplemented!()
 }
