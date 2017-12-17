@@ -22,6 +22,16 @@ pub enum Binary {
     Shl,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum CallTarget {
+    Runtime {
+        func_name: &'static str,
+    },
+    Direct {
+        func: Func,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub enum Expr {
     Unary { opcode: Unary, arg: Rval },
@@ -30,8 +40,7 @@ pub enum Expr {
         left: Rval,
         right: Rval,
     },
-    CallIndirect { target: Val, args: Vec<Rval> },
-    Call { func: String, args: Vec<Rval> },
+    Call { target: CallTarget, args: Vec<Rval> },
 
     /// XXX Oof! This is unfortunately here for now,
     /// a product of InjectFrom requiring two binary
@@ -42,18 +51,14 @@ pub enum Expr {
         or: i32,
     },
 
-    /// XXX Another oof!
-    MovFuncLabel {
-        func: Func,
-    },
-
     Phi {
         block: Block,
-        vals: Vec<Val>,
+        args: Vec<Rval>,
     },
 
     LoadParam {
         /// func(x, y, z, ...)
+        /// root:
         ///     x = LoadParam(0)
         ///     y = LoadParam(1)
         ///     z = LoadParam(2)
@@ -95,20 +100,21 @@ impl fmt::Display for Expr {
         match *self {
             Unary { opcode, arg } => write!(f, "{} {}", opcode, arg),
             Binary { opcode, left, right } => write!(f, "{} {}, {}", opcode, left, right),
-            CallIndirect { target, ref args } => {
-                write!(f, "({})({})", target, join(args, ", "))
-            }
-            Call { ref func, ref args } => {
-                write!(f, "{}({})", func, join(args, ", "))
+            Call { target, ref args } => {
+                match target {
+                    CallTarget::Runtime { func_name } => {
+                        write!(f, "call @{}({})", func_name, join(args, ", "))
+                    }
+                    CallTarget::Direct { func } => {
+                        write!(f, "call {}({})", func, join(args, ", "))
+                    }
+                }
             }
             ShiftLeftThenOr { arg, shift, or } => {
                 write!(f, "({} << {}) | {}", arg, shift, or)
             }
-            MovFuncLabel { func } => {
-                write!(f, "${}", func)
-            }
-            Phi { block, ref vals } => {
-                write!(f, "{}.phi({})", block, join(vals, ", "))
+            Phi { block, ref args } => {
+                write!(f, "{}.phi({})", block, join(args, ", "))
             }
             LoadParam { position } => {
                 write!(f, "load param {}", position)
