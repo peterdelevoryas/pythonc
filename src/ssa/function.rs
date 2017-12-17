@@ -184,16 +184,9 @@ impl<'a> Builder<'a> {
 
                     if let Expr::Const(i) = self.values[cond] {
                         let body = if i != 0 { then } else { else_ };
-                        self.seal_block(before_if);
-                        let body_entry = self.create_block();
-                        self.end_block(before_if, Jmp { destination: body_entry });
-                        self.seal_block(body_entry);
+                        let body_entry = before_if;
                         let body_exit = self.eval_flat_stmts(body_entry, body);
-                        self.seal_block(body_exit);
-                        let after_if = self.create_block();
-                        self.end_block(body_exit, Jmp { destination: after_if });
-                        self.seal_block(after_if);
-                        current_block = after_if;
+                        current_block = body_exit;
                         continue
                     }
 
