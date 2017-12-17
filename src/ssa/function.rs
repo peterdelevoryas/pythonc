@@ -8,7 +8,9 @@ use ssa::BlockMap;
 use ssa::BlockData;
 use ssa::Block;
 use ssa::Phi;
+use ssa::Branch;
 use explicate::Var;
+use std::mem;
 
 impl_ref!(Function, "f");
 pub type FunctionGen = Gen;
@@ -81,6 +83,14 @@ impl<'a> Builder<'a> {
 
     pub fn value_mut(&mut self, value: Value) -> &mut Expr {
         &mut self.values[value]
+    }
+
+    pub fn end_block<B>(&mut self, block: Block, branch: B)
+    where
+        B: Into<Branch>
+    {
+        let branch = branch.into();
+        assert!(mem::replace(&mut self.block_mut(block).end, Some(branch)).is_none());
     }
 
     pub fn def_var(&mut self, block: Block, var: Var, value: Value) {

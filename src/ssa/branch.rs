@@ -22,6 +22,18 @@ pub enum Branch {
     Jnz(Jnz),
 }
 
+impl From<Ret> for Branch {
+    fn from(r: Ret) -> Branch { Branch::Ret(r) }
+}
+
+impl From<Jmp> for Branch {
+    fn from(j: Jmp) -> Branch { Branch::Jmp(j) }
+}
+
+impl From<Jnz> for Branch {
+    fn from(j: Jnz) -> Branch { Branch::Jnz(j) }
+}
+
 impl fmt::Display for Branch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Branch::*;
