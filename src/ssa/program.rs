@@ -72,6 +72,7 @@ impl fmt::Display for Program {
                 for &value in &block_data.body {
                     writeln!(f, "    {} = {}", value, function_data.values[value])?;
                 }
+                writeln!(f, "    {}", block_data.end.as_ref().unwrap())?;
             }
 
             writeln!(f, "}}")?;
