@@ -55,11 +55,15 @@ impl Graph {
         Graph { graph, unspillable, colors }
     }
 
-    pub fn build(function: &FunctionData) -> Graph {
+    pub fn build(function: &FunctionData, colors: &HashMap<Node, Color>) -> Graph {
         let mut graph = Graph::new();
 
         for &reg in &[EAX, EBX, ECX, EDX, ESI, EDI] {
             graph.add_reg(reg);
+        }
+
+        for (&node, &color) in colors {
+            graph.write_color(node, color);
         }
 
         for (_, block) in &function.blocks {

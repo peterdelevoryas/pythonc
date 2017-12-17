@@ -3,6 +3,8 @@ mod program;
 pub use self::program::Program;
 */
 
+use std::collections::HashMap;
+
 mod value;
 pub use self::value::Value;
 pub use self::value::ValueGen;
@@ -42,26 +44,29 @@ pub use self::liveness::LiveSets;
 pub use self::liveness::LiveSet;
 pub use self::liveness::LiveVal;
 
-mod solver;
+pub mod solver;
+use self::solver::Graph;
+use self::solver::Coloring;
 
-/*
-mod instruction;
-pub use self::instruction::Inst;
-pub use self::instruction::Instruction;
-
-mod function;
-pub use self::function::Function;
-pub use self::function::FunctionData;
-pub use self::function::FunctionGen;
-pub use self::function::Builder as FunctionBuilder;
-
-mod block;
-pub use self::block::Block;
-pub use self::block::BlockData;
-pub use self::block::BlockGen;
-
-mod branch;
-pub use self::branch::Branch;
-
-pub mod live;
-*/
+pub fn allocate_registers(function: &mut FunctionData) -> Coloring {
+    let mut coloring = Coloring {
+        next_spill: 0,
+        colors: HashMap::new(),
+    };
+    loop {
+        use self::solver::DSaturResult::*;
+        let mut g = Graph::build(function, &coloring.colors);
+        match g.run_dsatur(&mut coloring) {
+            Success => {
+                break;
+            }
+            Spill(value) => {
+                let spill = ::stack::Slot::Spill { index: coloring.next_spill };
+                coloring.colors.insert(::ssa::solver::Node::Value(value), ::ssa::solver::Color::Stack(spill));
+                coloring.next_spill += 1;
+                //replace_stack_to_stack_ops()
+            }
+        }
+    }
+    coloring
+}

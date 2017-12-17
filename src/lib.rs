@@ -36,6 +36,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::fs::File;
 use std::fmt;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Pythonc {}
@@ -222,6 +223,12 @@ impl Pythonc {
         }
         if stop_stage == Stage::vm {
             return write_out(&ssa, out_path);
+        }
+
+        let mut colorings: HashMap<::ssa::Function, ::ssa::solver::Coloring> = HashMap::new();
+        for (function, function_data) in &mut ssa.functions {
+            let coloring = ::ssa::allocate_registers(function_data);
+            colorings.insert(function, coloring);
         }
 
         /*
