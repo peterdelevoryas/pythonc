@@ -61,7 +61,7 @@ impl fmt::Display for Program {
         for (function, function_data) in &self.functions {
             let args = itertools::join(&function_data.params, ", ");
             if function_data.is_main {
-                writeln!(f, "function main({})", args)?;
+                writeln!(f, "function main({}) {{", args)?;
             } else {
                 writeln!(f, "function {}({})", function, args)?;
             }
