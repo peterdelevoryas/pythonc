@@ -1,6 +1,7 @@
 use ssa::Value;
 use ssa::Branch;
 use std::collections::HashSet;
+use std::fmt;
 
 impl_ref!(Block, "block");
 pub type BlockMap<T> = Slab<T>;

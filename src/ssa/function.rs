@@ -2,6 +2,9 @@ use ssa::ProgramBuilder;
 use ssa::Value;
 use ssa::ValueMap;
 use ssa::Expr;
+use ssa::BlockMap;
+use ssa::BlockData;
+use ssa::Block;
 
 impl_ref!(Function, "f");
 pub type FunctionGen = Gen;
@@ -10,6 +13,8 @@ pub type FunctionMap<T> = Slab<T>;
 pub struct FunctionData {
     pub is_main: bool,
     pub params: Vec<Value>,
+    pub values: ValueMap<Expr>,
+    pub blocks: BlockMap<BlockData>,
 }
 
 pub struct Builder<'a> {
@@ -17,6 +22,7 @@ pub struct Builder<'a> {
     values: ValueMap<Expr>,
     params: Vec<Value>,
     is_main: bool,
+    blocks: BlockMap<BlockData>,
 }
 
 impl<'a> Builder<'a> {
@@ -26,6 +32,7 @@ impl<'a> Builder<'a> {
             is_main: false,
             params: vec![],
             values: ValueMap::new(),
+            blocks: BlockMap::new(),
         }
     }
 
@@ -37,6 +44,8 @@ impl<'a> Builder<'a> {
         FunctionData {
             is_main: self.is_main,
             params: self.params,
+            values: self.values,
+            blocks: self.blocks,
         }
     }
 }

@@ -88,7 +88,6 @@ impl fmt::Display for Binary {
     }
 }
 
-/*
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Expr::*;
@@ -98,10 +97,10 @@ impl fmt::Display for Expr {
             Binary { opcode, left, right } => write!(f, "{} {}, {}", opcode, left, right),
             Call { target, ref args } => {
                 match target {
-                    CallTarget::Runtime { func_name } => {
+                    CallTarget::Runtime(func_name) => {
                         write!(f, "call @{}({})", func_name, join(args, ", "))
                     }
-                    CallTarget::Direct { func } => {
+                    CallTarget::Direct(func) => {
                         write!(f, "call {}({})", func, join(args, ", "))
                     }
                 }
@@ -121,7 +120,6 @@ impl fmt::Display for Expr {
         }
     }
 }
-*/
 
 use flatten::UnaryOp;
 impl From<UnaryOp> for Unary {

@@ -59,11 +59,18 @@ impl Builder {
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (function, function_data) in &self.functions {
-            writeln!(
-                f,
-                "function {}({}) {{",
-                function,
-                itertools::join(&function_data.params, ", "))?;
+            writeln!(f, "function {}({}) {{",
+                function, itertools::join(&function_data.params, ", "))?;
+
+            for (block, block_data) in &function_data.blocks {
+                writeln!(f, "{}:", block)?;
+                writeln!(f, "{}.predecessors: ({})", block, itertools::join(&block_data.predecessors, ", "))?;
+                for &value in &block_data.body {
+                    writeln!(f, "    {} = {}", value, function_data.values[value])?;
+                }
+            }
+
+            writeln!(f, "}}")?;
         }
         Ok(())
     }
