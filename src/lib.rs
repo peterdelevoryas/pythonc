@@ -492,12 +492,13 @@ fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &Functi
                     }
                 }
                 Expr::Binary { opcode, left, right } => {
+                    let right_const = right;
+
                     let left = coloring.color(left);
                     let right = coloring.color(right);
                     match opcode {
                         Binary::Add |
-                        Binary::Or | Binary::And |
-                        Binary::Shr | Binary::Shl => {
+                        Binary::Or | Binary::And => {
                             if right == dst {
                                 writeln!(w, "    movl {}, {}", right, dst)?;
                                 writeln!(w, "    {} {}, {}", opcode, left, dst)?;
@@ -505,6 +506,14 @@ fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &Functi
                             }
                             writeln!(w, "    movl {}, {}", left, dst)?;
                             writeln!(w, "    {} {}, {}", opcode, right, dst)?;
+                        }
+                        Binary::Shr | Binary::Shl => {
+                            let right = match function.values[right_const] {
+                                Expr::Const(i) => i,
+                                _ => panic!("non const in shift")
+                            };
+                            writeln!(w, "    movl {}, {}", left, dst)?;
+                            writeln!(w, "    {} ${}, {}", opcode, right, dst)?;
                         }
                         Binary::Sete | Binary::Setne => {
                             use reg::Reg::*;
@@ -525,7 +534,6 @@ fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &Functi
                             writeln!(w, "    {} {}", opcode, dst)?;
                         }
                     }
-                    writeln!(w, "    {} {}, {}", opcode, left, right)?;
                 }
                 Call { ref target, ref args } => {
                     let args_size = args.len() * 4;

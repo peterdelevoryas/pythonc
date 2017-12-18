@@ -318,23 +318,26 @@ impl<'a> Builder<'a> {
                 }
                 While(var, ref header, ref body) => {
                     let before_while = current_block;
+                    self.seal_block(before_while);
                     // previous blocks will not be returned to
                     let header_entry = self.create_block();
                     self.end_block(before_while, Jmp { destination: header_entry });
                     // cannot seal header_entry, because while loop will go back to it
                     let header_exit = self.eval_flat_stmts(header_entry, header);
+                    if header_exit != header_entry {
+                        self.seal_block(header_exit);
+                    }
                     let body_entry = self.create_block();
                     let after_while = self.create_block();
                     let cond = self.use_var(header_exit, var);
                     self.end_block(header_exit, Jnz { cond, jnz: body_entry, jmp: after_while });
                     let body_exit = self.eval_flat_stmts(body_entry, body);
-                    self.end_block(header_exit, Jmp { destination: header_entry });
-
-                    self.seal_block(before_while);
                     self.seal_block(body_entry);
                     self.seal_block(body_exit);
+
+                    self.end_block(body_exit, Jmp { destination: header_entry });
                     self.seal_block(header_entry);
-                    self.seal_block(header_exit);
+
 
                     current_block = after_while;
                 }
