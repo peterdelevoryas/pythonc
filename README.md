@@ -31,7 +31,12 @@ pythonc test.py --emit bin
 ./test.bin
 
 # view an intermediate stage's output
-pythonc test.py --stdout --emit raised
+pythonc test.py --stdout --emit ssa
+
+# compile and run a binary:
+pythonc test.py --emit asm
+gcc -m32 test.s -o test.bin runtime/libpyyruntime.a
+./test.bin
 
 # view usage for more
 pythonc -h
