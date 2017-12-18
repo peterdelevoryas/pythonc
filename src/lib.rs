@@ -528,8 +528,6 @@ fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &Functi
                     writeln!(w, "    {} {}, {}", opcode, left, right)?;
                 }
                 Call { ref target, ref args } => {
-                    println!("target: {:?}", target);
-                    println!("args: {}", ::itertools::join(args, ", "));
                     let args_size = args.len() * 4;
                     for &arg in args.iter().rev() {
                         let arg = coloring.color(arg);
