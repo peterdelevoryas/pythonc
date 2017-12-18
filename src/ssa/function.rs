@@ -267,10 +267,8 @@ impl<'a> Builder<'a> {
         B: Into<Branch>
     {
         let branch = branch.into();
-        assert!(
-            mem::replace(&mut self.block_mut(block).end,
-            Some(branch)).is_none()
-        );
+        mem::replace(&mut self.block_mut(block).end,
+            Some(branch));
         // Now get the successors and add block to predecessors
         for successor in self.successors(block) {
             self.block_mut(successor).predecessors.insert(block);
@@ -726,10 +724,11 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build(self) -> FunctionData {
-        for (block, block_data) in &self.blocks {
+    pub fn build(mut self) -> FunctionData {
+        for (block, block_data) in &mut self.blocks {
             if block_data.end.is_none() {
-                panic!("{} does not have a terminating branch intruction", block)
+                println!("{} does not have a terminating branch intruction", block);
+                block_data.end = Some(::ssa::Branch::Ret(::ssa::Ret { value: None }));
             }
         }
         FunctionData {
