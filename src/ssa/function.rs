@@ -43,6 +43,9 @@ impl FunctionData {
 
             let mut visited = HashSet::new();
             let mut used_values = HashSet::new();
+            for (block, _) in &self.blocks {
+                used_values.extend(self.used_values(block));
+            }
             for block in self.exit_blocks() {
                 let c = self.remove_unused_values_block(block, &mut visited, &mut used_values);
                 change_made |= c;
@@ -52,6 +55,25 @@ impl FunctionData {
                 break;
             }
         }
+    }
+
+    fn used_values(&self, block: Block) -> HashSet<Value> {
+        let mut used_values = HashSet::new();
+        match *self.block(block).end.as_ref().unwrap() {
+            Branch::Ret(ref ret) => {
+                if let Some(value) = ret.value {
+                    used_values.insert(value);
+                }
+            }
+            Branch::Jmp(ref jmp) => {}
+            Branch::Jnz(ref jnz) => {
+                used_values.insert(jnz.cond);
+            }
+        }
+        for &value in &self.block(block).body {
+            used_values.extend(self.values[value].used_values());
+        }
+        return used_values
     }
 
     /// Returns "changes made"
@@ -296,29 +318,24 @@ impl<'a> Builder<'a> {
                 }
                 While(var, ref header, ref body) => {
                     let before_while = current_block;
-                    self.seal_block(before_while);
                     // previous blocks will not be returned to
                     let header_entry = self.create_block();
                     self.end_block(before_while, Jmp { destination: header_entry });
                     // cannot seal header_entry, because while loop will go back to it
-
                     let header_exit = self.eval_flat_stmts(header_entry, header);
-                    if header_exit != header_entry {
-                        self.seal_block(header_exit);
-                    }
-
                     let body_entry = self.create_block();
                     let after_while = self.create_block();
                     let cond = self.use_var(header_exit, var);
                     self.end_block(header_exit, Jnz { cond, jnz: body_entry, jmp: after_while });
-                    self.seal_block(body_entry);
-                    self.seal_block(after_while);
                     let body_exit = self.eval_flat_stmts(body_entry, body);
-                    if body_exit != body_entry {
-                        self.seal_block(body_exit);
-                    }
                     self.end_block(header_exit, Jmp { destination: header_entry });
+
+                    self.seal_block(before_while);
+                    self.seal_block(body_entry);
+                    self.seal_block(body_exit);
                     self.seal_block(header_entry);
+                    self.seal_block(header_exit);
+
                     current_block = after_while;
                 }
                 If(cond, ref then, ref else_) => {
@@ -726,6 +743,9 @@ impl<'a> Builder<'a> {
     }
 
     pub fn build(mut self) -> FunctionData {
+        for (block, _) in &self.blocks {
+            assert!(self.is_sealed(block));
+        }
         for (block, block_data) in &mut self.blocks {
             if block_data.end.is_none() {
                 println!("{} does not have a terminating branch intruction", block);
