@@ -164,6 +164,7 @@ impl Graph {
 
         loop {
             let uncolored_nodes: Vec<Node> = self.uncolored_nodes().collect();
+            println!("uncolored nodes: {}", ::itertools::join(&uncolored_nodes, ", "));
             let (u, r) = if let Some(u) = uncolored_nodes.into_iter().max_by_key(|&node| self.saturation(node)) {
                 let free_regs = &reg_pool - &self.adjacent_registers(u);
                 let r = match free_regs.iter().next() {

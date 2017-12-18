@@ -54,6 +54,7 @@ pub enum Stage {
     vm,
     liveness,
     ig,
+    unoptimizedssa,
     ssa,
     reg,
     asm,
@@ -74,6 +75,7 @@ impl Stage {
             "vm",
             "liveness",
             "ig",
+            "unoptimizedssa",
             "ssa",
             "reg",
             "asm",
@@ -98,6 +100,7 @@ impl ::std::str::FromStr for Stage {
             "vm" => vm,
             "liveness" => liveness,
             "ig" => ig,
+            "unoptimizedssa" => unoptimizedssa,
             "ssa" => ssa,
             "reg" => reg,
             "asm" => asm,
@@ -211,6 +214,10 @@ impl Pythonc {
         }
 
         let mut ssa = convert_to_ssa(flattener);
+        if stop_stage == Stage::unoptimizedssa {
+            return write_out(&ssa, out_path);
+        }
+
         for (_, function_data) in &mut ssa.functions {
             function_data.remove_unused_values();
         }
@@ -282,6 +289,7 @@ impl Stage {
             vasm => "vasm",
             vm => "vm",
             liveness => "liveness",
+            unoptimizedssa => "unoptimizedssa",
             ssa => "ssa",
             ig => "ig",
             reg => "reg",
@@ -520,6 +528,8 @@ fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &Functi
                     writeln!(w, "    {} {}, {}", opcode, left, right)?;
                 }
                 Call { ref target, ref args } => {
+                    println!("target: {:?}", target);
+                    println!("args: {}", ::itertools::join(args, ", "));
                     let args_size = args.len() * 4;
                     for &arg in args.iter().rev() {
                         let arg = coloring.color(arg);
