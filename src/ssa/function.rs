@@ -63,6 +63,7 @@ impl FunctionData {
         if visited.contains(&block) {
             return false;
         }
+        visited.insert(block);
         match *self.block(block).end.as_ref().unwrap() {
             Branch::Ret(ref ret) => {
                 if let Some(value) = ret.value {
