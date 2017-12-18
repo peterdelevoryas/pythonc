@@ -174,6 +174,8 @@ impl FunctionData {
             }
         }
     }
+
+    //pub fn spill(&mut self, value: Value, 
 }
 
 pub struct Builder<'a> {

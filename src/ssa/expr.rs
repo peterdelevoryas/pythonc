@@ -134,9 +134,9 @@ impl<'a> Builder<'a> {
 impl fmt::Display for Unary {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Unary::Mov => write!(f, "mov"),
-            Unary::Neg => write!(f, "neg"),
-            Unary::Not => write!(f, "not"),
+            Unary::Mov => write!(f, "movl"),
+            Unary::Neg => write!(f, "negl"),
+            Unary::Not => write!(f, "notl"),
         }
     }
 }
@@ -144,13 +144,13 @@ impl fmt::Display for Unary {
 impl fmt::Display for Binary {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Binary::Add => write!(f, "add"),
-            Binary::And => write!(f, "and"),
-            Binary::Or => write!(f, "or"),
+            Binary::Add => write!(f, "addl"),
+            Binary::And => write!(f, "andl"),
+            Binary::Or => write!(f, "orl"),
             Binary::Sete => write!(f, "sete"),
             Binary::Setne => write!(f, "setne"),
-            Binary::Shr => write!(f, "shr"),
-            Binary::Shl => write!(f, "shl"),
+            Binary::Shr => write!(f, "shrl"),
+            Binary::Shl => write!(f, "shll"),
         }
     }
 }

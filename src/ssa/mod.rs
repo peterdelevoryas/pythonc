@@ -45,8 +45,9 @@ pub use self::liveness::LiveSet;
 pub use self::liveness::LiveVal;
 
 pub mod solver;
-use self::solver::Graph;
-use self::solver::Coloring;
+pub use self::solver::Graph;
+pub use self::solver::Coloring;
+pub use self::solver::Color;
 
 pub fn allocate_registers(function: &mut FunctionData) -> Coloring {
     let mut coloring = Coloring {
@@ -58,6 +59,7 @@ pub fn allocate_registers(function: &mut FunctionData) -> Coloring {
         let mut g = Graph::build(function, &coloring.colors);
         match g.run_dsatur(&mut coloring) {
             Success => {
+                coloring.colors = g.colors.clone();
                 break;
             }
             Spill(value) => {

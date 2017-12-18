@@ -12,7 +12,7 @@ use std::ops::Deref;
 pub struct Graph {
     graph: UnGraphMap<Node, ()>,
     unspillable: HashSet<Node>,
-    colors: HashMap<Node, Color>,
+    pub colors: HashMap<Node, Color>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -43,6 +43,15 @@ pub enum DSaturResult {
 pub struct Coloring {
     pub next_spill: usize,
     pub colors: HashMap<Node, Color>,
+}
+
+impl Coloring {
+    pub fn color(&self, value: Value) -> Color {
+        match self.colors.get(&Node::Value(value)) {
+            Some(&color) => color,
+            None => panic!("no color for {}", value),
+        }
+    }
 }
 
 impl Graph {
@@ -120,8 +129,9 @@ impl Graph {
     }
 
     fn add_edge(&mut self, l: Node, r: Node) {
-        assert_ne!(l, r, "Trying to add an edge from a node to itself");
-        self.graph.add_edge(l, r, ());
+        if l != r {
+            self.graph.add_edge(l, r, ());
+        }
     }
 
     fn add_spillable(&mut self, value: Value) {

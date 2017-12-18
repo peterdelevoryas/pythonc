@@ -231,6 +231,14 @@ impl Pythonc {
             colorings.insert(function, coloring);
         }
 
+        use std::io::Write;
+        let mut out = ::std::fs::File::create(out_path)?;
+        writeln!(&mut out, ".globl main")?;
+        for (function, function_data) in &ssa.functions {
+            let coloring = &colorings[&function];
+            write_assembly(&mut out, function, function_data, coloring)?;
+        }
+
         /*
         let obj_file = tempfile::NamedTempFile::new().chain_err(
             || "Could not create obj from assembly"
@@ -438,4 +446,144 @@ fn convert_to_ssa(flattener: flatten::Flattener) -> ssa::Program {
         program_builder.add_function(raise_func, function_data);
     }
     program_builder.build()
+}
+
+use ssa::*;
+use ssa::solver::Coloring;
+fn write_assembly<W: ::std::io::Write>(w: &mut W, f: Function, function: &FunctionData, coloring: &Coloring) -> ::std::io::Result<()>
+{
+    use std::io::Write;
+    if function.is_main {
+        writeln!(w, "main:")?;
+    } else {
+        writeln!(w, "{}:", f)?;
+    }
+    writeln!(w, "\
+{func}:
+    pushl %ebx
+    pushl %edi
+    pushl %esi
+    pushl %ebp
+    movl %esp, %ebp
+    subl ${stack_size}, %esp", func=f, stack_size=coloring.next_spill * 4)?;
+
+    use ssa::Expr::*;
+    use ssa::Unary::*;
+    use ssa::Binary;
+    for (block, block_data) in &function.blocks {
+        writeln!(w, "{}.{}:", f, block)?;
+        for &value in &block_data.body {
+            let dst = coloring.color(value);
+            match function.values[value] {
+                Unary { opcode, arg } => {
+                    let arg = coloring.color(arg);
+                    writeln!(w, "    movl {}, {}", arg, dst)?;
+                    match opcode {
+                        Mov => {}
+                        Neg | Not => writeln!(w, "    {} {}", opcode, dst)?,
+                    }
+                }
+                Expr::Binary { opcode, left, right } => {
+                    let left = coloring.color(left);
+                    let right = coloring.color(right);
+                    match opcode {
+                        Binary::Add |
+                        Binary::Or | Binary::And |
+                        Binary::Shr | Binary::Shl => {
+                            if right == dst {
+                                writeln!(w, "    movl {}, {}", right, dst)?;
+                                writeln!(w, "    {} {}, {}", opcode, left, dst)?;
+                                continue;
+                            }
+                            writeln!(w, "    movl {}, {}", left, dst)?;
+                            writeln!(w, "    {} {}, {}", opcode, right, dst)?;
+                        }
+                        Binary::Sete | Binary::Setne => {
+                            use reg::Reg::*;
+                            writeln!(w, "    cmpl {}, {}", left, right)?;
+                            writeln!(w, "    movl $0, {}", dst)?;
+                            let dst = match dst {
+                                ::ssa::Color::Stack(s) => format!("{}", s),
+                                ::ssa::Color::Reg(r) => {
+                                    match r {
+                                        EAX => "%al",
+                                        ECX => "%cl",
+                                        EDX => "%dl",
+                                        EBX => "%bl",
+                                        _ => panic!(),
+                                    }.into()
+                                }
+                            };
+                            writeln!(w, "    {} {}", opcode, dst)?;
+                        }
+                    }
+                    writeln!(w, "    {} {}, {}", opcode, left, right)?;
+                }
+                Call { ref target, ref args } => {
+                    let args_size = args.len() * 4;
+                    for &arg in args.iter().rev() {
+                        let arg = coloring.color(arg);
+                        writeln!(w, "    pushl {}", arg)?;
+                    }
+                    use ssa::CallTarget;
+                    match *target {
+                        CallTarget::Runtime(ref name) => {
+                            writeln!(w, "    call {}", name)?;
+                        }
+                        CallTarget::Direct(func) => {
+                            writeln!(w, "    call {}", func)?;
+                        }
+                    }
+                    writeln!(w, "    addl ${}, %esp", args_size)?;
+                    writeln!(w, "    movl %eax, {}", dst)?;
+                }
+                ShiftLeftThenOr { arg, shift, or } => {
+                    let arg = coloring.color(arg);
+                    writeln!(w, "    movl {}, {}", arg, dst)?;
+                    writeln!(w, "    shll ${}, {}", shift, dst)?;
+                    writeln!(w, "    orl ${}, {}", or, dst)?;
+                }
+                Phi(_) => panic!("phi in asm"),
+                LoadParam { position } => writeln!(w, "    movl {}(%ebp), {}", 4 * (position + 5), dst)?,
+                Const(i) => writeln!(w, "    movl ${}, {}", i, dst)?,
+                Function(function) => writeln!(w, "    ${}", function)?,
+                JoinMov { ref value } => {
+                    let arg = coloring.color(value[&block]);
+                    writeln!(w, "    mov {arg}, {dst}", arg=arg, dst=dst)?;
+                }
+                Undef => panic!(),
+            }
+        }
+        match block_data.end {
+            Some(ref branch) => match *branch {
+                Branch::Ret(ref ret) => {
+                    if let Some(value) = ret.value {
+                        writeln!(w, "    movl {}, %eax", coloring.color(value))?;
+                    }
+                    writeln!(w, "    jmp {}.ret", f)?;
+                }
+                Branch::Jmp(ref jmp) => {
+                    writeln!(w, "    jmp {}.{}", f, jmp.destination)?;
+                }
+                Branch::Jnz(ref jnz) => {
+                    writeln!(w, "    cmpl $0, {cond}\n    jnz {func}.{then}\n    jmp {func}.{else_}",
+                             cond=coloring.color(jnz.cond),
+                             func=f,
+                             then=jnz.jnz,
+                             else_=jnz.jmp)?;
+                }
+            },
+            None => panic!(),
+        }
+    }
+    writeln!(w, "\
+{func}.ret:
+    movl %ebp, %esp
+    popl %ebp
+    popl %esi
+    popl %edi
+    popl %ebx
+    ret", func=f)?;
+
+    Ok(())
 }
